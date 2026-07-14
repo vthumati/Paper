@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "paper-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "D:/Git/Paper/apps/web", "run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "paper-api",
+      "runtimeExecutable": "D:\\Git\\Paper\\apps\\api\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--port", "8000", "--app-dir", "D:\\Git\\Paper\\apps\\api"],
+      "port": 8000,
+      "env": { "PAPER_DATABASE_URL": "sqlite:///D:/Git/Paper/apps/api/paper_dev.db" }
+    }
+  ]
+}
