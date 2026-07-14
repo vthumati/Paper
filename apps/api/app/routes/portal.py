@@ -101,6 +101,26 @@ def my_portal(user: User = Depends(get_current_user), db: Session = Depends(get_
     return svc.portal_for_user(db, user)
 
 
+# --- portal PDF: LPs download their own statements / Form 64C by email match ---
+@router.get("/portal/documents/{document_id}/pdf")
+def portal_document_pdf(
+    document_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from ..models.document import Document
+    from ..models.fund import LP
+    from .documents import document_pdf_response
+
+    doc = db.get(Document, document_id)
+    if doc is None or doc.subject_type not in ("lp_statement", "form_64c"):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
+    lp = db.get(LP, doc.subject_id) if doc.subject_id else None
+    if lp is None or lp.email != user.email:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
+    return document_pdf_response(db, doc)
+
+
 # --- investor consents: decided by the invited email, not by membership ---
 @router.post("/portal/consents/{consent_id}")
 def decide_consent(

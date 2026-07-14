@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from ..clock import today_ist
@@ -17,6 +17,7 @@ from ..models.captable import (
 )
 from ..schemas import (
     BuybackIn,
+    CapTableImportIn,
     ConversionIn,
     ConversionOut,
     CorporateActionIn,
@@ -33,6 +34,7 @@ from ..schemas import (
 from ..services import captable as svc
 from ..services.captable import compute_cap_table
 from ..services.diluted import anti_dilution_preview, fully_diluted
+from ..services.importer import TEMPLATE, apply_import, parse_and_validate
 
 router = APIRouter(prefix="/entities/{entity_id}", tags=["cap-table"])
 
@@ -118,6 +120,35 @@ def create_issuance(
 @router.get("/cap-table")
 def get_cap_table(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)):
     return compute_cap_table(db, ctx.entity.id)
+
+
+@router.post("/cap-table/import")
+def import_cap_table(
+    body: CapTableImportIn,
+    ctx: EntityCtx = Depends(entity_ctx),
+    db: Session = Depends(get_db),
+):
+    """Validate a cap-table CSV; with apply=true, create everything atomically."""
+    require_write(ctx.role)
+    report = parse_and_validate(db, ctx.entity.id, body.csv)
+    if not body.apply:
+        return report
+    if not report["valid"]:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            {"message": "CSV has errors — nothing was imported", "errors": report["errors"]},
+        )
+    result = apply_import(db, ctx.entity.id, report["rows"])
+    return {**report, "applied": True, **result}
+
+
+@router.get("/cap-table/import-template")
+def import_template(ctx: EntityCtx = Depends(entity_ctx)):
+    return Response(
+        content=TEMPLATE,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="cap-table-import.csv"'},
+    )
 
 
 @router.get("/cap-table/fully-diluted")

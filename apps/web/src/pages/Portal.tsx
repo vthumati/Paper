@@ -242,7 +242,18 @@ export default function Portal() {
               <h3>Your statements</h3>
               <ul className="muted">
                 {f.statements.map((s) => (
-                  <li key={s.id}>{s.title}</li>
+                  <li key={s.id}>
+                    {s.title}{" "}
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        api.downloadPortalDocPdf(s.id, s.title).catch((err) => setError(err.message));
+                      }}
+                    >
+                      PDF
+                    </a>
+                  </li>
                 ))}
               </ul>
             </>

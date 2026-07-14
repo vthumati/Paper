@@ -109,7 +109,13 @@ export default function Documents({ entityId }: { entityId: string }) {
             <>
               <p>
                 <strong>{selected.title}</strong>{" "}
-                <span className={`badge ${selected.status}`}>{selected.status}</span>
+                <span className={`badge ${selected.status}`}>{selected.status}</span>{" "}
+                <button
+                  className="secondary"
+                  onClick={() => api.downloadDocumentPdf(selected.id, selected.title)}
+                >
+                  Download PDF
+                </button>
               </p>
               <pre>{selected.content}</pre>
               {selected.status !== "signed" && (

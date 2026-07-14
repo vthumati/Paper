@@ -7,6 +7,7 @@ import {
 } from "../api";
 import DownRoundCalc from "./DownRoundCalc";
 import FullyDilutedView from "./FullyDiluted";
+import ImportCapTable from "./ImportCapTable";
 
 export default function CapTable({
   entityId,
@@ -245,6 +246,8 @@ export default function CapTable({
           <div style={{ marginTop: 10 }}><button>Record issuance</button></div>
         </form>
       </div>
+
+      <ImportCapTable entityId={entityId} onApplied={loadAll} />
 
       {feat("anti_dilution") && <DownRoundCalc entityId={entityId} classes={classes} />}
     </div>

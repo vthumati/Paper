@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from ..db import get_db
@@ -27,8 +27,20 @@ from ..schemas import (
     SignatureOut,
 )
 from ..services import document as docsvc
+from ..services.pdf import render_pdf
 
 router = APIRouter(tags=["documents"])
+
+
+def document_pdf_response(db: Session, doc: Document) -> Response:
+    body = docsvc.current_content(db, doc) or ""
+    meta = f"{doc.type} - version {doc.current_version} - status {doc.status.value}"
+    safe_name = "".join(c if c.isalnum() or c in " -_" else "-" for c in doc.title)[:80]
+    return Response(
+        content=render_pdf(doc.title, meta, body),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}.pdf"'},
+    )
 
 
 @router.get("/document-templates", response_model=list[DocumentTemplateOut])
@@ -80,6 +92,11 @@ def list_documents(
 @router.get("/documents/{document_id}", response_model=DocumentOut)
 def get_document(ctx: DocCtx = Depends(doc_ctx), db: Session = Depends(get_db)):
     return docsvc.document_view(db, ctx.document)
+
+
+@router.get("/documents/{document_id}/pdf")
+def download_document_pdf(ctx: DocCtx = Depends(doc_ctx), db: Session = Depends(get_db)):
+    return document_pdf_response(db, ctx.document)
 
 
 @router.get("/documents/{document_id}/versions", response_model=list[DocumentVersionOut])

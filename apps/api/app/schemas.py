@@ -423,10 +423,11 @@ class FundIn(BaseModel):
     sebi_category: SebiCategory
     structure: str = "trust"
     currency: str = "INR"
-    target_corpus: Decimal = Decimal("0")
-    carry_pct: Decimal = Decimal("0.20")
-    hurdle_pct: Decimal = Decimal("0.08")
-    mgmt_fee_pct: Decimal = Decimal("0.02")
+    target_corpus: Decimal = Field(default=Decimal("0"), ge=0)
+    # carry strictly below 100% — the catch-up formula divides by (1 − carry)
+    carry_pct: Decimal = Field(default=Decimal("0.20"), ge=0, lt=1)
+    hurdle_pct: Decimal = Field(default=Decimal("0.08"), ge=0, le=1)
+    mgmt_fee_pct: Decimal = Field(default=Decimal("0.02"), ge=0, le=1)
     fee_basis: Literal["committed", "drawn"] = "committed"
 
 
@@ -446,7 +447,7 @@ class FundOut(ORMModel):
 class LPIn(BaseModel):
     name: str
     email: EmailStr | None = None
-    commitment: Decimal = Decimal("0")
+    commitment: Decimal = Field(default=Decimal("0"), ge=0)
 
 
 class LPOut(ORMModel):
@@ -516,7 +517,7 @@ class PortfolioOut(ORMModel):
 
 
 class PortfolioMarkIn(BaseModel):
-    current_value: Decimal
+    current_value: Decimal = Field(ge=0)
     marked_on: datetime.date | None = None
 
 
@@ -524,7 +525,7 @@ class DealIn(BaseModel):
     company_name: str
     sector: str | None = None
     stage: DealStage = DealStage.SOURCED
-    amount: Decimal = Decimal("0")
+    amount: Decimal = Field(default=Decimal("0"), ge=0)
     notes: str | None = None
 
 
@@ -537,6 +538,11 @@ class DealInvestIn(BaseModel):
     invested_on: datetime.date | None = None
 
 
+class CapTableImportIn(BaseModel):
+    csv: str = Field(max_length=2_000_000)  # ~2 MB is far beyond any real cap table
+    apply: bool = False
+
+
 class ConsentDecisionIn(BaseModel):
     approve: bool
 
@@ -544,8 +550,8 @@ class ConsentDecisionIn(BaseModel):
 class SecondaryRequestIn(BaseModel):
     entity_id: str
     security_class_id: str
-    quantity: int
-    price_per_unit: Decimal
+    quantity: int = Field(gt=0)
+    price_per_unit: Decimal = Field(gt=0)
 
 
 class SecondaryDecideIn(BaseModel):
@@ -706,6 +712,7 @@ class ProviderOut(ORMModel):
     email: str | None
     profile: str | None
     active: bool
+    verified: bool
 
 
 class ServiceEngagementIn(BaseModel):
@@ -853,8 +860,8 @@ class RoundCommitmentIn(BaseModel):
     investor_name: str
     investor_email: EmailStr | None = None
     investor_kind: InvestorKind = "institutional"
-    amount: Decimal
-    shares: int | None = None
+    amount: Decimal = Field(gt=0)
+    shares: int | None = Field(default=None, gt=0)
     is_foreign: bool = False
 
 
@@ -1222,11 +1229,11 @@ class InstrumentIn(BaseModel):
     investor_email: EmailStr | None = None
     investor_kind: InvestorKind = "angel"
     instrument_type: InstrumentType = InstrumentType.SAFE
-    principal: Decimal
-    valuation_cap: Decimal | None = None
-    discount_pct: Decimal = Decimal("0")
+    principal: Decimal = Field(gt=0)
+    valuation_cap: Decimal | None = Field(default=None, gt=0)
+    discount_pct: Decimal = Field(default=Decimal("0"), ge=0, lt=1)
     mfn: bool = False
-    interest_pct: Decimal = Decimal("0")
+    interest_pct: Decimal = Field(default=Decimal("0"), ge=0, le=1)
     issue_date: datetime.date
 
 

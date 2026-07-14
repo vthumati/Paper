@@ -401,6 +401,7 @@ export interface Provider {
   email: string | null;
   profile: string | null;
   active: boolean;
+  verified: boolean;
 }
 export interface ServiceEngagement {
   id: string;
@@ -650,6 +651,23 @@ export interface SecondaryRequestRow {
   price_per_unit: string;
   status: string;
   buyer: string | null;
+}
+export interface CapTableImportReport {
+  valid: boolean;
+  errors: { row: number; error: string }[];
+  rows: unknown[];
+  summary: {
+    issuances: number;
+    stakeholders_to_create: string[];
+    classes_to_create: string[];
+    total_shares: number;
+    total_invested: string;
+    warning: string | null;
+  } | null;
+  applied?: boolean;
+  classes_created?: number;
+  stakeholders_created?: number;
+  issuances_created?: number;
 }
 export interface ConsentTally {
   tally: { approved: number; rejected: number; pending: number };
@@ -1142,6 +1160,14 @@ export const api = {
 
   downloadCapTableCsv: (eid: string) => downloadFile(`/entities/${eid}/cap-table.csv`, "cap-table.csv"),
   downloadComplianceCsv: (eid: string) => downloadFile(`/entities/${eid}/compliance.csv`, "compliance.csv"),
+  downloadDocumentPdf: (docId: string, title: string) =>
+    downloadFile(`/documents/${docId}/pdf`, `${title.replace(/[^\w -]/g, "-")}.pdf`),
+  downloadPortalDocPdf: (docId: string, title: string) =>
+    downloadFile(`/portal/documents/${docId}/pdf`, `${title.replace(/[^\w -]/g, "-")}.pdf`),
+  importCapTable: (eid: string, csv: string, apply: boolean) =>
+    post<CapTableImportReport>(`/entities/${eid}/cap-table/import`, { csv, apply }),
+  downloadImportTemplate: (eid: string) =>
+    downloadFile(`/entities/${eid}/cap-table/import-template`, "cap-table-import.csv"),
 
   listFounderVesting: (eid: string) => get<FounderVesting[]>(`/entities/${eid}/founder-vesting`),
   createFounderVesting: (eid: string, b: unknown) =>
