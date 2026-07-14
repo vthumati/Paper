@@ -1,0 +1,12 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# node
+node_modules/
+dist/
+
+# local dev database (recreate with: py scripts/seed_demo.py --fresh)
+*.db
