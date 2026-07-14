@@ -53,5 +53,7 @@ and all money/share math uses `Decimal`/`Numeric`.
 
 ## Current state (for context)
 
-Phases 1 + 2 are functionally complete: 11 modules, **52 backend tests passing**,
-full React frontend. See `REQUIREMENTS.md`, `HLD.md`, and `apps/api/README.md`.
+The platform is functionally complete through REQUIREMENTS v1.3: 21 modules,
+**174 backend tests**, full React frontend, Alembic-migrated schema (71 tables),
+CI on GitHub Actions. Deployment is the current frontier. See `REQUIREMENTS.md`,
+`HLD.md` §16, and `apps/api/README.md`.
