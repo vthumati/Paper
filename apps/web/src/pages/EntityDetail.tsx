@@ -1,0 +1,340 @@
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { api, type Entity, type StageGuide } from "../api";
+import CapTable from "../features/CapTable";
+import CapTableAdvanced from "../features/CapTableAdvanced";
+import RightsIssues from "../features/RightsIssues";
+import Workflows from "../features/Workflows";
+import Documents from "../features/Documents";
+import DataRoom from "../features/DataRoom";
+import Compliance from "../features/Compliance";
+import Fund from "../features/Fund";
+import Esop from "../features/Esop";
+import Valuations from "../features/Valuations";
+import Services from "../features/Services";
+import Admin from "../features/Admin";
+import Spv from "../features/Spv";
+import Fundraising from "../features/Fundraising";
+import Pipeline from "../features/Pipeline";
+import Instruments from "../features/Instruments";
+import Governance from "../features/Governance";
+import Dashboard from "../features/Dashboard";
+import Files from "../features/Files";
+import Team from "../features/Team";
+import Contracts from "../features/Contracts";
+import Investors from "../features/Investors";
+import StartupIndia from "../features/StartupIndia";
+import Finance from "../features/Finance";
+import Registers from "../features/Registers";
+
+type Tab =
+  | "dashboard"
+  | "files"
+  | "team"
+  | "contracts"
+  | "investors"
+  | "captable"
+  | "fundraising"
+  | "governance"
+  | "workflows"
+  | "documents"
+  | "dataroom"
+  | "compliance"
+  | "fund"
+  | "esop"
+  | "valuations"
+  | "services"
+  | "admin"
+  | "spv"
+  | "startup"
+  | "finance"
+  | "registers";
+
+// Two-level navigation: tabs live in groups; the group row is always visible
+// and the sub-tab row shows the active group's tabs.
+// scope: which entity types see the tab at all (stage then filters companies)
+type Group = "home" | "ownership" | "raise" | "govern" | "operate" | "partners" | "fundadmin";
+
+const GROUPS: { key: Group; label: string }[] = [
+  { key: "home", label: "Home" },
+  { key: "fundadmin", label: "Fund" },
+  { key: "ownership", label: "Ownership" },
+  { key: "raise", label: "Fundraise" },
+  { key: "govern", label: "Governance" },
+  { key: "operate", label: "Operations" },
+  { key: "partners", label: "Partners" },
+];
+
+const TAB_DEFS: {
+  key: Tab;
+  label: string;
+  group: Group;
+  scope: "all" | "company" | "fundlike" | "spvonly";
+}[] = [
+  { key: "dashboard", label: "Dashboard", group: "home", scope: "all" },
+  { key: "captable", label: "Cap Table", group: "ownership", scope: "all" },
+  { key: "esop", label: "ESOP", group: "ownership", scope: "company" },
+  { key: "valuations", label: "Valuations", group: "ownership", scope: "all" },
+  { key: "fundraising", label: "Rounds & SAFEs", group: "raise", scope: "company" },
+  { key: "dataroom", label: "Data Room", group: "raise", scope: "all" },
+  { key: "investors", label: "Investors", group: "raise", scope: "all" },
+  { key: "governance", label: "Board & Resolutions", group: "govern", scope: "all" },
+  { key: "compliance", label: "Compliance", group: "govern", scope: "all" },
+  { key: "registers", label: "Registers", group: "govern", scope: "all" },
+  { key: "startup", label: "Startup India", group: "govern", scope: "company" },
+  { key: "team", label: "Team", group: "operate", scope: "company" },
+  { key: "contracts", label: "Contracts", group: "operate", scope: "company" },
+  { key: "finance", label: "Finance", group: "operate", scope: "company" },
+  { key: "documents", label: "Documents", group: "operate", scope: "all" },
+  { key: "files", label: "Files", group: "operate", scope: "all" },
+  { key: "workflows", label: "Workflows", group: "operate", scope: "all" },
+  { key: "services", label: "Marketplace", group: "partners", scope: "all" },
+  { key: "admin", label: "Managed Admin", group: "partners", scope: "all" },
+  { key: "fund", label: "Fund (AIF)", group: "fundadmin", scope: "fundlike" },
+  { key: "spv", label: "SPV", group: "fundadmin", scope: "spvonly" },
+];
+
+export default function EntityDetail() {
+  const { entityId = "" } = useParams();
+  const nav = useNavigate();
+  const [entity, setEntity] = useState<Entity | null>(null);
+  const [guide, setGuide] = useState<StageGuide | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [tab, setTab] = useState<Tab>("dashboard");
+  const [capRefresh, setCapRefresh] = useState(0);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api
+      .getEntity(entityId)
+      .then((e) => {
+        setEntity(e);
+        if (e.type !== "fund" && e.type !== "spv") {
+          api.stageGuide(entityId).then(setGuide).catch(() => {});
+        }
+      })
+      .catch((e) => setError(e.message));
+  }, [entityId]);
+
+  // keep the checklist fresh when the user comes back to the dashboard
+  useEffect(() => {
+    if (tab === "dashboard" && entity && entity.type !== "fund" && entity.type !== "spv") {
+      api.stageGuide(entityId).then(setGuide).catch(() => {});
+    }
+  }, [tab, capRefresh]);
+
+  // if the active tab is no longer visible (stage change / show-all off), go home
+  useEffect(() => {
+    if (guide && !showAll && tab !== "dashboard" && !guide.tabs.includes(tab)) {
+      setTab("dashboard");
+    }
+  }, [guide, showAll]);
+
+  if (error) return <p className="error">{error}</p>;
+  if (!entity) return <p>Loading…</p>;
+
+  const isCompany = entity.type !== "fund" && entity.type !== "spv";
+  const scopeOk = (scope: string) =>
+    scope === "all" ||
+    (scope === "company" && isCompany) ||
+    (scope === "fundlike" && !isCompany) ||
+    (scope === "spvonly" && entity.type === "spv");
+  const stageOk = (key: Tab) =>
+    !isCompany || showAll || !guide || guide.tabs.includes(key);
+  const visibleTabs = TAB_DEFS.filter((t) => scopeOk(t.scope) && stageOk(t.key));
+  const visibleGroups = GROUPS.filter((g) => visibleTabs.some((t) => t.group === g.key));
+  const activeGroup = TAB_DEFS.find((t) => t.key === tab)?.group ?? "home";
+  const groupTabs = visibleTabs.filter((t) => t.group === activeGroup);
+  const feat = (k: string) => !isCompany || showAll || !guide || guide.features[k] !== false;
+
+  const goTab = (t: string) => setTab(t as Tab);
+  const changeStage = async (stage: string) => {
+    try {
+      setGuide(await api.setStage(entityId, stage));
+      setTab("dashboard");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const nextTodos = guide ? guide.checklist.filter((c) => !c.done) : [];
+
+  return (
+    <div>
+      <p className="muted">
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            nav(`/tenants/${entity.tenant_id}/entities`);
+          }}
+        >
+          ← Entities
+        </a>
+      </p>
+      <h1>
+        {entity.name} <span className="badge">{entity.type}</span>
+        {isCompany && guide && (
+          <select
+            value={guide.stage}
+            onChange={(e) => changeStage(e.target.value)}
+            style={{ width: "auto", marginLeft: 12, display: "inline-block" }}
+            title="Company stage — controls which features are surfaced"
+          >
+            {guide.stages.map((s) => (
+              <option key={s.key} value={s.key}>
+                Stage: {s.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </h1>
+
+      {isCompany && guide?.suggested_stage && (
+        <div className="card" style={{ borderLeft: "4px solid #2563eb" }}>
+          <p style={{ margin: 0 }}>
+            Based on your data, you look ready for{" "}
+            <strong>{guide.stages.find((s) => s.key === guide.suggested_stage)?.label}</strong>.{" "}
+            <button onClick={() => changeStage(guide.suggested_stage!)}>
+              Move to {guide.stages.find((s) => s.key === guide.suggested_stage)?.label}
+            </button>
+          </p>
+        </div>
+      )}
+
+      <div className="tabs">
+        {visibleGroups.map((g) => (
+          <button
+            key={g.key}
+            className={activeGroup === g.key ? "active" : ""}
+            onClick={() => {
+              const first = visibleTabs.find((t) => t.group === g.key);
+              if (first) setTab(first.key);
+            }}
+          >
+            {g.label}
+          </button>
+        ))}
+        {isCompany && guide && (
+          <button
+            className="secondary"
+            title="Stages surface what's relevant now; nothing is ever removed"
+            onClick={() => setShowAll((v) => !v)}
+          >
+            {showAll ? "Stage view" : "All features"}
+          </button>
+        )}
+      </div>
+      {groupTabs.length > 1 && (
+        <div className="tabs subtabs">
+          {groupTabs.map((t) => (
+            <button
+              key={t.key}
+              className={tab === t.key ? "active" : ""}
+              onClick={() => setTab(t.key)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === "dashboard" && (
+        <>
+          {isCompany && guide && (
+            <div className="card">
+              <h3>
+                {guide.label} — what to do now{" "}
+                <span className={`badge ${guide.progress.done === guide.progress.total ? "complete" : ""}`}>
+                  {guide.progress.done}/{guide.progress.total} done
+                </span>
+              </h3>
+              <p className="muted">{guide.headline}</p>
+              {nextTodos.length === 0 ? (
+                <p>
+                  All {guide.label} steps are done.{" "}
+                  {(() => {
+                    const i = guide.stages.findIndex((s) => s.key === guide.stage);
+                    const next = guide.stages[i + 1];
+                    return next ? (
+                      <button onClick={() => changeStage(next.key)}>
+                        Start {next.label} →
+                      </button>
+                    ) : null;
+                  })()}
+                  <span className="muted">
+                    {" "}
+                    Stages are guides — skip ahead or go back anytime from the picker above.
+                  </span>
+                </p>
+              ) : (
+                nextTodos.map((c) => (
+                  <div key={c.key} className="list-item" onClick={() => goTab(c.tab)}>
+                    <strong>○ {c.title}</strong>
+                    <span className="muted"> — {c.hint}</span>
+                  </div>
+                ))
+              )}
+              {guide.progress.done > 0 && nextTodos.length > 0 && (
+                <p className="muted" style={{ marginBottom: 0 }}>
+                  ✓ {guide.progress.done} step{guide.progress.done > 1 ? "s" : ""} completed:{" "}
+                  {guide.checklist.filter((c) => c.done).map((c) => c.title).join(" · ")}
+                </p>
+              )}
+            </div>
+          )}
+          <Dashboard entityId={entityId} />
+        </>
+      )}
+      {tab === "files" && <Files entityId={entityId} />}
+      {tab === "team" && <Team entityId={entityId} />}
+      {tab === "startup" && <StartupIndia entityId={entityId} />}
+      {tab === "finance" && <Finance entityId={entityId} />}
+      {tab === "registers" && <Registers entityId={entityId} />}
+      {tab === "contracts" && <Contracts entityId={entityId} />}
+      {tab === "investors" && <Investors entityId={entityId} />}
+      {tab === "captable" && (
+        <>
+          <CapTable
+            entityId={entityId}
+            refreshKey={capRefresh}
+            features={{ fully_diluted: feat("fully_diluted"), anti_dilution: feat("anti_dilution") }}
+          />
+          <CapTableAdvanced
+            entityId={entityId}
+            onChanged={() => setCapRefresh((x) => x + 1)}
+            features={{
+              transfers: feat("transfers"),
+              conversions: feat("conversions"),
+              corporate_actions: feat("corporate_actions"),
+              founder_vesting: feat("founder_vesting"),
+              waterfall: feat("waterfall"),
+              demat: feat("demat"),
+            }}
+          />
+          {feat("rights_issues") && (
+            <RightsIssues entityId={entityId} onChanged={() => setCapRefresh((x) => x + 1)} />
+          )}
+        </>
+      )}
+      {tab === "fundraising" && (
+        <>
+          <Fundraising entityId={entityId} />
+          <Instruments entityId={entityId} onChanged={() => setCapRefresh((x) => x + 1)} />
+          <Pipeline entityId={entityId} />
+        </>
+      )}
+      {tab === "governance" && <Governance entityId={entityId} />}
+      {tab === "workflows" && <Workflows entityId={entityId} />}
+      {tab === "documents" && <Documents entityId={entityId} />}
+      {tab === "dataroom" && <DataRoom entityId={entityId} />}
+      {tab === "compliance" && <Compliance entityId={entityId} entityType={entity.type} />}
+      {tab === "fund" && <Fund entityId={entityId} />}
+      {tab === "esop" && <Esop entityId={entityId} />}
+      {tab === "valuations" && <Valuations entityId={entityId} />}
+      {tab === "services" && <Services entityId={entityId} />}
+      {tab === "admin" && <Admin entityId={entityId} />}
+      {tab === "spv" && <Spv entityId={entityId} />}
+    </div>
+  );
+}

@@ -1,0 +1,98 @@
+import { useEffect, useState } from "react";
+import { useGuard } from "../hooks";
+import { api, type TeamMember } from "../api";
+
+export default function Team({ entityId }: { entityId: string }) {
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [note, setNote] = useState("");
+  const { error, setError, guard } = useGuard(() => load());
+
+  const [name, setName] = useState("");
+  const [title, setTitle] = useState("");
+  const [type, setType] = useState("employee");
+
+  const load = () => api.listTeam(entityId).then(setMembers).catch((e) => setError(e.message));
+  useEffect(() => {
+    load();
+  }, [entityId]);
+
+  return (
+    <div>
+      {error && <p className="error">{error}</p>}
+      {note && <p className="muted">{note}</p>}
+
+      <div className="card">
+        <h3>Add team member</h3>
+        <div className="row">
+          <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+          <input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <select value={type} onChange={(e) => setType(e.target.value)}>
+            <option value="employee">Employee</option>
+            <option value="contractor">Contractor</option>
+            <option value="advisor">Advisor</option>
+          </select>
+          <button
+            style={{ flex: "0 0 auto" }}
+            disabled={!name}
+            onClick={guard(async () => {
+              await api.addTeamMember(entityId, { name, title, employment_type: type });
+              setName(""); setTitle("");
+            })}
+          >
+            Add
+          </button>
+        </div>
+      </div>
+
+      <div className="card">
+        <h3>Team</h3>
+        {members.length === 0 ? (
+          <p className="muted">No team members yet.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Title</th><th>Type</th><th>Status</th><th>Cap table</th><th></th></tr>
+            </thead>
+            <tbody>
+              {members.map((m) => (
+                <tr key={m.id}>
+                  <td>{m.name}</td>
+                  <td>{m.title || "—"}</td>
+                  <td>{m.employment_type}</td>
+                  <td><span className={`badge ${m.status === "active" ? "complete" : "skipped"}`}>{m.status}</span></td>
+                  <td>{m.stakeholder_id ? <span className="badge">linked</span> : <span className="muted">—</span>}</td>
+                  <td>
+                    {!m.stakeholder_id && (
+                      <button
+                        className="secondary"
+                        onClick={guard(async () => {
+                          const r = await api.onboardMember(m.id);
+                          setNote(`Onboarded ${m.name}: ${r.documents.length} HR documents generated (see Files) and added to the cap table for ESOP.`);
+                        })}
+                      >
+                        Onboard
+                      </button>
+                    )}{" "}
+                    {m.status === "active" && (
+                      <button
+                        className="secondary"
+                        onClick={guard(() =>
+                          api.updateMemberStatus(m.id, {
+                            status: "exited",
+                            left_on: new Date().toISOString().slice(0, 10),
+                          })
+                        )}
+                      >
+                        Mark exited
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
