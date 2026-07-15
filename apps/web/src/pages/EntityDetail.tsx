@@ -11,11 +11,13 @@ import Fund from "../features/Fund";
 import Esop from "../features/Esop";
 import ExerciseRequests from "../features/ExerciseRequests";
 import Valuations from "../features/Valuations";
+import Advisors from "../features/Advisors";
 import Services from "../features/Services";
 import Admin from "../features/Admin";
 import Spv from "../features/Spv";
 import Governance from "../features/Governance";
 import Dashboard from "../features/Dashboard";
+import TasksHub from "../features/TasksHub";
 import Files from "../features/Files";
 import Team from "../features/Team";
 import Contracts from "../features/Contracts";
@@ -28,6 +30,7 @@ import OfferBuilder from "../features/OfferBuilder";
 
 type Tab =
   | "dashboard"
+  | "tasks"
   | "files"
   | "team"
   | "contracts"
@@ -44,6 +47,7 @@ type Tab =
   | "esop"
   | "valuations"
   | "services"
+  | "advisors"
   | "admin"
   | "spv"
   | "startup"
@@ -72,6 +76,7 @@ const TAB_DEFS: {
   scope: "all" | "company" | "fundlike" | "spvonly";
 }[] = [
   { key: "dashboard", label: "Dashboard", group: "home", scope: "all" },
+  { key: "tasks", label: "Tasks", group: "home", scope: "all" },
   { key: "captable", label: "Cap Table", group: "ownership", scope: "all" },
   { key: "esop", label: "ESOP", group: "ownership", scope: "company" },
   { key: "valuations", label: "Valuations", group: "ownership", scope: "all" },
@@ -90,6 +95,7 @@ const TAB_DEFS: {
   { key: "files", label: "Files", group: "operate", scope: "all" },
   { key: "workflows", label: "Workflows", group: "operate", scope: "all" },
   { key: "services", label: "Marketplace", group: "partners", scope: "all" },
+  { key: "advisors", label: "Advisors", group: "partners", scope: "all" },
   { key: "admin", label: "Managed Admin", group: "partners", scope: "all" },
   { key: "fund", label: "Fund (AIF)", group: "fundadmin", scope: "fundlike" },
   { key: "spv", label: "SPV", group: "fundadmin", scope: "spvonly" },
@@ -297,6 +303,7 @@ export default function EntityDetail() {
           <Dashboard entityId={entityId} />
         </>
       )}
+      {tab === "tasks" && <TasksHub entityId={entityId} />}
       {tab === "files" && <Files entityId={entityId} />}
       {tab === "team" && (
         <>
@@ -345,6 +352,7 @@ export default function EntityDetail() {
       )}
       {tab === "valuations" && <Valuations entityId={entityId} />}
       {tab === "services" && <Services entityId={entityId} />}
+      {tab === "advisors" && <Advisors entityId={entityId} />}
       {tab === "admin" && <Admin entityId={entityId} />}
       {tab === "spv" && <Spv entityId={entityId} />}
     </div>

@@ -20,9 +20,11 @@ export default function Esop({ entityId }: { entityId: string }) {
   const [pool, setPool] = useState("100000");
   const [gScheme, setGScheme] = useState("");
   const [gEmp, setGEmp] = useState("");
+  const [gType, setGType] = useState<"option" | "rsu" | "rsa">("option");
   const [gQty, setGQty] = useState("");
   const [gPrice, setGPrice] = useState("10");
   const [gDate, setGDate] = useState("2025-01-01");
+  const [gFmv, setGFmv] = useState("");
 
   async function load() {
     try {
@@ -47,7 +49,9 @@ export default function Esop({ entityId }: { entityId: string }) {
 
   async function exercise(g: EsopGrant) {
     setError("");
-    const qty = Number(prompt(`Exercise how many? (exercisable: ${g.exercisable})`, "0"));
+    const isRsu = g.grant_type === "rsu";
+    const verb = isRsu ? "Settle" : "Exercise";
+    const qty = Number(prompt(`${verb} how many? (${isRsu ? "settleable" : "exercisable"}: ${g.exercisable})`, "0"));
     if (!qty) return;
     const equity = classes.find((c) => c.kind === "equity");
     if (!equity) {
@@ -58,7 +62,8 @@ export default function Esop({ entityId }: { entityId: string }) {
     const fmv =
       prompt("FMV per share (for perquisite)? Blank uses current valuation.", cur?.fmv_per_share ?? "") ||
       "0";
-    const cashless = confirm("Cashless exercise? (shares withheld to cover the strike — no cash paid)");
+    // RSUs settle for no consideration — cashless prompt only applies to options
+    const cashless = !isRsu && confirm("Cashless exercise? (shares withheld to cover the strike — no cash paid)");
     try {
       await api.exerciseGrant(g.id, {
         quantity: qty,
@@ -104,13 +109,29 @@ export default function Esop({ entityId }: { entityId: string }) {
         </div>
 
         <div className="card" style={{ flex: 2 }}>
-          <h3>Grant options</h3>
+          <h3>Grant equity</h3>
           {schemes.length === 0 ? (
             <p className="muted">Create a scheme first.</p>
           ) : employees.length === 0 ? (
             <p className="muted">Add an employee stakeholder in the Cap Table tab first.</p>
           ) : (
             <>
+              <div className="tabs subtabs" style={{ marginBottom: 8 }}>
+                {([
+                  ["option", "Options"],
+                  ["rsu", "RSUs"],
+                  ["rsa", "RSAs"],
+                ] as const).map(([k, label]) => (
+                  <button key={k} className={gType === k ? "active" : ""} onClick={() => setGType(k)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="muted" style={{ marginTop: 0 }}>
+                {gType === "option" && "Options vest, then are exercised at the strike price."}
+                {gType === "rsu" && "RSUs vest, then settle to shares for no payment; the full FMV is a perquisite at settlement."}
+                {gType === "rsa" && "RSAs are issued as shares now (subject to repurchase of the unvested portion); the discount to FMV is a perquisite at grant."}
+              </p>
               <div className="row">
                 <div>
                   <label>Scheme</label>
@@ -135,30 +156,46 @@ export default function Esop({ entityId }: { entityId: string }) {
                   <label>Quantity</label>
                   <input value={gQty} onChange={(e) => setGQty(e.target.value)} />
                 </div>
-                <div>
-                  <label>Strike (₹)</label>
-                  <input value={gPrice} onChange={(e) => setGPrice(e.target.value)} />
-                </div>
+                {gType !== "rsu" && (
+                  <div>
+                    <label>{gType === "rsa" ? "Purchase price (₹)" : "Strike (₹)"}</label>
+                    <input value={gPrice} onChange={(e) => setGPrice(e.target.value)} />
+                  </div>
+                )}
+                {gType === "rsa" && (
+                  <div>
+                    <label>FMV at grant (₹, blank = current)</label>
+                    <input value={gFmv} onChange={(e) => setGFmv(e.target.value)} />
+                  </div>
+                )}
                 <div>
                   <label>Grant date</label>
                   <input type="date" value={gDate} onChange={(e) => setGDate(e.target.value)} />
                 </div>
               </div>
+              {gType === "rsa" && !classes.some((c) => c.kind === "equity") && (
+                <p className="error">Create an equity security class (Cap Table tab) before granting RSAs.</p>
+              )}
               <div style={{ marginTop: 10 }}>
                 <button
                   disabled={!gScheme || !gEmp || !gQty}
                   onClick={guard(async () => {
+                    const equity = classes.find((c) => c.kind === "equity");
                     await api.createGrant(entityId, {
                       scheme_id: gScheme,
                       stakeholder_id: gEmp,
                       quantity: Number(gQty),
-                      exercise_price: gPrice,
+                      grant_type: gType,
+                      exercise_price: gType === "rsu" ? "0" : gPrice,
                       grant_date: gDate,
+                      ...(gType === "rsa"
+                        ? { security_class_id: equity?.id, fmv: gFmv || "0" }
+                        : {}),
                     });
                     setGQty("");
                   })}
                 >
-                  Grant
+                  Grant {gType === "option" ? "options" : gType === "rsu" ? "RSUs" : "RSAs"}
                 </button>
               </div>
             </>
@@ -175,34 +212,48 @@ export default function Esop({ entityId }: { entityId: string }) {
             <thead>
               <tr>
                 <th>Employee</th>
+                <th>Type</th>
                 <th>Granted</th>
                 <th>Vested</th>
-                <th>Exercised</th>
-                <th>Exercisable</th>
+                <th>Settled / exercised</th>
+                <th>Outstanding</th>
                 <th>Strike</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {grants.map((g) => (
-                <tr key={g.id}>
-                  <td>{g.stakeholder_name}</td>
-                  <td>{g.quantity.toLocaleString()}</td>
-                  <td>{g.vested.toLocaleString()}</td>
-                  <td>{g.exercised.toLocaleString()}</td>
-                  <td>{g.exercisable.toLocaleString()}</td>
-                  <td>₹{g.exercise_price}</td>
-                  <td>
-                    <button
-                      className="secondary"
-                      disabled={g.exercisable <= 0}
-                      onClick={() => exercise(g)}
-                    >
-                      Exercise
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {grants.map((g) => {
+                const isRsa = g.grant_type === "rsa";
+                const chipKind = g.grant_type === "rsu" ? "safe" : isRsa ? "ccps" : "option_pool";
+                return (
+                  <tr key={g.id}>
+                    <td>{g.stakeholder_name}</td>
+                    <td><span className={`sec-chip ${chipKind}`}>{g.grant_type.toUpperCase()}</span></td>
+                    <td>{g.quantity.toLocaleString()}</td>
+                    <td>{g.vested.toLocaleString()}</td>
+                    <td>{isRsa ? "—" : g.exercised.toLocaleString()}</td>
+                    <td>
+                      {isRsa
+                        ? `${g.unvested.toLocaleString()} unvested`
+                        : g.exercisable.toLocaleString()}
+                    </td>
+                    <td>{g.grant_type === "rsu" ? "—" : `₹${g.exercise_price}`}</td>
+                    <td>
+                      {isRsa ? (
+                        <span className="muted">issued at grant</span>
+                      ) : (
+                        <button
+                          className="secondary"
+                          disabled={g.exercisable <= 0}
+                          onClick={() => exercise(g)}
+                        >
+                          {g.grant_type === "rsu" ? "Settle" : "Exercise"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

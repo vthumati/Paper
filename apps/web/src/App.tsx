@@ -7,6 +7,7 @@ import Entities from "./pages/Entities";
 import EntityDetail from "./pages/EntityDetail";
 import Activity from "./pages/Activity";
 import Portal from "./pages/Portal";
+import Advisor from "./pages/Advisor";
 import Invest from "./pages/Invest";
 import type { ReactElement } from "react";
 
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/entities/:entityId" element={<EntityDetail />} />
         <Route path="/activity" element={<Activity />} />
         <Route path="/portal" element={<Portal />} />
+        <Route path="/advisor" element={<Advisor />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

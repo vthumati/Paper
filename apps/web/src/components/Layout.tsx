@@ -86,6 +86,9 @@ export default function Layout() {
         <Link to="/portal" style={{ fontSize: 14 }}>
           Portal
         </Link>
+        <Link to="/advisor" style={{ fontSize: 14 }}>
+          Advisor
+        </Link>
         <Link to="/activity" style={{ fontSize: 14 }}>
           Activity
         </Link>

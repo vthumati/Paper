@@ -59,6 +59,7 @@ const post = <T>(p: string, body?: unknown) =>
   req<T>(p, { method: "POST", body: body ? JSON.stringify(body) : undefined });
 const put = <T>(p: string, body?: unknown) =>
   req<T>(p, { method: "PUT", body: body ? JSON.stringify(body) : undefined });
+const del = <T>(p: string) => req<T>(p, { method: "DELETE" });
 
 // --- types ---
 export interface User {
@@ -395,6 +396,7 @@ export interface EsopGrant {
   scheme_id: string;
   stakeholder_id: string;
   stakeholder_name: string | null;
+  grant_type: "option" | "rsu" | "rsa";
   quantity: number;
   exercise_price: string;
   grant_date: string;
@@ -403,6 +405,22 @@ export interface EsopGrant {
   vested: number;
   exercised: number;
   exercisable: number;
+  unvested: number;
+}
+export interface AdvisorAccess {
+  id: string;
+  entity_id: string;
+  email: string;
+  firm_name: string;
+  role: string;
+}
+export interface AdvisorEntity {
+  entity_id: string;
+  entity_name: string;
+  entity_type: string;
+  tenant_name: string;
+  firm_name: string;
+  role: string;
 }
 export interface Valuation {
   id: string;
@@ -418,6 +436,34 @@ export interface CurrentFmv {
   fmv_per_share: string | null;
   valuation_id: string | null;
   valuation_date: string | null;
+}
+export interface ScorecardFactor {
+  key: string;
+  label: string;
+  weight: string;
+}
+export interface ValuationEstimateResult {
+  methods: Record<string, string>;
+  detail: Record<string, Record<string, string>>;
+  weights: Record<string, string>;
+  blended_value: string;
+  fd_shares: number;
+  per_share: string | null;
+  disclaimer: string;
+}
+export interface ValuationEstimate {
+  id: string;
+  label: string;
+  inputs: Record<string, unknown>;
+  results: ValuationEstimateResult;
+  created_at: string;
+}
+export interface Smartfill {
+  base_annual_revenue: string;
+  base_annual_expenses: string;
+  assumed_growth_pct: string;
+  months_of_data: number;
+  projections: { year: number; revenue: string; expenses: string }[];
 }
 export interface Provider {
   id: string;
@@ -589,6 +635,22 @@ export interface TimelineEvent {
   date: string;
   kind: string;
   text: string;
+}
+export interface EntityTask {
+  kind: string;
+  tab: string;
+  severity: "red" | "amber" | "ok";
+  title: string;
+  detail: string;
+}
+export interface EntityTasks {
+  tasks: EntityTask[];
+  counts: { total: number; overdue: number };
+}
+export interface ValueHistory {
+  series: { date: string; value: string }[];
+  current_value: string;
+  holdings: number;
 }
 export interface Dashboard {
   entity: { id: string; name: string; type: string };
@@ -1049,6 +1111,7 @@ export const api = {
     post<User>("/auth/signup", b),
   login: (b: { email: string; password: string }) =>
     post<{ access_token: string }>("/auth/login", b),
+  refresh: () => post<{ access_token: string }>("/auth/refresh"),
   me: () => get<User>("/auth/me"),
 
   listTenants: () => get<Tenant[]>("/tenants"),
@@ -1214,9 +1277,31 @@ export const api = {
   exerciseGrant: (gid: string, b: unknown) =>
     post(`/esop/grants/${gid}/exercise`, b),
 
+  listAdvisorAccess: (eid: string) =>
+    get<AdvisorAccess[]>(`/entities/${eid}/advisor-access`),
+  grantAdvisorAccess: (eid: string, b: unknown) =>
+    post<AdvisorAccess>(`/entities/${eid}/advisor-access`, b),
+  revokeAdvisorAccess: (eid: string, id: string) =>
+    del(`/entities/${eid}/advisor-access/${id}`),
+  advisorEntities: () => get<AdvisorEntity[]>("/advisor/entities"),
+
   listValuations: (eid: string) => get<Valuation[]>(`/entities/${eid}/valuations`),
   createValuation: (eid: string, b: unknown) => post<Valuation>(`/entities/${eid}/valuations`, b),
   currentValuation: (eid: string) => get<CurrentFmv>(`/entities/${eid}/valuations/current`),
+  scorecardFactors: (eid: string) =>
+    get<{ factors: ScorecardFactor[] }>(
+      `/entities/${eid}/valuation-estimates/scorecard-factors`
+    ),
+  valuationSmartfill: (eid: string, growthPct: number, years: number) =>
+    get<Smartfill>(
+      `/entities/${eid}/valuation-estimates/smartfill?growth_pct=${growthPct}&years=${years}`
+    ),
+  listValuationEstimates: (eid: string) =>
+    get<ValuationEstimate[]>(`/entities/${eid}/valuation-estimates`),
+  createValuationEstimate: (eid: string, b: unknown) =>
+    post<ValuationEstimate>(`/entities/${eid}/valuation-estimates`, b),
+  valuationEstimateReport: (eid: string, id: string) =>
+    post<Document>(`/entities/${eid}/valuation-estimates/${id}/report`),
 
   listProviders: (category?: string) =>
     get<Provider[]>(`/service-providers${category ? `?category=${category}` : ""}`),
@@ -1314,8 +1399,10 @@ export const api = {
   markAllNotificationsRead: () => post<{ ok: boolean }>("/notifications/read-all"),
 
   dashboard: (eid: string) => get<Dashboard>(`/entities/${eid}/dashboard`),
+  entityTasks: (eid: string) => get<EntityTasks>(`/entities/${eid}/tasks`),
   captableTimeline: (eid: string) =>
     get<{ events: TimelineEvent[] }>(`/entities/${eid}/timeline`),
+  portalValueHistory: () => get<ValueHistory>("/portal/value-history"),
   files: (eid: string, q?: string) =>
     get<FileItem[]>(`/entities/${eid}/files${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   listTaxRecords: (eid: string) => get<TaxRecord[]>(`/entities/${eid}/tax-records`),

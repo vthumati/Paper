@@ -1,24 +1,49 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, type PortalDashboard } from "../api";
+import { api, type PortalDashboard, type ValueHistory } from "../api";
+import LineChart from "../components/LineChart";
 import SecChip from "../components/SecChip";
 import Stat from "../components/Stat";
+
+const RANGES = [
+  { key: "3M", months: 3 },
+  { key: "6M", months: 6 },
+  { key: "1Y", months: 12 },
+  { key: "All", months: 0 },
+] as const;
 
 export default function Portal() {
   const nav = useNavigate();
   const [d, setD] = useState<PortalDashboard | null>(null);
+  const [hist, setHist] = useState<ValueHistory | null>(null);
+  const [range, setRange] = useState<string>("All");
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
 
-  const load = () =>
-    api
+  const load = () => {
+    api.portalValueHistory().then(setHist).catch(() => {});
+    return api
       .portal()
       .then(setD)
       .catch((e) => setError(e.message))
       .finally(() => setLoaded(true));
+  };
   useEffect(() => {
     load();
   }, []);
+
+  const rangePoints = (() => {
+    if (!hist || hist.series.length === 0) return [];
+    const months = RANGES.find((r) => r.key === range)?.months ?? 0;
+    let pts = hist.series;
+    if (months > 0) {
+      const cutoff = new Date();
+      cutoff.setMonth(cutoff.getMonth() - months);
+      const iso = cutoff.toISOString().slice(0, 10);
+      pts = pts.filter((p) => p.date >= iso);
+    }
+    return pts.map((p) => ({ x: p.date, y: Number(p.value) }));
+  })();
 
   const act = (fn: () => Promise<unknown>) => async () => {
     setError("");
@@ -43,6 +68,34 @@ export default function Portal() {
       </p>
       <h1>Investor portal</h1>
       {error && <p className="error">{error}</p>}
+
+      {hist && hist.holdings > 0 && (
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
+            <div>
+              <div className="muted" style={{ fontSize: 12 }}>Equity holdings — marked value</div>
+              <div style={{ fontSize: 30, fontWeight: 700, color: "var(--navy)" }}>
+                ₹{Number(hist.current_value).toLocaleString("en-IN")}
+              </div>
+            </div>
+            <div className="tabs subtabs" style={{ borderBottom: "none" }}>
+              {RANGES.map((r) => (
+                <button key={r.key} className={range === r.key ? "active" : ""} onClick={() => setRange(r.key)}>
+                  {r.key}
+                </button>
+              ))}
+            </div>
+          </div>
+          <LineChart
+            series={[{ label: "Marked value", color: "#2f6b52", points: rangePoints }]}
+            height={180}
+          />
+          <p className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+            Company equity marked at each valuation date (held at cost before the first valuation).
+            Fund and SPV positions are shown separately below.
+          </p>
+        </div>
+      )}
 
       {d && (d.companies.length > 0 || d.funds.length > 0 || d.spvs.length > 0 || d.equity_grants.length > 0) && (
         <div className="card">

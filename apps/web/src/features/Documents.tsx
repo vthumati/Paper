@@ -108,16 +108,21 @@ export default function Documents({ entityId }: { entityId: string }) {
         <div className="card" style={{ flex: 1 }}>
           <h3>Documents</h3>
           {docs.length === 0 && <p className="muted">None yet.</p>}
-          {docs.map((d) => (
-            <div
-              key={d.id}
-              className={`list-item ${selected?.id === d.id ? "selected" : ""}`}
-              onClick={() => api.getDocument(d.id).then(setSelected)}
-            >
-              {d.title} <span className={`badge ${d.status}`}>{d.status}</span>{" "}
-              <span className="muted">v{d.current_version}</span>
-            </div>
-          ))}
+          <div className="doc-grid">
+            {docs.map((d) => (
+              <button
+                key={d.id}
+                className={`doc-card ${selected?.id === d.id ? "selected" : ""}`}
+                onClick={() => api.getDocument(d.id).then(setSelected)}
+              >
+                <span className="doc-tag">{d.type.replace(/_/g, " ")}</span>
+                <span className="doc-title">{d.title}</span>
+                <span className="doc-meta">
+                  <span className={`badge ${d.status}`}>{d.status}</span> v{d.current_version}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="card" style={{ flex: 2 }}>

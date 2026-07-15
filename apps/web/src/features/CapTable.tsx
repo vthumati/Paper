@@ -7,7 +7,9 @@ import {
   type SecurityClass,
   type Stakeholder,
 } from "../api";
+import Avatar from "../components/Avatar";
 import SecChip from "../components/SecChip";
+import StackedBar from "../components/StackedBar";
 import DownRoundCalc from "./DownRoundCalc";
 import FullyDilutedView from "./FullyDiluted";
 import ImportCapTable from "./ImportCapTable";
@@ -150,6 +152,14 @@ export default function CapTable({
                 Total shares: <strong>{capTable.total_shares.toLocaleString()}</strong> · Total
                 invested: <strong>₹{capTable.total_invested}</strong>
               </p>
+              <div style={{ margin: "12px 0 16px" }}>
+                <StackedBar
+                  segments={aggregate(capTable.holders, "class").map((r) => ({
+                    label: r.name ?? "?",
+                    value: r.quantity,
+                  }))}
+                />
+              </div>
               <div style={{ marginBottom: 8 }}>
                 {(
                   [
@@ -183,7 +193,12 @@ export default function CapTable({
                   <tbody>
                     {capTable.holders.map((r, i) => (
                       <tr key={i}>
-                        <td>{r.stakeholder_name}</td>
+                        <td>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                            <Avatar name={r.stakeholder_name} />
+                            {r.stakeholder_name}
+                          </span>
+                        </td>
                         <td>{r.stakeholder_type}</td>
                         <td><SecChip name={r.security_class} kind={r.kind} /></td>
                         <td>{r.quantity.toLocaleString()}</td>
@@ -211,7 +226,10 @@ export default function CapTable({
                           {pivot === "class" ? (
                             <SecChip name={r.name} kind={r.sub} />
                           ) : (
-                            r.name
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                              <Avatar name={r.name} />
+                              {r.name}
+                            </span>
                           )}
                         </td>
                         {pivot === "holder" && <td>{r.sub}</td>}
