@@ -1,7 +1,8 @@
 import datetime
 import enum
+from decimal import Decimal
 
-from sqlalchemy import Date, Enum, ForeignKey, String
+from sqlalchemy import JSON, Date, Enum, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin, gen_id
@@ -33,3 +34,39 @@ class LegalEntity(Base, TimestampMixin):
     # Lifecycle stage (companies only): inception / seed / series / ipo.
     # Drives the guided checklist and which features are surfaced (app/stages.py).
     stage: Mapped[str] = mapped_column(String(16), default="inception")
+
+
+class IncorporationStatus(str, enum.Enum):
+    DRAFT = "draft"
+    DOCS_GENERATED = "docs_generated"
+    FILED = "filed"
+    REGISTERED = "registered"
+
+
+class Incorporation(Base, TimestampMixin):
+    """A guided incorporation (FR-B, the Atlas-style wizard): one intake →
+    filing pack (SPICe+/eMoA/eAoA) against a pre-registration entity → SRN →
+    CIN, at which point founder shares are allotted, directors registered and
+    the compliance calendar generated."""
+
+    __tablename__ = "incorporations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id"), index=True)
+    status: Mapped[IncorporationStatus] = mapped_column(
+        Enum(IncorporationStatus), default=IncorporationStatus.DRAFT
+    )
+    name_options: Mapped[list] = mapped_column(JSON)  # RUN candidates, preferred first
+    company_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    entity_type: Mapped[EntityType] = mapped_column(Enum(EntityType), default=EntityType.PVT_LTD)
+    state: Mapped[str] = mapped_column(String(64))
+    registered_office: Mapped[str] = mapped_column(Text)
+    authorised_capital: Mapped[Decimal] = mapped_column(Numeric(20, 2))
+    paid_up_capital: Mapped[Decimal] = mapped_column(Numeric(20, 2))
+    par_value: Mapped[Decimal] = mapped_column(Numeric(18, 4), default=Decimal("10"))
+    fy_end: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    # [{name, email?, din?, shares, is_director}]
+    founders: Mapped[list] = mapped_column(JSON)
+    srn: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    cin: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    entity_id: Mapped[str | None] = mapped_column(String(32), nullable=True)

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import IncorporationWizard from "../features/IncorporationWizard";
 import { api, type Entity } from "../api";
 
 export default function Entities() {
@@ -36,8 +37,11 @@ export default function Entities() {
         </a>
       </p>
       <h1>Legal entities</h1>
+
+      <IncorporationWizard tenantId={tenantId} onRegistered={load} />
+
       <div className="card">
-        <h2>Add entity</h2>
+        <h2>Add an existing entity</h2>
         <form onSubmit={create}>
           <div className="row">
             <div>

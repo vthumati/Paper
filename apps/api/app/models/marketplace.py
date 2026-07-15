@@ -13,6 +13,8 @@ class ProviderCategory(str, enum.Enum):
     VALUER = "valuer"
     RTA = "rta"
     FUND_ADMIN = "fund_admin"
+    REGISTERED_OFFICE = "registered_office"  # registered/virtual office providers
+    VIRTUAL_CFO = "virtual_cfo"
 
 
 class EngagementStatus(str, enum.Enum):
