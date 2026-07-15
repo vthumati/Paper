@@ -22,6 +22,10 @@ class SPV(Base, TimestampMixin):
     portco_entity_id: Mapped[str | None] = mapped_column(
         ForeignKey("legal_entities.id"), nullable=True
     )
+    # deal economics (FR-S-4): carry mirrors into the fund profile on this
+    # entity; min_ticket gates portal commitments
+    carry_pct: Mapped[Decimal] = mapped_column(Numeric(6, 4), default=Decimal("0"))
+    min_ticket: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
     created_by: Mapped[str] = mapped_column(String(32))
 
     co_investors: Mapped[list["CoInvestor"]] = relationship(
@@ -39,6 +43,8 @@ class CoInvestor(Base, TimestampMixin):
     commitment: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
     contributed: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
     paid: Mapped[bool] = mapped_column(Boolean, default=False)
+    # syndicate flow (FR-S-3): invited -> committed -> funded
+    status: Mapped[str] = mapped_column(String(16), default="invited")
 
     spv: Mapped[SPV] = relationship(back_populates="co_investors")
 

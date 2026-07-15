@@ -23,7 +23,10 @@ export default function Spv({ entityId }: { entityId: string }) {
   const [target, setTarget] = useState("");
   const [portco, setPortco] = useState("");
   const [ciName, setCiName] = useState("");
+  const [ciEmail, setCiEmail] = useState("");
   const [ciCommit, setCiCommit] = useState("");
+  const [carry, setCarry] = useState("");
+  const [minTicket, setMinTicket] = useState("");
   const [invSc, setInvSc] = useState("");
   const [invQty, setInvQty] = useState("");
   const [invPrice, setInvPrice] = useState("");
@@ -100,29 +103,74 @@ export default function Spv({ entityId }: { entityId: string }) {
         </h2>
         {summary && (
           <p className="muted">
-            {summary.co_investor_count} co-investors · Committed ₹{summary.committed} ·
-            Contributed ₹{summary.contributed}
+            {summary.co_investor_count} co-investors ({summary.by_status.invited} invited ·{" "}
+            {summary.by_status.committed} committed · {summary.by_status.funded} funded) ·
+            Committed ₹{summary.committed} · Contributed ₹{summary.contributed}
           </p>
         )}
+        <p className="muted">
+          Deal terms: carry {(Number(spv.carry_pct) * 100).toFixed(1)}% · minimum ticket ₹
+          {spv.min_ticket}
+        </p>
       </div>
 
       <div className="row">
         <div className="card" style={{ flex: 1 }}>
-          <h3>Add co-investor</h3>
+          <h3>Deal terms</h3>
+          <p className="muted">
+            Sets the SPV's economics and provisions its fund profile (carry, no hurdle or
+            management fee).
+          </p>
+          <div className="row">
+            <div>
+              <label>Carry (%)</label>
+              <input value={carry} onChange={(e) => setCarry(e.target.value)} placeholder="20" />
+            </div>
+            <div>
+              <label>Minimum ticket (₹)</label>
+              <input value={minTicket} onChange={(e) => setMinTicket(e.target.value)} placeholder="500000" />
+            </div>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <button
+              disabled={!carry}
+              onClick={guard(async () => {
+                await api.setSPVTerms(spv.id, {
+                  carry_pct: (Number(carry) / 100).toString(),
+                  min_ticket: minTicket || "0",
+                });
+                setCarry("");
+                setMinTicket("");
+              })}
+            >
+              Save terms
+            </button>
+          </div>
+        </div>
+
+        <div className="card" style={{ flex: 1 }}>
+          <h3>Invite co-investor</h3>
           <label>Name</label>
           <input value={ciName} onChange={(e) => setCiName(e.target.value)} />
-          <label>Commitment (₹)</label>
+          <label>Email (they commit from their portal)</label>
+          <input value={ciEmail} onChange={(e) => setCiEmail(e.target.value)} />
+          <label>Commitment (₹ — leave blank to let them commit)</label>
           <input value={ciCommit} onChange={(e) => setCiCommit(e.target.value)} />
           <div style={{ marginTop: 10 }}>
             <button
-              disabled={!ciName || !ciCommit}
+              disabled={!ciName || (!ciCommit && !ciEmail)}
               onClick={guard(async () => {
-                await api.addCoInvestor(spv.id, { name: ciName, commitment: ciCommit });
+                await api.addCoInvestor(spv.id, {
+                  name: ciName,
+                  email: ciEmail || null,
+                  commitment: ciCommit || "0",
+                });
                 setCiName("");
+                setCiEmail("");
                 setCiCommit("");
               })}
             >
-              Add
+              {ciCommit ? "Add" : "Invite"}
             </button>
           </div>
         </div>
@@ -177,6 +225,8 @@ export default function Spv({ entityId }: { entityId: string }) {
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Email</th>
+                <th>Status</th>
                 <th>Commitment</th>
                 <th>Contributed</th>
                 <th></th>
@@ -186,17 +236,21 @@ export default function Spv({ entityId }: { entityId: string }) {
               {coInvestors.map((c) => (
                 <tr key={c.id}>
                   <td>{c.name}</td>
+                  <td>{c.email ?? "—"}</td>
+                  <td>
+                    <span className={`badge ${c.status === "funded" ? "complete" : ""}`}>
+                      {c.status}
+                    </span>
+                  </td>
                   <td>₹{c.commitment}</td>
                   <td>₹{c.contributed}</td>
                   <td>
-                    {c.paid ? (
-                      <span className="badge complete">paid</span>
-                    ) : (
+                    {c.status === "committed" && (
                       <button
                         className="secondary"
                         onClick={guard(() => api.contributeCoInvestor(spv.id, c.id))}
                       >
-                        Mark contributed
+                        Mark funded
                       </button>
                     )}
                   </td>
