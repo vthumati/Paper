@@ -53,6 +53,56 @@ export default function ScenarioModeling({ entityId }: { entityId: string }) {
         )}
       </div>
 
+      {scenarios.length > 0 && (() => {
+        const latest = scenarios[scenarios.length - 1];
+        const hasSafes = latest.safe_shares_converted > 0;
+        const delta = (curr: number, prev: number) => {
+          const d = Math.round((curr - prev) * 10000) / 10000;
+          if (d < 0) return <span className="delta-down"> ▼ {Math.abs(d)}%</span>;
+          if (d > 0) return <span className="delta-up"> ▲ {d}%</span>;
+          return null;
+        };
+        return (
+          <div style={{ marginTop: 12 }}>
+            <h4 style={{ margin: "4px 0" }}>
+              Stage breakdown — latest scenario (₹{Number(latest.new_money).toLocaleString()} @ pre ₹
+              {Number(latest.pre_money).toLocaleString()})
+            </h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>Holder</th>
+                  <th>Today</th>
+                  {hasSafes && <th>After SAFEs convert</th>}
+                  <th>After the round</th>
+                </tr>
+              </thead>
+              <tbody>
+                {latest.rows.map((r) => (
+                  <tr key={r.name ?? "—"}>
+                    <td>{r.name ?? "—"}</td>
+                    <td>
+                      {r.before_pct}%
+                      <div className="muted">{r.before.toLocaleString()} shares</div>
+                    </td>
+                    {hasSafes && (
+                      <td>
+                        {r.after_safes_pct}%{delta(r.after_safes_pct, r.before_pct)}
+                      </td>
+                    )}
+                    <td>
+                      {r.after_pct}%{delta(r.after_pct, hasSafes ? r.after_safes_pct : r.before_pct)}
+                      <div className="muted">{r.after.toLocaleString()} shares</div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
+
+      {scenarios.length > 1 && <h4 style={{ margin: "14px 0 4px" }}>Scenario comparison</h4>}
       {scenarios.length > 0 && (
         <table style={{ marginTop: 10 }}>
           <thead>
@@ -79,8 +129,11 @@ export default function ScenarioModeling({ entityId }: { entityId: string }) {
                       {r ? (
                         <>
                           {r.after_pct}%{" "}
-                          {r.dilution_pct !== 0 && (
-                            <span className="muted">({r.dilution_pct > 0 ? "+" : ""}{r.dilution_pct})</span>
+                          {r.dilution_pct < 0 && (
+                            <span className="delta-down">▼ {Math.abs(r.dilution_pct)}%</span>
+                          )}
+                          {r.dilution_pct > 0 && (
+                            <span className="delta-up">▲ {r.dilution_pct}%</span>
                           )}
                         </>
                       ) : "—"}

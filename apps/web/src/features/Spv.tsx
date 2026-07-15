@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Stepper from "../components/Stepper";
 import { useGuard } from "../hooks";
 import {
   api,
@@ -238,9 +239,15 @@ export default function Spv({ entityId }: { entityId: string }) {
                   <td>{c.name}</td>
                   <td>{c.email ?? "—"}</td>
                   <td>
-                    <span className={`badge ${c.status === "funded" ? "complete" : ""}`}>
-                      {c.status}
-                    </span>
+                    <Stepper
+                      steps={["invited", "committed", "funded"].map((s, i) => {
+                        const at = ["invited", "committed", "funded"].indexOf(c.status);
+                        return {
+                          label: s,
+                          state: i < at ? "done" : i === at ? (s === "funded" ? "done" : "active") : "todo",
+                        };
+                      })}
+                    />
                   </td>
                   <td>₹{c.commitment}</td>
                   <td>₹{c.contributed}</td>

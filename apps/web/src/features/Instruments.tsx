@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
 import KindBadge from "../components/KindBadge";
+import Stepper, { type StepState } from "../components/Stepper";
 import { useGuard } from "../hooks";
-import { api, type Instrument, type SecurityClass } from "../api";
+import { api, type Instrument, type InstrumentExecution, type SecurityClass } from "../api";
+
+function execSteps(ex: InstrumentExecution): { label: string; state: StepState }[] {
+  const state = (value: string | null, doneValues: string[]): StepState =>
+    value === null ? "todo" : doneValues.includes(value) ? "done" : "active";
+  return [
+    { label: "board", state: state(ex.board, ["passed"]) },
+    { label: "agreement", state: state(ex.agreement, ["signed"]) },
+    { label: "e-sign", state: state(ex.signature, ["completed"]) },
+  ];
+}
 
 export default function Instruments({
   entityId,
@@ -11,6 +22,7 @@ export default function Instruments({
   onChanged?: () => void;
 }) {
   const [instruments, setInstruments] = useState<Instrument[]>([]);
+  const [execution, setExecution] = useState<Record<string, InstrumentExecution>>({});
   const [classes, setClasses] = useState<SecurityClass[]>([]);
   const { error, setError, guard } = useGuard(() => load());
   const [note, setNote] = useState("");
@@ -29,12 +41,14 @@ export default function Instruments({
 
   async function load() {
     try {
-      const [i, c] = await Promise.all([
+      const [i, c, ex] = await Promise.all([
         api.listInstruments(entityId),
         api.listSecurityClasses(entityId),
+        api.instrumentsExecution(entityId),
       ]);
       setInstruments(i);
       setClasses(c);
+      setExecution(ex);
       if (!convClass && c.length) setConvClass(c[0].id);
     } catch (e) {
       setError((e as Error).message);
@@ -101,10 +115,12 @@ export default function Instruments({
       {instruments.length > 0 && (
         <table style={{ marginTop: 10 }}>
           <thead>
-            <tr><th>Investor</th><th>Kind</th><th>Type</th><th>Principal</th><th>Cap</th><th>Disc</th><th>Status</th><th></th></tr>
+            <tr><th>Investor</th><th>Kind</th><th>Type</th><th>Principal</th><th>Cap</th><th>Disc</th><th>Status</th><th>Execution</th><th></th></tr>
           </thead>
           <tbody>
-            {instruments.map((x) => (
+            {instruments.map((x) => {
+              const ex = execution[x.id];
+              return (
               <tr key={x.id}>
                 <td>{x.investor_name}</td>
                 <td><KindBadge kind={x.investor_kind} /></td>
@@ -116,6 +132,33 @@ export default function Instruments({
                   <span className={`badge ${x.status === "converted" ? "complete" : ""}`}>
                     {x.status}{x.converted_shares ? ` (${x.converted_shares.toLocaleString()})` : ""}
                   </span>
+                </td>
+                <td>
+                  {ex && <Stepper steps={execSteps(ex)} />}
+                  <br />
+                  {ex && !ex.board && (
+                    <button
+                      className="secondary"
+                      title="Draft the circular board resolution approving this issuance"
+                      onClick={guard(async () => {
+                        await api.requestInstrumentBoardApproval(x.id);
+                        setNote(`Board approval drafted for ${x.investor_name} — pass it in Board & Resolutions.`);
+                      })}
+                    >
+                      Board approval
+                    </button>
+                  )}{" "}
+                  {ex && !ex.agreement && (
+                    <button
+                      className="secondary"
+                      onClick={guard(async () => {
+                        await api.generateInstrumentAgreement(x.id);
+                        setNote(`Agreement generated for ${x.investor_name} (see Documents).`);
+                      })}
+                    >
+                      Agreement
+                    </button>
+                  )}
                 </td>
                 <td>
                   {x.status === "outstanding" && convClass && (
@@ -135,7 +178,8 @@ export default function Instruments({
                   )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       )}

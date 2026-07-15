@@ -1,16 +1,45 @@
 import { useEffect, useState } from "react";
-import { Link, Outlet } from "react-router-dom";
-import { api, type AppNotification } from "../api";
+import { Link, Outlet, useNavigate } from "react-router-dom";
+import { api, type AppNotification, type Entity } from "../api";
 import { useAuth } from "../auth";
+import CommandPalette from "./CommandPalette";
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const nav = useNavigate();
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
   const [open, setOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [workspaces, setWorkspaces] = useState<(Entity & { tenant_name: string })[]>([]);
+
+  const loadWorkspaces = () =>
+    api
+      .listTenants()
+      .then(async (tenants) => {
+        const all = await Promise.all(
+          tenants.map(async (t) => {
+            const es = await api.listEntities(t.id).catch(() => []);
+            return es.map((e) => ({ ...e, tenant_name: t.name }));
+          })
+        );
+        setWorkspaces(all.flat());
+      })
+      .catch(() => {});
 
   const load = () => api.notifications().then(setNotifs).catch(() => {});
   useEffect(() => {
     load();
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   const unread = notifs.filter((n) => !n.read).length;
@@ -29,7 +58,31 @@ export default function Layout() {
         <span className="muted" style={{ color: "#cbd5e1" }}>
           OS for corporate legal
         </span>
+        <details className="actions-menu" onToggle={(e) => {
+          if ((e.target as HTMLDetailsElement).open && workspaces.length === 0) loadWorkspaces();
+        }}>
+          <summary>Workspaces ▾</summary>
+          <div className="actions-list" style={{ left: 0, right: "auto", maxHeight: 320, overflowY: "auto" }}>
+            {workspaces.length === 0 && <span className="muted" style={{ padding: 4 }}>Loading…</span>}
+            {workspaces.map((w) => (
+              <button
+                key={w.id}
+                className="secondary"
+                onClick={(ev) => {
+                  (ev.currentTarget.closest("details") as HTMLDetailsElement).open = false;
+                  nav(`/entities/${w.id}`);
+                }}
+              >
+                <span className="avatar">{w.name.charAt(0).toUpperCase()}</span>{" "}
+                {w.name} <span className="muted">· {w.tenant_name}</span>
+              </button>
+            ))}
+          </div>
+        </details>
         <span className="spacer" />
+        <button className="secondary" onClick={() => setPaletteOpen(true)} title="Quick search">
+          Search <span style={{ opacity: 0.7 }}>Ctrl K</span>
+        </button>
         <Link to="/portal" style={{ fontSize: 14 }}>
           Portal
         </Link>
@@ -100,6 +153,7 @@ export default function Layout() {
       <div className="container">
         <Outlet />
       </div>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </>
   );
 }

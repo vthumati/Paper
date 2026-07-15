@@ -68,7 +68,11 @@ export default function Diligence({
               key={f.code}
               style={{ borderTop: "1px solid var(--border)", padding: "10px 0" }}
             >
-              <span className={`badge ${f.severity === "high" ? "" : "complete"}`}>
+              <span
+                className={`badge ${
+                  f.severity === "high" ? "danger" : f.severity === "medium" ? "active" : ""
+                }`}
+              >
                 {SEV_LABEL[f.severity]}
               </span>{" "}
               <strong>{f.title}</strong>

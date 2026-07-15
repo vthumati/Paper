@@ -257,6 +257,7 @@ export interface DocTemplate {
   key: string;
   name: string;
   doc_type: string;
+  body: string;
 }
 export interface Document {
   id: string;
@@ -686,6 +687,7 @@ export interface ScenarioRow {
   type: string | null;
   before: number;
   before_pct: number;
+  after_safes_pct: number;
   after: number;
   after_pct: number;
   dilution_pct: number;
@@ -843,6 +845,25 @@ export interface PublicFunnelInfo {
   instrument: string | null;
   target_amount: string | null;
   has_data_room: boolean;
+}
+export interface TermSheetFinding {
+  code: string;
+  severity: "red" | "amber" | "ok";
+  title: string;
+  detail: string;
+  snippet: string | null;
+}
+export interface TermSheetScan {
+  verdict: string;
+  counts: Record<string, number>;
+  rules_run: number;
+  findings: TermSheetFinding[];
+  disclaimer: string;
+}
+export interface InstrumentExecution {
+  board: string | null;
+  agreement: string | null;
+  signature: string | null;
 }
 export interface PortalDashboard {
   summary: {
@@ -1222,6 +1243,14 @@ export const api = {
     post<{ member_id: string; lapsed_options: number; grants_affected: number }>(
       `/team/${mid}/offboard`, b
     ),
+  scanTermSheet: (eid: string, text: string) =>
+    post<TermSheetScan>(`/entities/${eid}/termsheet/scan`, { text }),
+  instrumentsExecution: (eid: string) =>
+    get<Record<string, InstrumentExecution>>(`/entities/${eid}/instruments/execution`),
+  generateInstrumentAgreement: (iid: string) =>
+    post<Document>(`/instruments/${iid}/agreement`),
+  requestInstrumentBoardApproval: (iid: string) =>
+    post<Resolution>(`/instruments/${iid}/board-approval`),
   closeRound: (rid: string) =>
     post<{ issued: number; instruments_converted: number; foreign_investors: boolean }>(
       `/rounds/${rid}/close`

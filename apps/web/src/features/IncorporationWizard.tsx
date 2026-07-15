@@ -37,6 +37,32 @@ export default function IncorporationWizard({
   const setFounder = (i: number, patch: Partial<IncorporationFounder>) =>
     setFounders(founders.map((f, j) => (j === i ? { ...f, ...patch } : f)));
 
+  // live SPICe+ summary + Pulley-style pending-items notice
+  const subscribed = founders.reduce((s, f) => s + (f.shares || 0), 0);
+  const directorCount = founders.filter((f) => f.is_director && f.name).length;
+  const missing: string[] = [];
+  if (!name1) missing.push("proposed name");
+  if (!office) missing.push("registered office");
+  if (founders.some((f) => !f.name)) missing.push("founder names");
+  if (founders.some((f) => !f.shares)) missing.push("founder shares");
+  if (directorCount < 2) missing.push("at least 2 directors");
+  if (Number(paidCap) > Number(authCap)) missing.push("paid-up capital exceeds authorised");
+  if (subscribed * Number(par) > Number(authCap)) missing.push("subscription exceeds authorised capital");
+  const spicePreview =
+    `SPICe+ (INCORPORATION) — SUMMARY\n` +
+    `Proposed company: ${name1 || "‹name›"}\n` +
+    `${name2 ? `Alternate name: ${name2}\n` : ""}` +
+    `State: ${state || "‹state›"}\nRegistered office: ${office || "‹address›"}\n\n` +
+    `Authorised capital: INR ${Number(authCap || 0).toLocaleString()}\n` +
+    `Paid-up capital:    INR ${Number(paidCap || 0).toLocaleString()}\n` +
+    `Par value:          INR ${par}/share\n\n` +
+    `SUBSCRIBERS (${subscribed.toLocaleString()} shares subscribed)\n` +
+    founders
+      .map((f) => ` - ${f.name || "‹founder›"} — ${(f.shares || 0).toLocaleString()} shares` +
+        `${f.is_director ? " · director" : ""}${f.din ? ` · DIN ${f.din}` : ""}`)
+      .join("\n") +
+    `\n\nPack: SPICe+ summary · eMoA · eAoA · founder IP assignments`;
+
   const act = (fn: () => Promise<unknown>) => async () => {
     setError("");
     setNote("");
@@ -64,7 +90,8 @@ export default function IncorporationWizard({
       {note && <p>{note}</p>}
 
       {open && (
-        <>
+        <div className="row">
+        <div style={{ flex: 1.2, minWidth: 340 }}>
           <div className="row">
             <div>
               <label>Proposed name (preferred)</label>
@@ -101,6 +128,11 @@ export default function IncorporationWizard({
               </label>
             </div>
           ))}
+          {missing.length > 0 && (
+            <p className="error" style={{ marginTop: 8 }}>
+              {missing.length} item{missing.length > 1 ? "s" : ""} pending: {missing.join(", ")}
+            </p>
+          )}
           <button className="secondary" onClick={() => setFounders([...founders, { ...EMPTY_FOUNDER }])}>
             + Add founder
           </button>{" "}
@@ -123,7 +155,15 @@ export default function IncorporationWizard({
           >
             Generate filing pack
           </button>
-        </>
+        </div>
+
+        <div style={{ flex: 1, minWidth: 300 }}>
+          <label>Live preview — SPICe+ summary</label>
+          <div className="paper-sheet" style={{ fontSize: 13, padding: "22px 26px" }}>
+            {spicePreview}
+          </div>
+        </div>
+        </div>
       )}
 
       {incs.length > 0 && (

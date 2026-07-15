@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   api,
+  downloadFile,
   type CapTable as CapTableT,
   type SecurityClass,
   type Stakeholder,
@@ -93,6 +94,23 @@ export default function CapTable({
               </button>
             </>
           )}
+          <details className="actions-menu">
+            <summary>Actions ▾</summary>
+            <div className="actions-list">
+              <button
+                className="secondary"
+                onClick={() => downloadFile(`/entities/${entityId}/cap-table.csv`, "cap-table.csv")}
+              >
+                Download cap table (CSV)
+              </button>
+              <button
+                className="secondary"
+                onClick={() => api.downloadImportTemplate(entityId)}
+              >
+                Import template (CSV)
+              </button>
+            </div>
+          </details>
         </h2>
         {view === "issued" ? (
           !capTable || capTable.holders.length === 0 ? (

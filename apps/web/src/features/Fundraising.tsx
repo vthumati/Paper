@@ -1,6 +1,17 @@
 import { useEffect, useState } from "react";
 import KindBadge from "../components/KindBadge";
+import Stepper, { type StepState } from "../components/Stepper";
 import { useGuard } from "../hooks";
+
+const PIPELINE_STAGES = ["contacted", "meeting", "diligence", "term_sheet", "committed"];
+
+function stageSteps(stage: string): { label: string; state: StepState }[] {
+  const at = PIPELINE_STAGES.indexOf(stage);
+  return PIPELINE_STAGES.map((s, i) => ({
+    label: s.replace("_", " "),
+    state: i < at ? "done" : i === at ? (s === "committed" ? "done" : "active") : "todo",
+  }));
+}
 import {
   api,
   type DataRoom,
@@ -302,7 +313,13 @@ export default function Fundraising({ entityId }: { entityId: string }) {
                     <td>{p.name}</td>
                     <td>{p.firm ?? "—"}</td>
                     <td>{p.email ?? "—"}</td>
-                    <td><span className="badge">{p.stage}</span></td>
+                    <td>
+                      {p.stage === "passed" ? (
+                        <span className="badge skipped">passed</span>
+                      ) : (
+                        <Stepper steps={stageSteps(p.stage)} />
+                      )}
+                    </td>
                     <td>{p.check_size ? `₹${p.check_size}` : "—"}</td>
                     <td>{p.data_room_views}</td>
                     <td>

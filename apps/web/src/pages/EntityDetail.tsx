@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, type Entity, type StageGuide } from "../api";
-import CapTable from "../features/CapTable";
-import CapTableAdvanced from "../features/CapTableAdvanced";
-import RightsIssues from "../features/RightsIssues";
+import CapTableHub from "../features/CapTableHub";
+import FundraisingHub from "../features/FundraisingHub";
 import Workflows from "../features/Workflows";
 import Documents from "../features/Documents";
 import DataRoom from "../features/DataRoom";
@@ -11,14 +10,10 @@ import Compliance from "../features/Compliance";
 import Fund from "../features/Fund";
 import Esop from "../features/Esop";
 import ExerciseRequests from "../features/ExerciseRequests";
-import ScenarioModeling from "../features/ScenarioModeling";
 import Valuations from "../features/Valuations";
 import Services from "../features/Services";
 import Admin from "../features/Admin";
 import Spv from "../features/Spv";
-import Fundraising from "../features/Fundraising";
-import Pipeline from "../features/Pipeline";
-import Instruments from "../features/Instruments";
 import Governance from "../features/Governance";
 import Dashboard from "../features/Dashboard";
 import Files from "../features/Files";
@@ -29,6 +24,7 @@ import StartupIndia from "../features/StartupIndia";
 import Finance from "../features/Finance";
 import Registers from "../features/Registers";
 import Diligence from "../features/Diligence";
+import OfferBuilder from "../features/OfferBuilder";
 
 type Tab =
   | "dashboard"
@@ -102,10 +98,20 @@ const TAB_DEFS: {
 export default function EntityDetail() {
   const { entityId = "" } = useParams();
   const nav = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [entity, setEntity] = useState<Entity | null>(null);
   const [guide, setGuide] = useState<StageGuide | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [tab, setTab] = useState<Tab>("dashboard");
+
+  // ?tab= deep links (command palette, shared URLs); cleared once applied
+  useEffect(() => {
+    const wanted = searchParams.get("tab");
+    if (wanted && TAB_DEFS.some((t) => t.key === wanted)) {
+      setTab(wanted as Tab);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams]);
   const [capRefresh, setCapRefresh] = useState(0);
   const [error, setError] = useState("");
 
@@ -292,43 +298,37 @@ export default function EntityDetail() {
         </>
       )}
       {tab === "files" && <Files entityId={entityId} />}
-      {tab === "team" && <Team entityId={entityId} />}
+      {tab === "team" && (
+        <>
+          <OfferBuilder entityId={entityId} />
+          <Team entityId={entityId} />
+        </>
+      )}
       {tab === "startup" && <StartupIndia entityId={entityId} />}
       {tab === "finance" && <Finance entityId={entityId} />}
       {tab === "registers" && <Registers entityId={entityId} />}
       {tab === "contracts" && <Contracts entityId={entityId} />}
       {tab === "investors" && <Investors entityId={entityId} />}
       {tab === "captable" && (
-        <>
-          <CapTable
-            entityId={entityId}
-            refreshKey={capRefresh}
-            features={{ fully_diluted: feat("fully_diluted"), anti_dilution: feat("anti_dilution") }}
-          />
-          <CapTableAdvanced
-            entityId={entityId}
-            onChanged={() => setCapRefresh((x) => x + 1)}
-            features={{
-              transfers: feat("transfers"),
-              conversions: feat("conversions"),
-              corporate_actions: feat("corporate_actions"),
-              founder_vesting: feat("founder_vesting"),
-              waterfall: feat("waterfall"),
-              demat: feat("demat"),
-            }}
-          />
-          {feat("rights_issues") && (
-            <RightsIssues entityId={entityId} onChanged={() => setCapRefresh((x) => x + 1)} />
-          )}
-        </>
+        <CapTableHub
+          entityId={entityId}
+          refreshKey={capRefresh}
+          onChanged={() => setCapRefresh((x) => x + 1)}
+          features={{
+            fully_diluted: feat("fully_diluted"),
+            anti_dilution: feat("anti_dilution"),
+            transfers: feat("transfers"),
+            conversions: feat("conversions"),
+            corporate_actions: feat("corporate_actions"),
+            founder_vesting: feat("founder_vesting"),
+            waterfall: feat("waterfall"),
+            demat: feat("demat"),
+          }}
+          showRights={feat("rights_issues")}
+        />
       )}
       {tab === "fundraising" && (
-        <>
-          <Fundraising entityId={entityId} />
-          <ScenarioModeling entityId={entityId} />
-          <Instruments entityId={entityId} onChanged={() => setCapRefresh((x) => x + 1)} />
-          <Pipeline entityId={entityId} />
-        </>
+        <FundraisingHub entityId={entityId} onChanged={() => setCapRefresh((x) => x + 1)} />
       )}
       {tab === "governance" && <Governance entityId={entityId} />}
       {tab === "workflows" && <Workflows entityId={entityId} />}

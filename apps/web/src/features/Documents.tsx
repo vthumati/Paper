@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { api, type Document, type DocTemplate } from "../api";
+import { placeholders, renderPreview } from "../lib/templates";
 
 export default function Documents({ entityId }: { entityId: string }) {
   const [templates, setTemplates] = useState<DocTemplate[]>([]);
   const [docs, setDocs] = useState<Document[]>([]);
   const [selected, setSelected] = useState<Document | null>(null);
   const [tplKey, setTplKey] = useState("");
-  const [data, setData] = useState("{}");
+  const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
 
   async function load() {
@@ -25,21 +26,19 @@ export default function Documents({ entityId }: { entityId: string }) {
 
   async function create() {
     setError("");
-    let parsed: object;
     try {
-      parsed = JSON.parse(data || "{}");
-    } catch {
-      setError("Data must be valid JSON");
-      return;
-    }
-    try {
-      const doc = await api.createDocument(entityId, { template_key: tplKey, data: parsed });
+      const doc = await api.createDocument(entityId, { template_key: tplKey, data: values });
       setSelected(doc);
+      setValues({});
       await load();
     } catch (e) {
       setError((e as Error).message);
     }
   }
+
+  const tpl = templates.find((t) => t.key === tplKey);
+  const fields = tpl ? placeholders(tpl.body) : [];
+  const missing = fields.filter((f) => !values[f]?.trim());
 
   async function requestSignature() {
     if (!selected) return;
@@ -63,25 +62,45 @@ export default function Documents({ entityId }: { entityId: string }) {
       <div className="card">
         <h2>Generate document</h2>
         <div className="row">
-          <div>
+          <div style={{ flex: 1, minWidth: 260 }}>
             <label>Template</label>
-            <select value={tplKey} onChange={(e) => setTplKey(e.target.value)}>
+            <select
+              value={tplKey}
+              onChange={(e) => { setTplKey(e.target.value); setValues({}); }}
+            >
               {templates.map((t) => (
                 <option key={t.key} value={t.key}>{t.name}</option>
               ))}
             </select>
+            {tpl && fields.map((f) => (
+              <div key={f}>
+                <label>{f.replace(/_/g, " ")}</label>
+                <input
+                  value={values[f] ?? ""}
+                  onChange={(e) => setValues({ ...values, [f]: e.target.value })}
+                />
+              </div>
+            ))}
+            {missing.length > 0 && (
+              <p className="error" style={{ marginTop: 10 }}>
+                {missing.length} missing field{missing.length > 1 ? "s" : ""}:{" "}
+                {missing.map((m) => m.replace(/_/g, " ")).join(", ")}
+              </p>
+            )}
+            <div style={{ marginTop: 10 }}>
+              <button onClick={create} disabled={!tplKey}>Generate</button>
+            </div>
           </div>
-        </div>
-        <label>Merge data (JSON)</label>
-        <textarea
-          rows={4}
-          value={data}
-          onChange={(e) => setData(e.target.value)}
-          style={{ fontFamily: "monospace" }}
-          placeholder='{"company": "Acme Pvt Ltd"}'
-        />
-        <div style={{ marginTop: 10 }}>
-          <button onClick={create} disabled={!tplKey}>Generate</button>
+          <div style={{ flex: 1.4, minWidth: 300 }}>
+            <label>Live preview</label>
+            {tpl ? (
+              <div className="paper-sheet" style={{ fontSize: 13, padding: "24px 28px" }}>
+                {renderPreview(tpl.body, values)}
+              </div>
+            ) : (
+              <p className="muted">Pick a template.</p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -117,7 +136,7 @@ export default function Documents({ entityId }: { entityId: string }) {
                   Download PDF
                 </button>
               </p>
-              <pre>{selected.content}</pre>
+              <div className="paper-sheet" style={{ marginBottom: 12 }}>{selected.content}</div>
               {selected.status !== "signed" && (
                 <button onClick={requestSignature}>Request &amp; complete e-signature</button>
               )}

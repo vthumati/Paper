@@ -1,10 +1,13 @@
 :root {
-  --navy: #1f3864;
-  --blue: #2e5496;
-  --light: #d9e2f3;
-  --border: #b4c6e7;
-  --bg: #f7f8fb;
-  --text: #1a1a1a;
+  /* warm cream + deep green identity; --navy/--blue keep their names as
+     the primary/accent roles used throughout the components */
+  --navy: #1e3a2f;
+  --blue: #2f6b52;
+  --light: #e7efe7;
+  --border: #d3ddd0;
+  --bg: #faf7f0;
+  --card: #fffdf8;
+  --text: #22271f;
   --muted: #6b7280;
   --ok: #157347;
   --warn: #b54708;
@@ -31,14 +34,14 @@ a:hover { text-decoration: underline; }
 .topbar a, .topbar button { color: #fff; }
 .container { max-width: 1040px; margin: 0 auto; padding: 20px; }
 .card {
-  background: #fff;
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
 }
-h1 { color: var(--navy); font-size: 24px; }
-h2 { color: var(--navy); font-size: 18px; margin-top: 0; }
+h1 { color: var(--navy); font-size: 26px; font-family: Georgia, "Times New Roman", serif; }
+h2 { color: var(--navy); font-size: 19px; margin-top: 0; font-family: Georgia, "Times New Roman", serif; }
 h3 { color: var(--blue); font-size: 15px; }
 button {
   background: var(--blue);
@@ -76,10 +79,115 @@ th { background: var(--light); }
 .badge.complete { background: #d1fae5; color: var(--ok); }
 .badge.skipped { background: #e5e7eb; color: var(--muted); }
 .badge.signed { background: #d1fae5; color: var(--ok); }
+.badge.danger { background: #fee4e2; color: #b42318; }
 .error { color: #b42318; font-size: 13px; }
 .muted { color: var(--muted); font-size: 13px; }
 pre { background: #f2f2f2; padding: 10px; border-radius: 6px; white-space: pre-wrap; font-size: 13px; }
+
+/* inline ownership-change chips (scenario modeler) */
+.delta-down { color: #b42318; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.delta-up { color: var(--ok); font-size: 12px; font-weight: 600; white-space: nowrap; }
+
+/* generated documents render as a paper sheet, not a code block */
+.paper-sheet {
+  background: #fffdf6;
+  border: 1px solid #e7dfc9;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px rgba(31, 56, 100, 0.10);
+  padding: 36px 44px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  color: #26221a;
+  max-width: 760px;
+}
+.paper-sheet::first-line { font-weight: 700; font-size: 17px; letter-spacing: 0.4px; }
+
+/* mini progress stepper (e.g. SAFE execution: board -> agreement -> e-sign) */
+.stepper { display: inline-flex; align-items: center; gap: 0; }
+.stepper .step { display: inline-flex; align-items: center; }
+.stepper .step-line { width: 18px; height: 2px; background: var(--border); margin: 0 2px; }
+.stepper .step.done .step-line, .stepper .step.active .step-line { background: var(--ok); }
+.stepper .step-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 2px solid var(--border); background: #fff; flex: 0 0 auto;
+}
+.stepper .step.done .step-dot { background: var(--ok); border-color: var(--ok); }
+.stepper .step.active .step-dot { background: #fff; border-color: var(--blue); }
+.stepper .step-label { font-size: 11px; color: var(--muted); margin: 0 4px 0 4px; }
+.stepper .step.done .step-label { color: var(--ok); }
+.stepper .step.active .step-label { color: var(--blue); font-weight: 600; }
 .list-item { padding: 8px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; cursor: pointer; background: #fff; }
 .list-item:hover { background: var(--light); }
 .list-item.selected { border-color: var(--navy); background: var(--light); }
 .auth-wrap { max-width: 380px; margin: 60px auto; }
+
+/* Ctrl/⌘-K command palette */
+.palette-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(20, 28, 45, 0.45);
+  display: flex; justify-content: center; align-items: flex-start;
+  padding-top: 12vh;
+}
+.palette {
+  width: 560px; max-width: 92vw;
+  background: #fff; border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+.palette input {
+  border: none; border-bottom: 1px solid var(--border); border-radius: 0;
+  padding: 14px 16px; font-size: 15px; outline: none;
+}
+.palette-results { max-height: 320px; overflow-y: auto; }
+.palette-item {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  padding: 9px 16px; cursor: pointer; font-size: 14px;
+}
+.palette-item.active { background: var(--light); }
+.palette-foot { padding: 7px 16px; border-top: 1px solid var(--border); font-size: 11px; }
+
+/* consolidated "Actions ▾" dropdown (cap table header) */
+.actions-menu { display: inline-block; position: relative; float: right; font-size: 14px; font-family: Calibri, "Segoe UI", Arial, sans-serif; }
+.actions-menu summary {
+  list-style: none; cursor: pointer; color: var(--blue);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 12px; background: var(--card); font-weight: 400;
+}
+.actions-menu summary::-webkit-details-marker { display: none; }
+.actions-menu[open] summary { background: var(--light); }
+.actions-list {
+  position: absolute; right: 0; top: 38px; z-index: 20;
+  background: #fff; border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px; min-width: 240px;
+  display: flex; flex-direction: column; gap: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+.actions-list button { text-align: left; }
+
+/* term-sheet scanner clause highlights */
+mark.red { background: #fee4e2; color: #7a271a; border-radius: 3px; padding: 0 2px; }
+mark.amber { background: #fde68a; color: #7a4d08; border-radius: 3px; padding: 0 2px; }
+mark.ok { background: #d1fae5; color: #115e45; border-radius: 3px; padding: 0 2px; }
+
+/* selectable compensation package cards (offer builder) */
+.pkg-cards { display: flex; gap: 12px; flex-wrap: wrap; margin: 10px 0; }
+.pkg-card {
+  flex: 1; min-width: 170px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--card); padding: 14px;
+}
+.pkg-card .pkg-tag {
+  display: inline-block; background: var(--navy); color: #fff;
+  border-radius: 12px; padding: 3px 12px; font-size: 12px; margin-bottom: 8px;
+}
+.pkg-card .pkg-label { font-size: 11px; color: var(--muted); margin-top: 8px; }
+.pkg-card .pkg-value { font-size: 17px; font-weight: 700; }
+
+/* workspace switcher avatar */
+.avatar {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 6px;
+  background: var(--blue); color: #fff; font-size: 12px; font-weight: 700;
+}
