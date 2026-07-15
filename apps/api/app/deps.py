@@ -24,7 +24,7 @@ from .models.crm import ProspectInvestor
 from .models.dataroom import DataRoom, DataRoomQuestion
 from .models.document import Document, SignatureRequest
 from .models.entity import LegalEntity
-from .models.esop import Grant
+from .models.esop import ExerciseRequest, Grant
 from .models.founders import FounderVesting
 from .models.fund import Deal, Fund
 from .models.governance import DirectorOfficer, Meeting, Resolution
@@ -164,6 +164,9 @@ DealCtx, deal_ctx = _entity_scoped(
     owner=lambda d, db: db.get(Fund, d.fund_id).entity_id,
 )
 GrantCtx, grant_ctx = _entity_scoped("grant", Grant, "grant_id", "Grant")
+ExerciseRequestCtx, exercise_request_ctx = _entity_scoped(
+    "request", ExerciseRequest, "request_id", "Exercise request"
+)
 EngagementCtx, engagement_ctx = _entity_scoped(
     "engagement", ServiceEngagement, "engagement_id", "Engagement"
 )

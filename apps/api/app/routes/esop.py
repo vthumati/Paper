@@ -1,12 +1,23 @@
 import datetime
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..clock import today_ist
 from ..db import get_db
-from ..deps import EntityCtx, GrantCtx, entity_ctx, grant_ctx, get_current_user, require_write
-from ..models.esop import ESOPScheme, Grant
+from ..deps import (
+    EntityCtx,
+    ExerciseRequestCtx,
+    GrantCtx,
+    entity_ctx,
+    exercise_request_ctx,
+    get_current_user,
+    grant_ctx,
+    require_write,
+)
+from ..models.captable import Stakeholder
+from ..models.esop import ESOPScheme, ExerciseRequest, ExerciseRequestStatus, Grant
 from ..models.identity import User
 from ..schemas import (
     ESOPSchemeIn,
@@ -15,6 +26,7 @@ from ..schemas import (
     EsopGrantOut,
     ExerciseIn,
     ExerciseOut,
+    ExerciseRequestDecideIn,
 )
 from ..services import esop as svc
 
@@ -84,6 +96,53 @@ def get_grant(
     db: Session = Depends(get_db),
 ):
     return svc.grant_view(db, ctx.grant, as_of or today_ist())
+
+
+# --- employee exercise requests (asked in the portal, decided here) ---
+@router.get("/entities/{entity_id}/exercise-requests")
+def list_exercise_requests(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)):
+    out = []
+    for r in db.query(ExerciseRequest).filter_by(entity_id=ctx.entity.id):
+        grant = db.get(Grant, r.grant_id)
+        sh = db.get(Stakeholder, grant.stakeholder_id) if grant else None
+        out.append({
+            "id": r.id,
+            "employee": sh.name if sh else None,
+            "grant_id": r.grant_id,
+            "quantity": r.quantity,
+            "cashless": r.cashless,
+            "status": r.status.value,
+        })
+    return out
+
+
+@router.post("/exercise-requests/{request_id}/decide")
+def decide_exercise_request(
+    body: ExerciseRequestDecideIn,
+    ctx: ExerciseRequestCtx = Depends(exercise_request_ctx),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    req = ctx.request
+    if req.status != ExerciseRequestStatus.OPEN:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Request is already decided")
+    if not body.approve:
+        req.status = ExerciseRequestStatus.REJECTED
+        db.commit()
+        return {"id": req.id, "status": req.status.value}
+    if not body.security_class_id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Choose the security class to issue into")
+    grant = db.get(Grant, req.grant_id)
+    ex = svc.exercise(
+        db, grant, req.quantity, body.security_class_id,
+        Decimal("0"),  # price off the current valuation (FR-L fallback)
+        today_ist(), cashless=req.cashless,
+    )
+    req.status = ExerciseRequestStatus.APPROVED
+    req.exercise_id = ex.id
+    db.commit()
+    return {"id": req.id, "status": req.status.value, "exercise_id": ex.id,
+            "net_shares": ex.net_shares, "perquisite_value": str(ex.perquisite_value)}
 
 
 @router.post("/esop/grants/{grant_id}/exercise", response_model=ExerciseOut, status_code=201)

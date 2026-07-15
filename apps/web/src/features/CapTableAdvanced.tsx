@@ -5,6 +5,7 @@ import {
   type FounderVesting,
   type SecurityClass,
   type Stakeholder,
+  type WaterfallRange,
   type WaterfallResult,
 } from "../api";
 
@@ -43,6 +44,8 @@ export default function CapTableAdvanced({
   // waterfall
   const [exit, setExit] = useState("");
   const [wf, setWf] = useState<WaterfallResult | null>(null);
+  const [rangeIn, setRangeIn] = useState("");
+  const [range, setRange] = useState<WaterfallRange | null>(null);
   // demat
   const [demat, setDemat] = useState<DematRec[]>([]);
   const [dSc, setDSc] = useState("");
@@ -316,6 +319,46 @@ export default function CapTableAdvanced({
               </tbody>
             </table>
           </>
+        )}
+
+        <div className="row" style={{ marginTop: 12 }}>
+          <input
+            placeholder="Compare exits, e.g. 100000000, 500000000"
+            value={rangeIn}
+            onChange={(e) => setRangeIn(e.target.value)}
+          />
+          <button
+            style={{ flex: "0 0 auto" }}
+            disabled={!rangeIn}
+            onClick={async () => {
+              setError("");
+              try {
+                setRange(await api.waterfallRange(entityId, rangeIn));
+              } catch (e) {
+                setError((e as Error).message);
+              }
+            }}
+          >
+            Compare
+          </button>
+        </div>
+        {range && (
+          <table style={{ marginTop: 8 }}>
+            <thead>
+              <tr>
+                <th>Stakeholder</th>
+                {range.exit_amounts.map((a, i) => <th key={i}>Exit ₹{Number(a).toLocaleString()}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {range.rows.map((r) => (
+                <tr key={r.stakeholder_id}>
+                  <td>{r.stakeholder_name}</td>
+                  {r.payouts.map((p, i) => <td key={i}>₹{p}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
       )}

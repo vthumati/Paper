@@ -133,6 +133,28 @@ def holding_quantity(db: Session, entity_id: str, stakeholder_id: str, class_id:
     return _positions(db, entity_id).get((stakeholder_id, class_id), {"quantity": 0})["quantity"]
 
 
+def waterfall_range(db: Session, entity_id: str, exit_amounts: list[Decimal]) -> dict:
+    """Per-holder proceeds across several exit values — shows where the
+    preference stack flips to pro-rata (FR-C-5)."""
+    columns = [liquidation_waterfall(db, entity_id, a) for a in exit_amounts]
+    holders: dict[str, dict] = {}
+    for col_idx, col in enumerate(columns):
+        for p in col["payouts"]:
+            h = holders.setdefault(
+                p["stakeholder_id"],
+                {"stakeholder_id": p["stakeholder_id"],
+                 "stakeholder_name": p["stakeholder_name"],
+                 "payouts": ["0.00"] * len(columns)},
+            )
+            h["payouts"][col_idx] = p["payout"]
+    rows = sorted(holders.values(), key=lambda h: Decimal(h["payouts"][-1]), reverse=True)
+    return {
+        "entity_id": entity_id,
+        "exit_amounts": [c["exit_amount"] for c in columns],
+        "rows": rows,
+    }
+
+
 def liquidation_waterfall(db: Session, entity_id: str, exit_amount: Decimal) -> dict:
     """Distribute an exit amount: preferred liquidation preferences first (by
     seniority, pro-rated within a tier if short), then the remainder pro-rata

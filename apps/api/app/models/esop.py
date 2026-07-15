@@ -1,7 +1,8 @@
 import datetime
+import enum
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Boolean, Date, Enum, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin, gen_id
@@ -38,6 +39,30 @@ class Grant(Base, TimestampMixin):
     total_months: Mapped[int] = mapped_column(Integer, default=48)
 
     scheme: Mapped[ESOPScheme] = relationship(back_populates="grants")
+
+
+class ExerciseRequestStatus(str, enum.Enum):
+    OPEN = "open"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class ExerciseRequest(Base, TimestampMixin):
+    """An employee's self-serve exercise request from the portal (FR-D/K):
+    validated against vested options, decided by the company — approval runs
+    the real exercise into the cap-table ledger."""
+
+    __tablename__ = "exercise_requests"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    entity_id: Mapped[str] = mapped_column(ForeignKey("legal_entities.id"), index=True)
+    grant_id: Mapped[str] = mapped_column(ForeignKey("esop_grants.id"), index=True)
+    quantity: Mapped[int] = mapped_column(Integer)
+    cashless: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[ExerciseRequestStatus] = mapped_column(
+        Enum(ExerciseRequestStatus), default=ExerciseRequestStatus.OPEN
+    )
+    exercise_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class ExerciseTransaction(Base, TimestampMixin):

@@ -19,6 +19,7 @@ from ..schemas import (
     BuybackIn,
     CapTableImportIn,
     ConversionIn,
+    ScenarioIn,
     ConversionOut,
     CorporateActionIn,
     CorporateActionOut,
@@ -35,6 +36,7 @@ from ..services import captable as svc
 from ..services.captable import compute_cap_table
 from ..services.diluted import anti_dilution_preview, fully_diluted
 from ..services.importer import TEMPLATE, apply_import, parse_and_validate
+from ..services.scenario import model_round
 
 router = APIRouter(prefix="/entities/{entity_id}", tags=["cap-table"])
 
@@ -278,3 +280,36 @@ def waterfall(
     db: Session = Depends(get_db),
 ):
     return svc.liquidation_waterfall(db, ctx.entity.id, Decimal(str(exit_amount)))
+
+
+@router.get("/waterfall-range")
+def waterfall_range(
+    amounts: str,
+    ctx: EntityCtx = Depends(entity_ctx),
+    db: Session = Depends(get_db),
+):
+    """Compare per-holder proceeds across exits, e.g. ?amounts=100000000,500000000."""
+    try:
+        values = [Decimal(a.strip()) for a in amounts.split(",") if a.strip()][:8]
+    except Exception:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "amounts must be comma-separated numbers")
+    if not values or any(v <= 0 for v in values):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Provide positive exit amounts")
+    return svc.waterfall_range(db, ctx.entity.id, values)
+
+
+# --- round scenario modeling (pro-forma; never writes to the ledger) ---
+@router.post("/scenarios/model")
+def model_scenario(
+    body: ScenarioIn,
+    ctx: EntityCtx = Depends(entity_ctx),
+    db: Session = Depends(get_db),
+):
+    return model_round(
+        db,
+        ctx.entity.id,
+        new_money=body.new_money,
+        pre_money=body.pre_money,
+        price_per_share=body.price_per_share,
+        pool_top_up=body.pool_top_up,
+    )
