@@ -18,7 +18,7 @@ BASE_TABS = ["dashboard", "captable", "esop", "team", "governance", "compliance"
 STAGE_TABS = {
     "inception": [],
     "preseed": ["fundraising", "finance"],
-    "seed": ["valuations", "dataroom", "investors"],
+    "seed": ["valuations", "dataroom", "diligence", "investors"],
     "series": ["contracts"],
     "ipo": [],
 }

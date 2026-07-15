@@ -235,6 +235,22 @@ export default function Governance({ entityId }: { entityId: string }) {
             })}
           >
             Propose
+          </button>{" "}
+          <button
+            className="secondary"
+            title="Alter the MoA or AoA — creates a special resolution + document; MGT-14 is filed on passing"
+            onClick={guard(async () => {
+              const kind = window.prompt("Amend which charter document? (moa / aoa)", "aoa");
+              if (!kind || !["moa", "aoa"].includes(kind.toLowerCase())) return;
+              const description = window.prompt("Describe the alteration:");
+              if (!description) return;
+              await api.charterAmendment(entityId, { kind: kind.toLowerCase(), description });
+              setNote(
+                "Charter amendment drafted: special resolution + document created. Passing the resolution adds the MGT-14 filing to Compliance."
+              );
+            })}
+          >
+            Amend charter (MoA/AoA)
           </button>
         </div>
       </div>

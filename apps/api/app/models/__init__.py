@@ -28,6 +28,7 @@ from . import (  # noqa: F401
     registers,
     instruments,
     founders,
+    funnel,
 )
 
 __all__ = ["Base"]

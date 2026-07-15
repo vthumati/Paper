@@ -15,6 +15,7 @@ from ..schemas import (
     SPVInvestIn,
     SPVInvestmentOut,
     SPVOut,
+    SPVTermsIn,
 )
 from ..services import spv as svc
 
@@ -53,13 +54,36 @@ def get_spv(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db))
     return spv
 
 
-@router.post("/spvs/{spv_id}/co-investors", response_model=CoInvestorOut, status_code=201)
-def add_co_investor(
-    body: CoInvestorIn, ctx: SPVCtx = Depends(spv_ctx), db: Session = Depends(get_db)
+@router.post("/spvs/{spv_id}/terms", response_model=SPVOut)
+def set_terms(
+    body: SPVTermsIn,
+    ctx: SPVCtx = Depends(spv_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     require_write(ctx.role)
-    ci = CoInvestor(spv_id=ctx.spv.id, **body.model_dump())
+    return svc.set_terms(db, ctx.spv, body.carry_pct, body.min_ticket, user.id)
+
+
+@router.post("/spvs/{spv_id}/co-investors", response_model=CoInvestorOut, status_code=201)
+def add_co_investor(
+    body: CoInvestorIn,
+    ctx: SPVCtx = Depends(spv_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    # invited by email until they commit; a commitment recorded directly by
+    # the lead skips the invitation step
+    ci = CoInvestor(
+        spv_id=ctx.spv.id,
+        status="committed" if body.commitment > 0 else "invited",
+        **body.model_dump(),
+    )
     db.add(ci)
+    db.flush()
+    if ci.status == "committed":
+        svc.subscription_agreement(db, ctx.spv, ci, user.id)
     db.commit()
     db.refresh(ci)
     return ci

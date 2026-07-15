@@ -17,11 +17,12 @@ from ..deps import (
     require_write,
     resolution_ctx,
 )
-from ..models.governance import AgendaItem, DirectorOfficer, Meeting, Resolution
+from ..models.governance import AgendaItem, DirectorOfficer, Meeting, Resolution, ResolutionType
 from ..models.identity import User
 from ..models.portal import InvestorAccess, InvestorConsent
 from ..schemas import (
     AgendaItemIn,
+    CharterAmendmentIn,
     DirectorIn,
     DirectorOut,
     DirectorResignIn,
@@ -195,6 +196,37 @@ def generate_resolution_document(
     require_write(ctx.role)
     doc = svc.generate_document(db, ctx.resolution, user.id, today_ist())
     return docsvc.document_view(db, doc)
+
+
+# --- charter (MoA/AoA) amendment: special resolution + document in one step ---
+@router.post("/entities/{entity_id}/charter-amendments", status_code=201)
+def charter_amendment(
+    body: CharterAmendmentIn,
+    ctx: EntityCtx = Depends(entity_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    kind = body.kind.upper()
+    res = Resolution(
+        entity_id=ctx.entity.id,
+        type=ResolutionType.SPECIAL,
+        title=f"Charter amendment ({kind}) — {body.description[:180]}",
+        text=body.description,
+    )
+    db.add(res)
+    db.flush()
+    doc = docsvc.create_document(
+        db, entity_id=ctx.entity.id, template_key="charter_amendment",
+        data={"company": ctx.entity.name, "kind": kind, "date": today_ist().isoformat(),
+              "description": body.description, "resolution_title": res.title},
+        user_id=user.id, title=f"Charter amendment ({kind})",
+        subject_type="resolution", subject_id=res.id,
+    )
+    res.document_id = doc.id
+    db.commit()
+    # passing the special resolution later auto-adds the MGT-14 obligation
+    return {"resolution_id": res.id, "document_id": doc.id, "status": res.status.value}
 
 
 # --- investor consents on a resolution (SHA reserved matters) ---

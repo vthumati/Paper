@@ -20,6 +20,7 @@ from ..schemas import (
     TeamMemberIn,
     TeamMemberOut,
     TeamMemberStatusIn,
+    TeamOffboardIn,
 )
 from ..services import document as docsvc
 from ..services import team as svc
@@ -55,6 +56,16 @@ def update_status(
     db.commit()
     db.refresh(ctx.member)
     return ctx.member
+
+
+@router.post("/team/{member_id}/offboard")
+def offboard(
+    body: TeamOffboardIn,
+    ctx: TeamMemberCtx = Depends(team_member_ctx),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    return svc.offboard(db, ctx.member, body.left_on or today_ist())
 
 
 @router.post("/team/{member_id}/documents", response_model=DocumentOut, status_code=201)

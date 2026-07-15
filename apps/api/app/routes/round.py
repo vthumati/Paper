@@ -120,6 +120,49 @@ def term_sheet(
     return docsvc.document_view(db, doc)
 
 
+@router.post(
+    "/rounds/{round_id}/commitments/{commitment_id}/offer-letter",
+    response_model=DocumentOut,
+    status_code=201,
+)
+def offer_letter(
+    commitment_id: str,
+    ctx: RoundCtx = Depends(round_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """PAS-4 private placement offer cum application letter for one investor
+    (Sec 42) — the offer must be addressed to a named offeree."""
+    require_write(ctx.role)
+    c = db.get(Commitment, commitment_id)
+    if c is None or c.round_id != ctx.round.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Commitment not found")
+    rnd = ctx.round
+    entity = db.get(LegalEntity, rnd.entity_id)
+    price = rnd.price_per_share
+    shares = c.shares or (int(c.amount / price) if price and price > 0 else None)
+    doc = docsvc.create_document(
+        db,
+        entity_id=rnd.entity_id,
+        template_key="pas4_offer_letter",
+        data={
+            "company": entity.name if entity else "",
+            "round": rnd.name,
+            "instrument": rnd.instrument.value,
+            "investor": c.investor_name,
+            "date": today_ist().isoformat(),
+            "shares": shares if shares is not None else "—",
+            "price": str(price),
+            "amount": str(c.amount),
+        },
+        user_id=user.id,
+        title=f"PAS-4 — {c.investor_name} ({rnd.name})",
+        subject_type="commitment",
+        subject_id=c.id,
+    )
+    return docsvc.document_view(db, doc)
+
+
 @router.post("/rounds/{round_id}/close")
 def close_round(
     ctx: RoundCtx = Depends(round_ctx),

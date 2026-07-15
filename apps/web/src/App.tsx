@@ -7,6 +7,7 @@ import Entities from "./pages/Entities";
 import EntityDetail from "./pages/EntityDetail";
 import Activity from "./pages/Activity";
 import Portal from "./pages/Portal";
+import Invest from "./pages/Invest";
 import type { ReactElement } from "react";
 
 function Protected({ children }: { children: ReactElement }) {
@@ -20,6 +21,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/invest/:token" element={<Invest />} />
       <Route
         element={
           <Protected>

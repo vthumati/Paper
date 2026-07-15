@@ -30,7 +30,8 @@ export default function Portal() {
   };
 
   const empty =
-    loaded && d && d.companies.length === 0 && d.funds.length === 0 && d.equity_grants.length === 0;
+    loaded && d && d.companies.length === 0 && d.funds.length === 0 &&
+    d.spvs.length === 0 && d.equity_grants.length === 0;
 
   return (
     <div>
@@ -42,11 +43,12 @@ export default function Portal() {
       <h1>Investor portal</h1>
       {error && <p className="error">{error}</p>}
 
-      {d && (d.companies.length > 0 || d.funds.length > 0 || d.equity_grants.length > 0) && (
+      {d && (d.companies.length > 0 || d.funds.length > 0 || d.spvs.length > 0 || d.equity_grants.length > 0) && (
         <div className="card">
           <div className="row" style={{ gap: 10 }}>
             <Stat label="Companies" value={d.summary.companies} />
             <Stat label="Funds (as LP)" value={d.summary.funds} />
+            {d.spvs.length > 0 && <Stat label="SPV deals" value={d.summary.spvs} />}
             <Stat label="Invested (₹)" value={d.summary.total_invested} />
             <Stat label="Portfolio value (₹)" value={d.summary.portfolio_value} big />
             {d.summary.moic && <Stat label="MOIC" value={`${d.summary.moic}×`} big />}
@@ -75,6 +77,7 @@ export default function Portal() {
                 <th>Strike</th>
                 <th>FMV</th>
                 <th>Unrealised gain</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -88,6 +91,24 @@ export default function Portal() {
                   <td>₹{g.exercise_price}</td>
                   <td>{g.current_fmv ? `₹${g.current_fmv}` : "—"}</td>
                   <td>{g.unrealized_gain ? `₹${g.unrealized_gain}` : "—"}</td>
+                  <td>
+                    {g.exercise_requests.some((r) => r.status === "open") ? (
+                      <span className="badge">request pending</span>
+                    ) : (
+                      g.exercisable > 0 && (
+                        <button
+                          className="secondary"
+                          onClick={act(async () => {
+                            const qty = window.prompt(`Exercise how many options? (${g.exercisable.toLocaleString()} exercisable)`);
+                            if (!qty) return;
+                            await api.requestExercise({ grant_id: g.grant_id, quantity: Number(qty) });
+                          })}
+                        >
+                          Request exercise
+                        </button>
+                      )
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -227,6 +248,99 @@ export default function Portal() {
           )}
         </div>
       ))}
+
+      {d && d.spvs.length > 0 && (
+        <div className="card">
+          <h2>Your SPV deals</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>SPV</th>
+                <th>Target</th>
+                <th>Sponsor</th>
+                <th>Carry</th>
+                <th>Min ticket</th>
+                <th>Status</th>
+                <th>Commitment</th>
+                <th>Contributed</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {d.spvs.map((s) => (
+                <tr key={s.co_investor_id}>
+                  <td>{s.spv_name ?? "—"}</td>
+                  <td>{s.target_company}</td>
+                  <td>{s.sponsor}</td>
+                  <td>{(Number(s.carry_pct) * 100).toFixed(1)}%</td>
+                  <td>₹{s.min_ticket}</td>
+                  <td>
+                    <span className={`badge ${s.status === "funded" ? "complete" : ""}`}>
+                      {s.status}
+                    </span>
+                  </td>
+                  <td>₹{s.commitment}</td>
+                  <td>₹{s.contributed}</td>
+                  <td>
+                    {s.status !== "funded" && (
+                      <button
+                        className="secondary"
+                        onClick={act(async () => {
+                          const amt = window.prompt(
+                            `Commit how much (₹)? Minimum ticket ₹${s.min_ticket}`,
+                            s.commitment !== "0.00" ? s.commitment : ""
+                          );
+                          if (!amt) return;
+                          await api.commitToSPV({ co_investor_id: s.co_investor_id, amount: amt });
+                        })}
+                      >
+                        {s.status === "invited" ? "Commit" : "Revise commitment"}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {d.spvs.some((s) => s.documents.length > 0) && (
+            <>
+              <h3>Your deal documents</h3>
+              <ul className="muted">
+                {d.spvs.flatMap((s) =>
+                  s.documents.map((doc) => (
+                    <li key={doc.id}>
+                      {doc.title} <span className="badge">{doc.status}</span>{" "}
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          api.downloadPortalDocPdf(doc.id, doc.title).catch((err) => setError(err.message));
+                        }}
+                      >
+                        PDF
+                      </a>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </>
+          )}
+          {d.spvs.some((s) => s.updates.length > 0) && (
+            <>
+              <h3>Deal updates</h3>
+              {d.spvs.flatMap((s) =>
+                s.updates.map((u) => (
+                  <div key={u.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}>
+                    <strong>{u.title}</strong>{" "}
+                    <span className="muted">{new Date(u.created_at).toLocaleDateString()}</span>
+                    <div className="muted">{u.body}</div>
+                  </div>
+                ))
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {d?.funds.map((f) => (
         <div className="card" key={f.fund_id}>

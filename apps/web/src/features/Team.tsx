@@ -76,14 +76,22 @@ export default function Team({ entityId }: { entityId: string }) {
                     {m.status === "active" && (
                       <button
                         className="secondary"
-                        onClick={guard(() =>
-                          api.updateMemberStatus(m.id, {
-                            status: "exited",
-                            left_on: new Date().toISOString().slice(0, 10),
-                          })
-                        )}
+                        onClick={guard(async () => {
+                          const left = window.prompt(
+                            "Leaving date (YYYY-MM-DD) — unvested options lapse back to the pool:",
+                            new Date().toISOString().slice(0, 10)
+                          );
+                          if (!left) return;
+                          const r = await api.offboardMember(m.id, { left_on: left });
+                          setNote(
+                            `${m.name} offboarded.` +
+                              (r.lapsed_options
+                                ? ` ${r.lapsed_options.toLocaleString()} unvested option(s) lapsed back to the pool across ${r.grants_affected} grant(s).`
+                                : " No unvested options to lapse.")
+                          );
+                        })}
                       >
-                        Mark exited
+                        Offboard
                       </button>
                     )}
                   </td>

@@ -2,6 +2,7 @@
  - InvestorAccess grants matching the user's email -> company holdings + updates
  - LP records matching the user's email -> fund capital accounts
  - DataRoom access grants matching the email -> documents shared with them
+ - SPV co-investor records matching the email -> syndicate deal positions
 plus a portfolio summary aggregating across everything."""
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -12,7 +13,7 @@ from ..models.captable import Stakeholder
 from ..models.dataroom import DataRoom, DataRoomAccessGrant, DataRoomItem
 from ..models.document import Document
 from ..models.entity import LegalEntity
-from ..models.esop import Grant
+from ..models.esop import ExerciseRequest, Grant
 from ..models.fund import LP, Fund
 from ..models.governance import Resolution
 from ..models.identity import User
@@ -23,6 +24,7 @@ from ..models.portal import (
     InvestorUpdate,
     SecondaryRequest,
 )
+from ..models.spv import CoInvestor, SPV
 from .captable import compute_cap_table
 from .esop import grant_view
 from .fund import capital_accounts
@@ -193,6 +195,38 @@ def portal_for_user(db: Session, user: User) -> dict:
             }
         )
 
+    # SPV deals: co-investor invitations/commitments matched by email (FR-S-3)
+    spvs = []
+    for ci in db.query(CoInvestor).filter_by(email=user.email):
+        spv = db.get(SPV, ci.spv_id)
+        if spv is None:
+            continue
+        entity = db.get(LegalEntity, spv.entity_id)
+        spvs.append(
+            {
+                "co_investor_id": ci.id,
+                "spv_name": entity.name if entity else None,
+                "sponsor": spv.sponsor,
+                "target_company": spv.target_company,
+                "structure": spv.structure,
+                "carry_pct": str(spv.carry_pct),
+                "min_ticket": str(spv.min_ticket),
+                "status": ci.status,
+                "commitment": str(ci.commitment),
+                "contributed": str(ci.contributed),
+                "documents": [
+                    {"id": d.id, "title": d.title, "status": d.status.value}
+                    for d in db.query(Document).filter_by(
+                        subject_type="co_investor", subject_id=ci.id
+                    )
+                ],
+                "updates": _updates(db, spv.entity_id),
+            }
+        )
+        total_committed += Decimal(ci.commitment)
+        total_invested += Decimal(ci.contributed)
+        portfolio_value += Decimal(ci.contributed)  # held at cost inside the SPV
+
     # employee equity: ESOP grants for stakeholders matching the user's email
     grants = []
     total_vested = 0
@@ -206,8 +240,14 @@ def portal_for_user(db: Session, user: User) -> dict:
             if fmv is not None:
                 per = max(Decimal("0"), Decimal(fmv) - Decimal(g.exercise_price))
                 unrealized = str((per * gv["exercisable"]).quantize(CENTS, ROUND_HALF_UP))
+            requests = [
+                {"id": r.id, "quantity": r.quantity, "status": r.status.value}
+                for r in db.query(ExerciseRequest).filter_by(grant_id=g.id)
+            ]
             grants.append(
                 {
+                    "grant_id": g.id,
+                    "exercise_requests": requests,
                     "entity_name": entity.name if entity else None,
                     "granted": gv["quantity"],
                     "vested": gv["vested"],
@@ -231,6 +271,7 @@ def portal_for_user(db: Session, user: User) -> dict:
         "summary": {
             "companies": len(companies),
             "funds": len(funds),
+            "spvs": len(spvs),
             "total_invested": str(total_invested),
             "portfolio_value": str(portfolio_value.quantize(CENTS, ROUND_HALF_UP)),
             "moic": moic,
@@ -240,5 +281,6 @@ def portal_for_user(db: Session, user: User) -> dict:
         },
         "companies": companies,
         "funds": funds,
+        "spvs": spvs,
         "equity_grants": grants,
     }

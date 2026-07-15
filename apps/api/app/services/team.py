@@ -40,6 +40,31 @@ def generate_document(db: Session, member: TeamMember, template_key: str, user_i
     )
 
 
+def offboard(db: Session, member: TeamMember, left_on: datetime.date) -> dict:
+    """Exit a team member and lapse their unvested options (FR-R-4): each
+    grant is cut down to what had vested by the leaving date, so the lapsed
+    options return to the scheme pool automatically (pool usage is the sum of
+    grant quantities)."""
+    from ..models.esop import Grant
+    from .esop import vested_quantity
+
+    member.status = "exited"
+    member.left_on = left_on
+    lapsed = 0
+    affected = 0
+    if member.stakeholder_id:
+        for grant in db.query(Grant).filter_by(
+            entity_id=member.entity_id, stakeholder_id=member.stakeholder_id
+        ):
+            vested = vested_quantity(grant, left_on)
+            if grant.quantity > vested:
+                lapsed += grant.quantity - vested
+                grant.quantity = vested  # vesting freezes at the exit date
+                affected += 1
+    db.commit()
+    return {"member_id": member.id, "lapsed_options": lapsed, "grants_affected": affected}
+
+
 def onboard(db: Session, member: TeamMember, user_id: str, as_of: datetime.date) -> dict:
     # ensure a cap-table stakeholder exists for ESOP eligibility
     if not member.stakeholder_id:

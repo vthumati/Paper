@@ -93,6 +93,55 @@ class EntityIn(BaseModel):
     incorporation_date: datetime.date | None = None
 
 
+class IncorporationFounder(BaseModel):
+    name: str
+    email: EmailStr | None = None
+    din: str | None = None
+    shares: int = Field(gt=0)
+    is_director: bool = True
+
+
+class IncorporationIn(BaseModel):
+    name_options: list[str] = Field(min_length=1, max_length=3)
+    entity_type: EntityType = EntityType.PVT_LTD
+    state: str
+    registered_office: str
+    authorised_capital: Decimal = Field(gt=0)
+    paid_up_capital: Decimal = Field(gt=0)
+    par_value: Decimal = Field(default=Decimal("10"), gt=0)
+    fy_end: datetime.date | None = None
+    founders: list[IncorporationFounder] = Field(min_length=2)
+
+
+class IncorporationFiledIn(BaseModel):
+    srn: str
+
+
+class IncorporationRegisteredIn(BaseModel):
+    cin: str
+    pan: str | None = None
+    incorporation_date: datetime.date
+
+
+class IncorporationOut(ORMModel):
+    id: str
+    tenant_id: str
+    status: str
+    name_options: list
+    company_name: str | None
+    entity_type: EntityType
+    state: str
+    registered_office: str
+    authorised_capital: Decimal
+    paid_up_capital: Decimal
+    par_value: Decimal
+    fy_end: datetime.date | None
+    founders: list
+    srn: str | None
+    cin: str | None
+    entity_id: str | None
+
+
 class EntityOut(ORMModel):
     id: str
     tenant_id: str
@@ -538,6 +587,24 @@ class DealInvestIn(BaseModel):
     invested_on: datetime.date | None = None
 
 
+class ScenarioIn(BaseModel):
+    new_money: Decimal = Field(gt=0)
+    pre_money: Decimal | None = Field(default=None, gt=0)
+    price_per_share: Decimal | None = Field(default=None, gt=0)
+    pool_top_up: int = Field(default=0, ge=0)
+
+
+class ExerciseRequestIn(BaseModel):
+    grant_id: str
+    quantity: int = Field(gt=0)
+    cashless: bool = False
+
+
+class ExerciseRequestDecideIn(BaseModel):
+    approve: bool
+    security_class_id: str | None = None
+
+
 class CapTableImportIn(BaseModel):
     csv: str = Field(max_length=2_000_000)  # ~2 MB is far beyond any real cap table
     apply: bool = False
@@ -798,12 +865,19 @@ class SPVOut(ORMModel):
     target_company: str
     structure: str
     portco_entity_id: str | None
+    carry_pct: Decimal
+    min_ticket: Decimal
+
+
+class SPVTermsIn(BaseModel):
+    carry_pct: Decimal = Field(ge=0, lt=1)
+    min_ticket: Decimal = Field(ge=0)
 
 
 class CoInvestorIn(BaseModel):
     name: str
     email: EmailStr | None = None
-    commitment: Decimal = Decimal("0")
+    commitment: Decimal = Field(default=Decimal("0"), ge=0)
 
 
 class CoInvestorOut(ORMModel):
@@ -813,6 +887,43 @@ class CoInvestorOut(ORMModel):
     commitment: Decimal
     contributed: Decimal
     paid: bool
+    status: str
+
+
+class SPVCommitIn(BaseModel):
+    co_investor_id: str
+    amount: Decimal = Field(gt=0)
+
+
+# --- fundraising funnel (public opt-in link) ---
+class FunnelLinkIn(BaseModel):
+    data_room_id: str | None = None
+
+
+class FunnelLinkOut(ORMModel):
+    id: str
+    entity_id: str
+    round_id: str
+    data_room_id: str | None
+    token: str
+    active: bool
+
+
+class FunnelInterestIn(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    email: EmailStr
+    firm: str | None = Field(default=None, max_length=255)
+    check_size: Decimal | None = Field(default=None, gt=0)
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+class CharterAmendmentIn(BaseModel):
+    kind: Literal["moa", "aoa"]
+    description: str = Field(min_length=1, max_length=2000)
+
+
+class TeamOffboardIn(BaseModel):
+    left_on: datetime.date | None = None
 
 
 class SPVInvestIn(BaseModel):

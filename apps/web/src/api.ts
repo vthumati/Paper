@@ -81,6 +81,31 @@ export interface Entity {
   incorporation_date: string | null;
   stage: string;
 }
+export interface IncorporationFounder {
+  name: string;
+  email?: string | null;
+  din?: string | null;
+  shares: number;
+  is_director: boolean;
+}
+export interface Incorporation {
+  id: string;
+  tenant_id: string;
+  status: string;
+  name_options: string[];
+  company_name: string | null;
+  entity_type: string;
+  state: string;
+  registered_office: string;
+  authorised_capital: string;
+  paid_up_capital: string;
+  par_value: string;
+  fy_end: string | null;
+  founders: IncorporationFounder[];
+  srn: string | null;
+  cin: string | null;
+  entity_id: string | null;
+}
 export interface ChecklistItem {
   key: string;
   title: string;
@@ -442,6 +467,8 @@ export interface SPV {
   target_company: string;
   structure: string;
   portco_entity_id: string | null;
+  carry_pct: string;
+  min_ticket: string;
 }
 export interface CoInvestor {
   id: string;
@@ -450,12 +477,14 @@ export interface CoInvestor {
   commitment: string;
   contributed: string;
   paid: boolean;
+  status: string;
 }
 export interface SPVSummary {
   spv_id: string;
   co_investor_count: number;
   committed: string;
   contributed: string;
+  by_status: Record<string, number>;
 }
 export interface Round {
   id: string;
@@ -652,6 +681,39 @@ export interface SecondaryRequestRow {
   status: string;
   buyer: string | null;
 }
+export interface ScenarioRow {
+  name: string | null;
+  type: string | null;
+  before: number;
+  before_pct: number;
+  after: number;
+  after_pct: number;
+  dilution_pct: number;
+}
+export interface Scenario {
+  price_per_share: string;
+  pre_money: string;
+  new_money: string;
+  post_money: string;
+  pool_top_up: number;
+  new_shares: number;
+  safe_shares_converted: number;
+  fd_pre: number;
+  fd_post: number;
+  rows: ScenarioRow[];
+}
+export interface WaterfallRange {
+  exit_amounts: string[];
+  rows: { stakeholder_id: string; stakeholder_name: string | null; payouts: string[] }[];
+}
+export interface ExerciseRequestRow {
+  id: string;
+  employee: string | null;
+  grant_id: string;
+  quantity: number;
+  cashless: boolean;
+  status: string;
+}
 export interface CapTableImportReport {
   valid: boolean;
   errors: { row: number; error: string }[];
@@ -711,6 +773,8 @@ export interface PortalFundEntry {
   updates: InvestorUpdate[];
 }
 export interface EquityGrant {
+  grant_id: string;
+  exercise_requests: { id: string; quantity: number; status: string }[];
   entity_name: string | null;
   granted: number;
   vested: number;
@@ -721,10 +785,70 @@ export interface EquityGrant {
   current_fmv: string | null;
   unrealized_gain: string | null;
 }
+export interface PortalSPVDeal {
+  co_investor_id: string;
+  spv_name: string | null;
+  sponsor: string;
+  target_company: string;
+  structure: string;
+  carry_pct: string;
+  min_ticket: string;
+  status: string;
+  commitment: string;
+  contributed: string;
+  documents: { id: string; title: string; status: string }[];
+  updates: InvestorUpdate[];
+}
+export interface DiligenceFinding {
+  code: string;
+  severity: "high" | "medium" | "low";
+  title: string;
+  detail: string;
+  tab: string;
+}
+export interface DiligenceResult {
+  entity_id: string;
+  as_of: string;
+  score: number;
+  checks_run: number;
+  findings: DiligenceFinding[];
+  counts: Record<string, number>;
+}
+export interface FunnelLink {
+  id: string;
+  entity_id: string;
+  round_id: string;
+  data_room_id: string | null;
+  token: string;
+  active: boolean;
+}
+export interface FunnelProspect {
+  id: string;
+  name: string;
+  firm: string | null;
+  email: string | null;
+  stage: string;
+  check_size: string | null;
+  last_contact: string | null;
+  data_room_views: number;
+  commitment: { id: string; amount: string; status: string } | null;
+}
+export interface FunnelView {
+  link: { token: string; active: boolean; data_room_id: string | null } | null;
+  prospects: FunnelProspect[];
+}
+export interface PublicFunnelInfo {
+  company: string | null;
+  round: string | null;
+  instrument: string | null;
+  target_amount: string | null;
+  has_data_room: boolean;
+}
 export interface PortalDashboard {
   summary: {
     companies: number;
     funds: number;
+    spvs: number;
     total_invested: string;
     portfolio_value: string;
     moic: string | null;
@@ -734,6 +858,7 @@ export interface PortalDashboard {
   };
   companies: PortalCompany[];
   funds: PortalFundEntry[];
+  spvs: PortalSPVDeal[];
   equity_grants: EquityGrant[];
 }
 export interface Prospect {
@@ -878,6 +1003,17 @@ export const api = {
     post<Entity>(`/tenants/${tid}/entities`, b),
   getEntity: (eid: string) => get<Entity>(`/entities/${eid}`),
   stageGuide: (eid: string) => get<StageGuide>(`/entities/${eid}/stage-guide`),
+  listIncorporations: (tid: string) => get<Incorporation[]>(`/tenants/${tid}/incorporations`),
+  createIncorporation: (tid: string, b: unknown) =>
+    post<Incorporation>(`/tenants/${tid}/incorporations`, b),
+  prepareIncorporation: (tid: string, iid: string) =>
+    post<Incorporation>(`/tenants/${tid}/incorporations/${iid}/prepare`),
+  incorporationFiled: (tid: string, iid: string, srn: string) =>
+    post<Incorporation>(`/tenants/${tid}/incorporations/${iid}/filed`, { srn }),
+  incorporationRegistered: (tid: string, iid: string, b: unknown) =>
+    post<{ entity_id: string; shares_issued: number; directors_registered: number; obligations_created: number }>(
+      `/tenants/${tid}/incorporations/${iid}/registered`, b
+    ),
   setStage: (eid: string, stage: string) => put<StageGuide>(`/entities/${eid}/stage`, { stage }),
 
   listSecurityClasses: (eid: string) =>
@@ -893,6 +1029,17 @@ export const api = {
     get<FullyDiluted>(
       `/entities/${eid}/cap-table/fully-diluted` +
         (assumedPrice ? `?assumed_price=${encodeURIComponent(assumedPrice)}` : "")
+    ),
+  modelScenario: (eid: string, b: unknown) => post<Scenario>(`/entities/${eid}/scenarios/model`, b),
+  waterfallRange: (eid: string, amounts: string) =>
+    get<WaterfallRange>(`/entities/${eid}/waterfall-range?amounts=${encodeURIComponent(amounts)}`),
+  requestExercise: (b: unknown) =>
+    post<{ id: string; status: string }>(`/portal/exercise-requests`, b),
+  listExerciseRequests: (eid: string) =>
+    get<ExerciseRequestRow[]>(`/entities/${eid}/exercise-requests`),
+  decideExerciseRequest: (rid: string, b: unknown) =>
+    post<{ id: string; status: string; net_shares?: number; perquisite_value?: string }>(
+      `/exercise-requests/${rid}/decide`, b
     ),
   antiDilution: (eid: string, classId: string, newPrice: string, newShares: string) =>
     get<AntiDilutionPreview>(
@@ -1042,6 +1189,8 @@ export const api = {
   contributeCoInvestor: (sid: string, cid: string) =>
     post<CoInvestor>(`/spvs/${sid}/co-investors/${cid}/contribute`),
   spvSummary: (sid: string) => get<SPVSummary>(`/spvs/${sid}/summary`),
+  setSPVTerms: (sid: string, b: unknown) => post<SPV>(`/spvs/${sid}/terms`, b),
+  commitToSPV: (b: unknown) => post<{ id: string; status: string; commitment: string }>("/portal/spv-commitments", b),
   spvInvest: (sid: string, b: unknown) => post(`/spvs/${sid}/invest`, b),
 
   listRounds: (eid: string) => get<Round[]>(`/entities/${eid}/rounds`),
@@ -1053,6 +1202,26 @@ export const api = {
     post<RoundCommitment>(`/rounds/${rid}/commitments/${cid}/status`, b),
   roundSummary: (rid: string) => get<RoundSummary>(`/rounds/${rid}/summary`),
   generateTermSheet: (rid: string) => post<Document>(`/rounds/${rid}/term-sheet`),
+  generateOfferLetter: (rid: string, cid: string) =>
+    post<Document>(`/rounds/${rid}/commitments/${cid}/offer-letter`),
+  getDiligence: (eid: string) => get<DiligenceResult>(`/entities/${eid}/diligence`),
+  generateDiligenceReport: (eid: string) => post<Document>(`/entities/${eid}/diligence/report`),
+  createFunnelLink: (eid: string, rid: string, b: unknown) =>
+    post<FunnelLink>(`/entities/${eid}/rounds/${rid}/funnel-link`, b),
+  deactivateFunnelLink: (eid: string, rid: string) =>
+    post<FunnelLink>(`/entities/${eid}/rounds/${rid}/funnel-link/deactivate`),
+  getFunnel: (eid: string, rid: string) => get<FunnelView>(`/entities/${eid}/rounds/${rid}/funnel`),
+  publicFunnel: (token: string) => get<PublicFunnelInfo>(`/public/funnel/${token}`),
+  publicFunnelInterest: (token: string, b: unknown) =>
+    post<{ status: string; data_room_granted: boolean }>(`/public/funnel/${token}/interest`, b),
+  charterAmendment: (eid: string, b: unknown) =>
+    post<{ resolution_id: string; document_id: string; status: string }>(
+      `/entities/${eid}/charter-amendments`, b
+    ),
+  offboardMember: (mid: string, b: unknown) =>
+    post<{ member_id: string; lapsed_options: number; grants_affected: number }>(
+      `/team/${mid}/offboard`, b
+    ),
   closeRound: (rid: string) =>
     post<{ issued: number; instruments_converted: number; foreign_investors: boolean }>(
       `/rounds/${rid}/close`

@@ -2,7 +2,7 @@
 
 **An "operating system for corporate legal" for Indian startups and funds.**
 
-Status: **v1.3 (implementation-reconciled)** · Date: 2026-07-14 · Supersedes: v1.2 (2026-07-08), v1.1 (2026-07-03), v1.0 (2026-06-28), Draft v0.1 (2026-06-25)
+Status: **v1.3 (implementation-reconciled)** · Date: 2026-07-15 · Supersedes: v1.2 (2026-07-08), v1.1 (2026-07-03), v1.0 (2026-06-28), Draft v0.1 (2026-06-25)
 
 > v1.0 reconciled the original specification against the working system (backend `apps/api`, frontend `apps/web`); v1.1 adds the cap-table/fund depth batch (fully-diluted view, distribution waterfall, anti-dilution — **145 automated tests passing**). Every functional requirement carries an implementation status; features built beyond the original spec have been added as new FRs (see §11 Changelog).
 
@@ -108,7 +108,7 @@ Requirements are tagged **FR-<module>-<n>**. Priority reflects original intent: 
 
 ### B. Entity Formation, Corporate Record & Startup India
 
-- **FR-B-1 (M)** ◐ Guided incorporation. *Built:* `incorporate_pvt_ltd` workflow (collect promoters → KYC step → generate docs → e-sign → file), entity types PvtLtd/LLP/OPC/Fund/SPV. *Remaining:* richer guided data capture; LLP/OPC-specific branches.
+- **FR-B-1 (M)** ◐ Guided incorporation. *Built:* the **incorporation wizard** (Atlas-style, v1.3) — one intake (name options for RUN, capital, registered office, founders with DIN/shares/director flags, validated: ≥2 directors, subscription within authorised capital) generates the SPICe+/eMoA/eAoA filing pack **plus a founder IP assignment per founder** (v1.3) against a pre-registration entity; record the SRN, then the CIN — at which point founder shares are allotted at par, first directors registered and the compliance calendar generated, handing straight into the stage guide. Also the original `incorporate_pvt_ltd` workflow. *Remaining:* KYC/e-sign integration in the pack (⛔ credentials); LLP/OPC-specific branches.
 - **FR-B-2 (M)** ◐ Incorporation document generation. *Built:* SPICe+ (summary), eMoA, eAoA templates generated from entity data. *Remaining:* AGILE-PRO, INC-9, DIN/DSC checklists, name-reservation flow.
 - **FR-B-3 (M)** ✅ Statutory identifiers: CIN, PAN, incorporation date on the entity (TAN/GSTIN via registrations/tax records).
 - **FR-B-4 (M)** ✅ Corporate record: every generated/signed document is linked (polymorphic subject) and surfaced in the file cabinet; registers and cap table derive from the ledger.
@@ -122,8 +122,8 @@ Requirements are tagged **FR-<module>-<n>**. Priority reflects original intent: 
 - **FR-C-1 (M)** ✅ Live cap table: as-issued view computed by replaying the full event ledger (issue/transfer/convert/buyback/split/bonus/rights), with cost basis that follows shares; plus a **fully-diluted view** (unexercised option grants, unallocated ESOP pool, outstanding SAFEs/notes as-if-converted at an assumed price or current FMV; unpriceable instruments listed as excluded, not guessed).
 - **FR-C-2 (M)** ✅ Indian instruments: Equity, CCPS, CCD, option pool, warrants as security classes; **SAFE / convertible notes as first-class instruments** with valuation cap, discount, MFN flag, and interest accrual (notes).
 - **FR-C-3 (M)** ✅ Conversions: class-to-class conversion with configurable ratio (e.g. CCPS→equity at 1.5×); SAFE/note conversion at min(cap price, discounted round price) with accrued interest, preview + convert; **anti-dilution** terms per class (broad-based weighted average / full ratchet with original issue price) and a down-round calculator returning the adjusted conversion price, ratio, and per-holder additional shares.
-- **FR-C-4 (M)** ◐ Round modelling. *Built:* pre/post-money, committed vs target, new-share and dilution computation per round. *Remaining:* pool top-up modelling, multi-scenario what-ifs.
-- **FR-C-5 (M)** ◐ Liquidation waterfall. *Built:* preference stacks by seniority (pro-rated within a tier when short), participating and non-participating preferred, remainder pro-rata. *Remaining:* the as-converted election for non-participating preferred (take-preference vs convert optimisation).
+- **FR-C-4 (M)** ✅ Round modelling: pre/post-money, committed vs target, new-share and dilution computation per round; **scenario modeling** (v1.3) — pro-forma cap table for a *hypothetical* round (new money, pre-money or price, pool top-up created pre-money, SAFEs converting at the scenario price) with per-holder before/after/dilution, side-by-side comparison in the UI, nothing written to the ledger.
+- **FR-C-5 (M)** ◐ Liquidation waterfall. *Built:* preference stacks by seniority (pro-rated within a tier when short), participating and non-participating preferred, remainder pro-rata; **exit comparison** (v1.3) — per-holder proceeds across several exit values, showing where the preference stack flips to pro-rata. *Remaining:* the as-converted election for non-participating preferred (take-preference vs convert optimisation).
 - **FR-C-6 (M)** ◐ Issuance lifecycle. *Built:* issuance → ledger → Register of Members; share-certificate template; certificate-number field. *Remaining:* board-approval gating on allotment; auto certificate generation per issuance.
 - **FR-C-7 (M)** ✅ Corporate actions: transfers (SH-4) with holding validation, buy-backs, **stock splits**, **bonus issues**, and **rights issues** (pro-rata entitlements → subscriptions → close-and-issue), all effective-dated on the ledger with deterministic ordering.
 - **FR-C-8 (M)** ◐ Stamp duty. *Built:* transfer stamp duty at the uniform 0.015% of consideration, computed per transfer. *Remaining:* issue-side duty, state-wise rates table, e-stamp reference. ⛔ e-stamp integration.
@@ -136,7 +136,7 @@ Requirements are tagged **FR-<module>-<n>**. Priority reflects original intent: 
 
 - **FR-D-1 (M)** ◐ Schemes. *Built:* scheme with pool size and pool-limit enforcement on grants. *Remaining:* scheme versioning, exercise-window rules, SEBI SBEB variants.
 - **FR-D-2 (M)** ◐ Grants. *Built:* per-employee grants, cliff + linear monthly vesting, time-based tracking. *Remaining:* grant letters, milestone vesting, acceleration on exit.
-- **FR-D-3 (M)** ✅ Employee self-service: portal shows granted/vested/exercised/exercisable, strike, current FMV and unrealised gain; perquisite (FMV − strike) computed on exercise.
+- **FR-D-3 (M)** ✅ Employee self-service: portal shows granted/vested/exercised/exercisable, strike, current FMV and unrealised gain; **self-serve exercise requests** (v1.3) — employees request exercise in the portal (validated against vested-minus-exercised-minus-pending), the company approves into a chosen class (the real exercise lands on the ledger, perquisite computed) or rejects; perquisite (FMV − strike) computed on exercise.
 - **FR-D-4 (P2)** ◐ *(largely promoted)* Exercise. *Built:* exercise → cap-table issuance; **cashless exercise** (net shares after withholding to cover strike; gross consumed from grant). *Remaining:* loan-funded and leaver scenarios.
 - **FR-D-5 (P2)** ✅ *(promoted — implemented)* Valuation linkage: exercise falls back to the entity's current effective valuation when FMV isn't supplied; UI prefills current FMV.
 - **FR-D-6 (P2)** ○ Option-holder buyback / liquidity events.
@@ -150,7 +150,8 @@ Requirements are tagged **FR-<module>-<n>**. Priority reflects original intent: 
 - **FR-E-5 (P2)** ◐ Private placement. *Built:* PAS-4 template; **PAS-3 filing obligation auto-created on close** (30-day due date); **Sec 42 offeree guardrail** — offers (SAFEs + commitments) capped at 200 distinct persons per FY, enforced at entry. *Remaining:* separate-bank-account tracking, QIB/ESOP offeree exclusions, full Section 42 pack.
 - **FR-E-6 (P2)** ✅ *(promoted — implemented)* Closing mechanics: on close, **outstanding SAFEs/notes convert automatically** at the round price into the round's class (valuation caps priced off the pre-financing cap table; an instrument that can't convert is left outstanding rather than blocking the close), then funded commitments are issued into the cap-table ledger; **FC-GPR FEMA obligation auto-created when any investor is foreign**; investor portal reflects holdings.
 - **FR-E-7 (P3)** ◐ *(promoted v1.3)* Secondary sales with ROFR. *Built:* an investor requests a sale from their portal (holding-validated); the company exercises its right of first refusal by choosing the buyer — approval executes a stamp-dutied transfer on the cap-table ledger; reject path; status visible to the seller. *Remaining:* open marketplace / multi-bidder allocation.
-- **FR-E-8 (M — added v1.0)** ✅ **Investor CRM / fundraising pipeline**: prospects with stages (contacted → meeting → diligence → term-sheet → committed/passed), firm, check size, notes; pipeline summary (open vs committed value by stage); **one-click conversion of a prospect into a round commitment**.
+- **FR-E-8 (M — added v1.0)** ✅ **Investor CRM / fundraising pipeline**: prospects with stages (contacted → meeting → diligence → term-sheet → committed/passed), firm, check size, notes; pipeline summary (open vs committed value by stage); **one-click conversion of a prospect into a round commitment**; **public funnel link** (v1.3) — one shareable URL per round where prospective investors register interest (rate-limited, unauthenticated) landing directly in the CRM, optionally auto-granting data-room access; admin funnel view joins prospects × data-room engagement × commitments.
+- **FR-E-10 (M — added v1.3)** ✅ **PAS-4 private placement offer letter** per commitment (Sec 42 / rule 14(3)): named offeree, shares derived from the round price, generated into Documents.
 - **FR-E-9 (M — added v1.2)** ✅ **Family & friends investing**: every SAFE/note and round commitment carries an investor kind (friends & family / angel / institutional) shown across fundraising views; F&F investors given an email see their instruments in the investor portal automatically (no explicit grant needed); the Pre-seed stage guide walks founders through it with the Sec 42 guardrail (FR-E-5) enforcing the 200-offeree/FY limit.
 
 ### F. Document Automation & e-Signature
@@ -165,7 +166,7 @@ Requirements are tagged **FR-<module>-<n>**. Priority reflects original intent: 
 ### G. Governance (Board, Shareholders, Directors)
 
 - **FR-G-1 (M)** ✅ Meetings: board/AGM/EGM with date, venue, quorum; **agenda items**; **notice generation** (agenda + quorum merged into a linked notice document); minutes + held/cancelled status.
-- **FR-G-2 (M)** ✅ Resolutions: board/ordinary/special/circular; pass/fail with dates; board-resolution document generation; **MGT-14 filing obligation auto-created when a special/circular resolution passes**.
+- **FR-G-2 (M)** ✅ Resolutions: board/ordinary/special/circular; pass/fail with dates; board-resolution document generation; **MGT-14 filing obligation auto-created when a special/circular resolution passes**; **charter amendment** (v1.3) — one step drafts the MoA/AoA alteration as a special resolution plus a linked document, feeding the same MGT-14 hook on passing.
 - **FR-G-3 (M)** ◐ Consents: circular resolutions serve the written-consent path. *Remaining:* formal consent object with per-party sign-off and statutory-validity checks.
 - **FR-G-4 (P2)** ✅ *(promoted — implemented)* Director/KMP register: designations (MD/WTD/independent/nominee/CS/CFO), DIN, appointment/resignation with **DIR-12 obligations auto-created** on both events. *Remaining:* disqualification checks.
 - **FR-G-5 (P2)** ○ Board portal (pre-reads, voting, action items).
@@ -187,7 +188,7 @@ Requirements are tagged **FR-<module>-<n>**. Priority reflects original intent: 
 - **FR-I-2 (M)** ◐ Population: any entity document can be added; auto-populate from the corporate record remains open.
 - **FR-I-3 (M)** ✅ Engagement analytics: per-actor, per-document view counts.
 - **FR-I-4 (P2)** ◐ *(largely promoted)* **Diligence Q&A**: ask/answer threads per room. *Remaining:* request-list checklists, redaction.
-- **FR-I-5 (P2)** ○ One-click diligence-ready export package.
+- **FR-I-5 (P2)** ◐ **Diligence readiness engine** (v1.3): 11 rules-as-data checks sweep the entity's own records (founder/team IP assignments, founder vesting, pending signatures, issuances without board approval, ESOP-vs-valuation, pool overruns, overdue filings, director register, expired data-room grants, stakeholder emails) → severity-weighted score + findings with deep links; report saved as a document. *Remaining:* one-click export package of the underlying documents.
 
 ### J. Fund Administration (AIF)
 
@@ -244,7 +245,7 @@ Requirements are tagged **FR-<module>-<n>**. Priority reflects original intent: 
 
 ### O. Services Marketplace / Partner Network
 
-- **FR-O-1 (M)** ✅ Provider directory: CS / CA / lawyer / registered valuer / RTA / fund admin, category-filterable, with **platform verification** — anyone may register a listing but only platform-verified providers can be engaged (admin allowlist via `PAPER_PLATFORM_ADMIN_EMAILS`).
+- **FR-O-1 (M)** ✅ Provider directory: CS / CA / lawyer / registered valuer / RTA / fund admin / **registered-office & virtual-CFO providers** (v1.3), category-filterable, with **platform verification** — anyone may register a listing but only platform-verified providers can be engaged (admin allowlist via `PAPER_PLATFORM_ADMIN_EMAILS`).
 - **FR-O-2 (M)** ◐ Engagements: entity-scoped engagement with scope/SOW, status lifecycle (requested → accepted → in-progress → delivered → closed), deliverable-document link. *Remaining:* scoped provider access into the tenant's data room.
 - **FR-O-3 (P2)** ○ ⛔ In-platform billing/escrow; ratings.
 - **FR-O-4 (P2)** ○ Partner multi-client workspace.
@@ -268,14 +269,15 @@ Requirements are tagged **FR-<module>-<n>**. Priority reflects original intent: 
 - **FR-R-1 (P2)** ✅ Team registry: employees/contractors/advisors with title, status, join/exit dates.
 - **FR-R-2 (P2)** ✅ HR documents: offer letter, IP assignment, NDA generated per member (guarded to HR templates).
 - **FR-R-3 (P2)** ◐ Onboarding bundle: one click creates an EMPLOYEE cap-table stakeholder (**ESOP-eligible immediately**) + generates the 3 HR docs. *Remaining:* PF/ESIC/PT checklist step.
-- **FR-R-4 (P3)** ◐ Joiner/leaver: onboarding links the stakeholder; exit marks status. *Remaining:* automatic option-lapse on leaver.
+- **FR-R-4 (P3)** ✅ Joiner/leaver: onboarding links the stakeholder; **offboarding** (v1.3) exits the member and automatically lapses unvested options back to the scheme pool (vesting frozen at the leaving date).
 
 ### S. SPV / Co-Investment Vehicles
 
-- **FR-S-1 (P2)** ◐ SPV creation: sponsor, target company, structure, optional portco link (same-tenant; cross-tenant consent model deferred). *Remaining:* SPV operating/subscription agreement generation.
+- **FR-S-1 (P2)** ◐ SPV creation: sponsor, target company, structure, optional portco link (same-tenant; cross-tenant consent model deferred); **subscription agreements** (v1.3) auto-generated per co-investor on commitment (re-versioned on revision, immutable once signed) and downloadable from the backer's portal. *Remaining:* SPV operating-agreement generation.
 - **FR-S-2 (P2)** ✅ Co-investor register (commitment/contribution/paid) + **sweep**: the SPV's combined position issues into the portco cap table as a single ENTITY stakeholder.
-- **FR-S-3 (P2)** ◐ SPV ops: contributions tracked. *Remaining:* distributions back to co-investors.
-- **FR-S-4 (P3)** ○ Multi-SPV roll-up reporting.
+- **FR-S-3 (P2)** ◐ **Syndicate subscription flow**: the lead invites backers by email; the deal appears in their investor portal (terms, target, sponsor, status) where they commit — minimum ticket enforced — and the lead marks money received (`invited → committed → funded`). *Remaining:* distributions back to co-investors.
+- **FR-S-4 (P2)** ✅ **Deal economics**: carry % + minimum ticket per SPV; saving terms provisions the fund profile on the SPV entity (carry mirrored, zero hurdle/management fee) so the capital-call and distribution-waterfall machinery applies to the vehicle.
+- **FR-S-5 (P3)** ○ Multi-SPV roll-up reporting.
 
 ### T. Workspaces, File Cabinet, Dashboard & Reporting
 
@@ -524,7 +526,11 @@ Audit middleware ── records every mutation ; WorkflowRun ── orchestrates
 - **Fee charging** (append-only fee ledger per LP, Alembic `a9d1f3b5c7e9`), **unitised NAV** (₹10-par units, NAV/unit), **fund deal pipeline** (new FR-J-10, Alembic `b0e2a4c6d8f0`), and the **SEBI AIF compliance calendar** (FR-J-8 ◐).
 - **Form 64C/64D** LP tax pack (new FR-K-7), **investor consents on resolutions** (new FR-K-6), and **secondary sales with ROFR** (FR-E-7 ◐) — consents + secondary requests via Alembic `c1f3b5d7e9a1`.
 - **PDF rendering** for all generated documents incl. portal downloads (FR-F-2) and **cap-table CSV import** with dry-run validation (FR-C-12).
-- **Security hardening batch** (whole-code review): provider verification gate (FR-O-1, Alembic `d3a5c7e9f1b3`), bounds on money/percentage inputs (negative principals, carry ≥ 100% etc. now 422), fee charging clamped to accrued-to-date, signup rate limiting, spreadsheet-formula neutralisation on CSV exports, import size/row caps. 185 backend tests.
+- **Security hardening batch** (whole-code review): provider verification gate (FR-O-1, Alembic `d3a5c7e9f1b3`), bounds on money/percentage inputs (negative principals, carry ≥ 100% etc. now 422), fee charging clamped to accrued-to-date, signup rate limiting, spreadsheet-formula neutralisation on CSV exports, import size/row caps.
+- **Incorporation wizard** (FR-B-1, Atlas gap analysis): intake → SPICe+/eMoA/eAoA pack → SRN → CIN with automatic allotment, director register and compliance calendar (Alembic `e5c7a9b1d3f5`); marketplace gains registered-office and virtual-CFO categories.
+- **Carta gap batch**: scenario modeling (FR-C-4 ✅), employee self-serve exercise requests (FR-D-3, Alembic `f7d9b1c3e5a7`), waterfall exit comparison (FR-C-5). 191 backend tests.
+- **Sydecar gap batch** (2026-07-15): **syndicate subscription flow** (FR-S-3 ◐) — invite co-investors by email, deal appears in their portal, portal commitments with minimum-ticket enforcement, `invited → committed → funded` lifecycle; **SPV deal economics** (new FR-S-4 ✅) — carry % + minimum ticket, terms provision the fund profile on the SPV entity; co-investor SPV positions and updates in the investor portal with portfolio aggregation. Alembic `a8f0c2d4e6b8`; 195 backend tests.
+- **Savvi/PaperOS gap batch** (2026-07-15): **diligence readiness engine** (FR-I-5 ◐) — 11 rules-as-data checks, severity-weighted score, findings with deep links, report-as-document; **public fundraising funnel** (FR-E-8) — shareable opt-in link per round (unauthenticated, rate-limited), prospects land in the CRM with optional automatic data-room access, admin funnel view; **financing doc automation** — SPV subscription agreements generated on commitment + portal PDF download (FR-S-1), PAS-4 offer letters per round commitment (new FR-E-10 ✅); **small fills** — founder IP assignments in the incorporation pack (FR-B-1), charter-amendment one-step (FR-G-2), offboarding with automatic option lapse (FR-R-4 ✅). Alembic `b9a1d3e5f7c9`; 204 backend tests.
 
 **v1.2 (2026-07-08)** — stage-based guided workspace + grouped navigation (new **FR-T-7**, **FR-T-8**):
 - Companies get a lifecycle stage (Inception / Pre-seed / Seed / Series rounds / Pre-IPO): stage-filtered navigation and feature gates, a per-stage auto-checked "what to do now" checklist with deep links, data-driven stage suggestion, free skipping between stages, and an "All features" escape hatch. Stage registry is rules-as-data (`app/stages.py`); Alembic revision `c3e5a7b9d1f2`; 151 backend tests.

@@ -3,6 +3,8 @@ import KindBadge from "../components/KindBadge";
 import { useGuard } from "../hooks";
 import {
   api,
+  type DataRoom,
+  type FunnelView,
   type Round,
   type RoundCommitment,
   type RoundSummary,
@@ -17,6 +19,9 @@ export default function Fundraising({ entityId }: { entityId: string }) {
   const [selected, setSelected] = useState<Round | null>(null);
   const [summary, setSummary] = useState<RoundSummary | null>(null);
   const [commitments, setCommitments] = useState<RoundCommitment[]>([]);
+  const [funnel, setFunnel] = useState<FunnelView | null>(null);
+  const [rooms, setRooms] = useState<DataRoom[]>([]);
+  const [funnelRoom, setFunnelRoom] = useState("");
   const [note, setNote] = useState("");
   const { error, setError, guard } = useGuard(async () => {
     await load();
@@ -53,9 +58,16 @@ export default function Fundraising({ entityId }: { entityId: string }) {
 
   async function select(rid: string) {
     setNote("");
-    const [s, c] = await Promise.all([api.roundSummary(rid), api.listCommitments(rid)]);
+    const [s, c, f, dr] = await Promise.all([
+      api.roundSummary(rid),
+      api.listCommitments(rid),
+      api.getFunnel(entityId, rid),
+      api.listDataRooms(entityId),
+    ]);
     setSummary(s);
     setCommitments(c);
+    setFunnel(f);
+    setRooms(dr);
     setSelected(rounds.find((r) => r.id === rid) ?? null);
   }
 
@@ -155,7 +167,7 @@ export default function Fundraising({ entityId }: { entityId: string }) {
 
               <table style={{ marginTop: 10 }}>
                 <thead>
-                  <tr><th>Investor</th><th>Kind</th><th>Amount</th><th>Foreign</th><th>Status</th></tr>
+                  <tr><th>Investor</th><th>Kind</th><th>Amount</th><th>Foreign</th><th>Status</th><th></th></tr>
                 </thead>
                 <tbody>
                   {commitments.map((c) => (
@@ -175,6 +187,18 @@ export default function Fundraising({ entityId }: { entityId: string }) {
                             {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                           </select>
                         )}
+                      </td>
+                      <td>
+                        <button
+                          className="secondary"
+                          title="PAS-4 private placement offer letter (Sec 42)"
+                          onClick={guard(async () => {
+                            await api.generateOfferLetter(selected.id, c.id);
+                            setNote(`PAS-4 offer letter generated for ${c.investor_name} (see Documents tab).`);
+                          })}
+                        >
+                          PAS-4
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -214,6 +238,89 @@ export default function Fundraising({ entityId }: { entityId: string }) {
           )}
         </div>
       </div>
+
+      {selected && funnel && (
+        <div className="card">
+          <h3>Investor funnel</h3>
+          {funnel.link && funnel.link.active ? (
+            <p className="muted">
+              Share this link with prospective investors:{" "}
+              <code>{`${window.location.origin}/invest/${funnel.link.token}`}</code>{" "}
+              <button
+                className="secondary"
+                onClick={() =>
+                  navigator.clipboard.writeText(
+                    `${window.location.origin}/invest/${funnel.link!.token}`
+                  )
+                }
+              >
+                Copy
+              </button>{" "}
+              <button
+                className="secondary"
+                onClick={guard(() => api.deactivateFunnelLink(entityId, selected.id))}
+              >
+                Deactivate
+              </button>
+              {funnel.link.data_room_id && " — opting in grants data-room access automatically."}
+            </p>
+          ) : (
+            <div className="row" style={{ alignItems: "flex-end" }}>
+              <div>
+                <label>Data room to share (optional)</label>
+                <select value={funnelRoom} onChange={(e) => setFunnelRoom(e.target.value)}>
+                  <option value="">— none —</option>
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                style={{ flex: "0 0 auto" }}
+                onClick={guard(() =>
+                  api.createFunnelLink(entityId, selected.id, {
+                    data_room_id: funnelRoom || null,
+                  })
+                )}
+              >
+                Create share link
+              </button>
+            </div>
+          )}
+
+          {funnel.prospects.length > 0 && (
+            <table style={{ marginTop: 10 }}>
+              <thead>
+                <tr>
+                  <th>Prospect</th><th>Firm</th><th>Email</th><th>Stage</th>
+                  <th>Check size</th><th>Room views</th><th>Commitment</th>
+                </tr>
+              </thead>
+              <tbody>
+                {funnel.prospects.map((p) => (
+                  <tr key={p.id}>
+                    <td>{p.name}</td>
+                    <td>{p.firm ?? "—"}</td>
+                    <td>{p.email ?? "—"}</td>
+                    <td><span className="badge">{p.stage}</span></td>
+                    <td>{p.check_size ? `₹${p.check_size}` : "—"}</td>
+                    <td>{p.data_room_views}</td>
+                    <td>
+                      {p.commitment ? (
+                        <span className="badge complete">
+                          ₹{p.commitment.amount} ({p.commitment.status})
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
     </div>
   );
 }

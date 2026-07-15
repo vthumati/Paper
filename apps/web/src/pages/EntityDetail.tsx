@@ -10,6 +10,8 @@ import DataRoom from "../features/DataRoom";
 import Compliance from "../features/Compliance";
 import Fund from "../features/Fund";
 import Esop from "../features/Esop";
+import ExerciseRequests from "../features/ExerciseRequests";
+import ScenarioModeling from "../features/ScenarioModeling";
 import Valuations from "../features/Valuations";
 import Services from "../features/Services";
 import Admin from "../features/Admin";
@@ -26,6 +28,7 @@ import Investors from "../features/Investors";
 import StartupIndia from "../features/StartupIndia";
 import Finance from "../features/Finance";
 import Registers from "../features/Registers";
+import Diligence from "../features/Diligence";
 
 type Tab =
   | "dashboard"
@@ -39,6 +42,7 @@ type Tab =
   | "workflows"
   | "documents"
   | "dataroom"
+  | "diligence"
   | "compliance"
   | "fund"
   | "esop"
@@ -77,6 +81,7 @@ const TAB_DEFS: {
   { key: "valuations", label: "Valuations", group: "ownership", scope: "all" },
   { key: "fundraising", label: "Rounds & SAFEs", group: "raise", scope: "company" },
   { key: "dataroom", label: "Data Room", group: "raise", scope: "all" },
+  { key: "diligence", label: "Diligence", group: "raise", scope: "company" },
   { key: "investors", label: "Investors", group: "raise", scope: "all" },
   { key: "governance", label: "Board & Resolutions", group: "govern", scope: "all" },
   { key: "compliance", label: "Compliance", group: "govern", scope: "all" },
@@ -320,6 +325,7 @@ export default function EntityDetail() {
       {tab === "fundraising" && (
         <>
           <Fundraising entityId={entityId} />
+          <ScenarioModeling entityId={entityId} />
           <Instruments entityId={entityId} onChanged={() => setCapRefresh((x) => x + 1)} />
           <Pipeline entityId={entityId} />
         </>
@@ -328,9 +334,15 @@ export default function EntityDetail() {
       {tab === "workflows" && <Workflows entityId={entityId} />}
       {tab === "documents" && <Documents entityId={entityId} />}
       {tab === "dataroom" && <DataRoom entityId={entityId} />}
+      {tab === "diligence" && <Diligence entityId={entityId} onNavigate={goTab} />}
       {tab === "compliance" && <Compliance entityId={entityId} entityType={entity.type} />}
       {tab === "fund" && <Fund entityId={entityId} />}
-      {tab === "esop" && <Esop entityId={entityId} />}
+      {tab === "esop" && (
+        <>
+          <ExerciseRequests entityId={entityId} />
+          <Esop entityId={entityId} />
+        </>
+      )}
       {tab === "valuations" && <Valuations entityId={entityId} />}
       {tab === "services" && <Services entityId={entityId} />}
       {tab === "admin" && <Admin entityId={entityId} />}

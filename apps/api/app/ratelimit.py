@@ -27,3 +27,5 @@ login_limiter = FailureLimiter()
 # signup: every attempt counts (per client IP) — curbs account spam and
 # email enumeration; generous enough for a shared office NAT
 signup_limiter = FailureLimiter(max_failures=20, window_seconds=3600)
+# public fundraising funnel: unauthenticated interest submissions per IP
+funnel_limiter = FailureLimiter(max_failures=20, window_seconds=3600)

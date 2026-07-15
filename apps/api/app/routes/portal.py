@@ -24,12 +24,14 @@ from ..models.portal import (
 )
 from ..schemas import (
     ConsentDecisionIn,
+    ExerciseRequestIn,
     InvestorAccessIn,
     InvestorAccessOut,
     InvestorUpdateIn,
     InvestorUpdateOut,
     SecondaryDecideIn,
     SecondaryRequestIn,
+    SPVCommitIn,
 )
 from ..services import portal as svc
 from ..services.captable import holding_quantity, stamp_duty_on_transfer
@@ -110,14 +112,20 @@ def portal_document_pdf(
 ):
     from ..models.document import Document
     from ..models.fund import LP
+    from ..models.spv import CoInvestor
     from .documents import document_pdf_response
 
     doc = db.get(Document, document_id)
-    if doc is None or doc.subject_type not in ("lp_statement", "form_64c"):
+    if doc is None or doc.subject_type not in ("lp_statement", "form_64c", "co_investor"):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
-    lp = db.get(LP, doc.subject_id) if doc.subject_id else None
-    if lp is None or lp.email != user.email:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
+    if doc.subject_type == "co_investor":
+        ci = db.get(CoInvestor, doc.subject_id) if doc.subject_id else None
+        if ci is None or ci.email != user.email:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
+    else:
+        lp = db.get(LP, doc.subject_id) if doc.subject_id else None
+        if lp is None or lp.email != user.email:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
     return document_pdf_response(db, doc)
 
 
@@ -138,6 +146,59 @@ def decide_consent(
     consent.decided_at = now_ist()
     db.commit()
     return {"id": consent.id, "status": consent.status.value}
+
+
+# --- employee exercise requests: asked here, decided by the company ---
+@router.post("/portal/exercise-requests", status_code=201)
+def request_exercise(
+    body: ExerciseRequestIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from ..models.esop import ExerciseRequest, ExerciseRequestStatus, Grant
+    from ..services.esop import exercised_quantity, vested_quantity
+
+    grant = db.get(Grant, body.grant_id)
+    sh = db.get(Stakeholder, grant.stakeholder_id) if grant else None
+    if grant is None or sh is None or sh.email != user.email:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Grant not found")
+    exercisable = vested_quantity(grant, today_ist()) - exercised_quantity(db, grant.id)
+    pending = sum(
+        r.quantity
+        for r in db.query(ExerciseRequest).filter_by(
+            grant_id=grant.id, status=ExerciseRequestStatus.OPEN
+        )
+    )
+    if body.quantity > exercisable - pending:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Only {max(0, exercisable - pending)} option(s) are exercisable",
+        )
+    req = ExerciseRequest(
+        entity_id=grant.entity_id, grant_id=grant.id,
+        quantity=body.quantity, cashless=body.cashless,
+    )
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+    return {"id": req.id, "status": req.status.value}
+
+
+# --- SPV commitments: an invited backer commits to the deal (FR-S-3) ---
+@router.post("/portal/spv-commitments")
+def commit_to_spv(
+    body: SPVCommitIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from ..models.spv import CoInvestor
+    from ..services import spv as spv_svc
+
+    ci = db.get(CoInvestor, body.co_investor_id)
+    if ci is None or ci.email != user.email:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Invitation not found")
+    ci = spv_svc.commit_to_spv(db, ci, body.amount, user.id)
+    return {"id": ci.id, "status": ci.status, "commitment": str(ci.commitment)}
 
 
 # --- secondary sales: the investor asks, the company decides (ROFR) ---
