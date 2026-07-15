@@ -28,7 +28,7 @@ from .models.esop import ExerciseRequest, Grant
 from .models.founders import FounderVesting
 from .models.fund import Deal, Fund
 from .models.governance import DirectorOfficer, Meeting, Resolution
-from .models.identity import WRITE_ROLES, Membership, Role, Tenant, User
+from .models.identity import WRITE_ROLES, AdvisorAccess, Membership, Role, Tenant, User
 from .models.instruments import ConvertibleInstrument
 from .models.managed import AdminSubscription
 from .models.marketplace import ServiceEngagement
@@ -60,6 +60,23 @@ def _membership(db: Session, user: User, tenant_id: str) -> Membership:
     if m is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Not a member of this tenant")
     return m
+
+
+def _entity_role(db: Session, user: User, entity: LegalEntity) -> Role:
+    """Resolve the caller's role on an entity: tenant membership first, else a
+    cross-tenant AdvisorAccess grant matched by email (external counsel / CA /
+    CS). 403 if neither applies."""
+    m = db.query(Membership).filter_by(user_id=user.id, tenant_id=entity.tenant_id).first()
+    if m is not None:
+        return m.role
+    adv = (
+        db.query(AdvisorAccess)
+        .filter_by(entity_id=entity.id, email=user.email)
+        .first()
+    )
+    if adv is not None:
+        return adv.role
+    raise HTTPException(status.HTTP_403_FORBIDDEN, "No access to this entity")
 
 
 def require_write(role: Role) -> None:
@@ -113,7 +130,7 @@ def entity_ctx(
     entity = db.get(LegalEntity, entity_id)
     if entity is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Entity not found")
-    return EntityCtx(entity, _membership(db, user, entity.tenant_id).role)
+    return EntityCtx(entity, _entity_role(db, user, entity))
 
 
 # --- factory for every entity-owned resource ---
@@ -134,7 +151,7 @@ def _entity_scoped(attr: str, model, param: str, label: str, owner=_direct_entit
         if obj is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"{label} not found")
         entity = db.get(LegalEntity, owner(obj, db))
-        return ctx_cls(obj, _membership(db, user, entity.tenant_id).role)
+        return ctx_cls(obj, _entity_role(db, user, entity))
 
     p = inspect.Parameter
     dep.__signature__ = inspect.Signature(

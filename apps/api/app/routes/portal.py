@@ -103,6 +103,13 @@ def my_portal(user: User = Depends(get_current_user), db: Session = Depends(get_
     return svc.portal_for_user(db, user)
 
 
+@router.get("/portal/value-history")
+def my_portal_value_history(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    return svc.portfolio_value_history(db, user)
+
+
 # --- portal PDF: LPs download their own statements / Form 64C by email match ---
 @router.get("/portal/documents/{document_id}/pdf")
 def portal_document_pdf(

@@ -9,6 +9,7 @@ from .middleware import install_audit_middleware
 from .models import Base
 from .routes import (
     activity,
+    advisor,
     alerts,
     auth,
     captable,
@@ -48,7 +49,7 @@ ROUTE_MODULES = [
     dataroom, compliance, fund, esop, valuation, marketplace, managed,
     spv, round, governance, workspace, team, clm, portal, rights, crm,
     startup, finance, registers, alerts, instruments, founders,
-    incorporation, diligence, funnel, termsheet,
+    incorporation, diligence, funnel, termsheet, advisor,
 ]
 
 

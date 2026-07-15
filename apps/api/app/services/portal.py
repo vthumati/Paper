@@ -24,6 +24,7 @@ from ..models.portal import (
     InvestorUpdate,
     SecondaryRequest,
 )
+from ..models.valuation import ValuationReport, ValuationStatus
 from ..models.spv import CoInvestor, SPV
 from .captable import compute_cap_table
 from .esop import grant_view, vesting_projection
@@ -61,6 +62,51 @@ def _updates(db: Session, entity_id: str) -> list[dict]:
         .filter_by(entity_id=entity_id)
         .order_by(InvestorUpdate.created_at.desc())
     ]
+
+
+def portfolio_value_history(db: Session, user: User) -> dict:
+    """Marked value of the user's company equity holdings over time (FR-K):
+    at each historical valuation date across their companies, value each
+    holding at the FMV effective then (falling back to cost before a company's
+    first valuation), summed across companies. Drives the portal value hero.
+
+    Scope note: this is the equity-holdings series only — fund/SPV positions,
+    held at cost with no time series, are excluded (and labelled as such in the
+    UI), so this can differ from the all-in portfolio_value stat."""
+    today = today_ist()
+    holdings: dict[str, dict] = {}  # entity_id -> {qty, cost}
+    for a in db.query(InvestorAccess).filter_by(email=user.email):
+        if not a.stakeholder_id:
+            continue
+        ct = compute_cap_table(db, a.entity_id)
+        for h in ct["holders"]:
+            if h["stakeholder_id"] == a.stakeholder_id:
+                agg = holdings.setdefault(a.entity_id, {"qty": 0, "cost": Decimal("0")})
+                agg["qty"] += h["quantity"]
+                agg["cost"] += Decimal(h["amount_invested"])
+
+    dates = set()
+    for eid in holdings:
+        for v in db.query(ValuationReport).filter_by(entity_id=eid, status=ValuationStatus.FINAL):
+            if v.valuation_date <= today:
+                dates.add(v.valuation_date)
+    dates.add(today)  # always anchor the series at "now"
+
+    def value_at(as_of) -> Decimal:
+        total = Decimal("0")
+        for eid, agg in holdings.items():
+            fmv = current_fmv(db, eid, as_of)
+            total += Decimal(agg["qty"]) * fmv if fmv is not None else agg["cost"]
+        return total.quantize(CENTS, ROUND_HALF_UP)
+
+    series = [
+        {"date": d.isoformat(), "value": str(value_at(d))} for d in sorted(dates)
+    ]
+    return {
+        "series": series,
+        "current_value": series[-1]["value"] if series else "0.00",
+        "holdings": len(holdings),
+    }
 
 
 def portal_for_user(db: Session, user: User) -> dict:

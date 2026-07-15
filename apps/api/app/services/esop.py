@@ -81,11 +81,12 @@ def grant_view(db: Session, grant: Grant, as_of: datetime.date) -> dict:
     vested = vested_quantity(grant, as_of)
     exercised = exercised_quantity(db, grant.id)
     sh = db.get(Stakeholder, grant.stakeholder_id)
-    return {
+    view = {
         "id": grant.id,
         "scheme_id": grant.scheme_id,
         "stakeholder_id": grant.stakeholder_id,
         "stakeholder_name": sh.name if sh else None,
+        "grant_type": grant.grant_type,
         "quantity": grant.quantity,
         "exercise_price": grant.exercise_price,
         "grant_date": grant.grant_date,
@@ -93,8 +94,15 @@ def grant_view(db: Session, grant: Grant, as_of: datetime.date) -> dict:
         "total_months": grant.total_months,
         "vested": vested,
         "exercised": exercised,
+        # options/RSUs: how many vested units remain to exercise/settle
         "exercisable": vested - exercised,
+        # RSAs: shares are issued upfront, so the meaningful figure is how many
+        # are still subject to repurchase (unvested), not "exercisable".
+        "unvested": grant.quantity - vested,
     }
+    if grant.grant_type == "rsa":
+        view["exercisable"] = 0
+    return view
 
 
 def create_grant(
@@ -106,17 +114,26 @@ def create_grant(
     grant_date: datetime.date,
     cliff_months: int,
     total_months: int,
+    grant_type: str = "option",
+    security_class_id: str | None = None,
+    fmv: Decimal = Decimal("0"),
 ) -> Grant:
     if quantity <= 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "quantity must be positive")
+    if grant_type not in ("option", "rsu", "rsa"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown grant type")
     get_owned(db, Stakeholder, stakeholder_id, scheme.entity_id, "stakeholder")
     used = sum(g.quantity for g in db.query(Grant).filter_by(scheme_id=scheme.id))
     if used + quantity > scheme.pool_size:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Grant exceeds scheme pool size")
+    # RSUs have no strike — they settle to shares at vesting for no consideration.
+    if grant_type == "rsu":
+        exercise_price = Decimal("0")
     grant = Grant(
         scheme_id=scheme.id,
         entity_id=scheme.entity_id,
         stakeholder_id=stakeholder_id,
+        grant_type=grant_type,
         quantity=quantity,
         exercise_price=exercise_price,
         grant_date=grant_date,
@@ -124,6 +141,46 @@ def create_grant(
         total_months=total_months,
     )
     db.add(grant)
+    db.flush()
+
+    # RSAs are issued upfront: the shares exist from the grant date (subject to
+    # repurchase of the unvested portion on early exit), and the discount to FMV
+    # is a perquisite recognised at allotment (Sec 17(2)).
+    if grant_type == "rsa":
+        if not security_class_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "RSA needs a security class to issue shares into"
+            )
+        get_owned(db, SecurityClass, security_class_id, scheme.entity_id, "security class")
+        fmv_used = Decimal(fmv)
+        if fmv_used <= 0:
+            looked_up = valsvc.current_fmv(db, scheme.entity_id, grant_date)
+            fmv_used = looked_up if looked_up is not None else Decimal("0")
+        issuance = IssuanceTransaction(
+            entity_id=scheme.entity_id,
+            security_class_id=security_class_id,
+            stakeholder_id=stakeholder_id,
+            quantity=quantity,
+            price_per_unit=exercise_price,
+            issue_date=grant_date,
+        )
+        db.add(issuance)
+        db.flush()
+        perquisite = max(Decimal("0"), fmv_used - exercise_price) * quantity
+        db.add(
+            ExerciseTransaction(
+                grant_id=grant.id,
+                entity_id=scheme.entity_id,
+                quantity=quantity,
+                fmv_per_share=fmv_used,
+                exercise_price=exercise_price,
+                perquisite_value=perquisite,
+                issuance_id=issuance.id,
+                date=grant_date,
+                net_shares=quantity,
+            )
+        )
+
     db.commit()
     db.refresh(grant)
     return grant
@@ -140,6 +197,11 @@ def exercise(
 ) -> ExerciseTransaction:
     if quantity <= 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "quantity must be positive")
+    if grant.grant_type == "rsa":
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "RSA shares are issued at grant — there is nothing to exercise or settle",
+        )
     get_owned(db, SecurityClass, security_class_id, grant.entity_id, "security class")
     exercisable = vested_quantity(grant, as_of) - exercised_quantity(db, grant.id)
     if quantity > exercisable:

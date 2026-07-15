@@ -54,3 +54,21 @@ class Membership(Base, TimestampMixin):
 
     user: Mapped[User] = relationship(back_populates="memberships")
     tenant: Mapped[Tenant] = relationship(back_populates="memberships")
+
+
+class AdvisorAccess(Base, TimestampMixin):
+    """Scoped, cross-tenant access for an external professional (law firm / CA
+    / CS) to a single client entity, matched to a user by email — no tenant
+    membership required (mirrors the InvestorAccess trust boundary). The
+    granted role feeds entity authorization: `viewer` is read-only, `member`
+    can act (e.g. a law firm managing filings)."""
+
+    __tablename__ = "advisor_access"
+    __table_args__ = (UniqueConstraint("entity_id", "email", name="uq_advisor_entity_email"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    entity_id: Mapped[str] = mapped_column(ForeignKey("legal_entities.id"), index=True)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    firm_name: Mapped[str] = mapped_column(String(255))
+    role: Mapped[Role] = mapped_column(Enum(Role), default=Role.VIEWER)
+    invited_by: Mapped[str] = mapped_column(String(32))

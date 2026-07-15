@@ -658,6 +658,9 @@ class EsopGrantIn(BaseModel):
     grant_date: datetime.date
     cliff_months: int = 12
     total_months: int = 48
+    grant_type: Literal["option", "rsu", "rsa"] = "option"
+    security_class_id: str | None = None  # required for RSA (issued upfront)
+    fmv: Decimal = Decimal("0")  # RSA perquisite basis; falls back to current FMV
 
 
 class EsopGrantOut(BaseModel):
@@ -665,6 +668,7 @@ class EsopGrantOut(BaseModel):
     scheme_id: str
     stakeholder_id: str
     stakeholder_name: str | None
+    grant_type: str
     quantity: int
     exercise_price: Decimal
     grant_date: datetime.date
@@ -673,6 +677,7 @@ class EsopGrantOut(BaseModel):
     vested: int
     exercised: int
     exercisable: int
+    unvested: int
 
 
 class ExerciseIn(BaseModel):
@@ -761,6 +766,55 @@ class CurrentFmvOut(BaseModel):
     fmv_per_share: Decimal | None
     valuation_id: str | None
     valuation_date: datetime.date | None
+
+
+# --- self-serve indicative valuation (FR-L-2) ---
+class ScorecardIn(BaseModel):
+    base_valuation: Decimal = Field(gt=0)  # benchmark pre-money for the region/stage
+    # factor scores, 100 = at benchmark, >100 above, <100 below (see registry)
+    scores: dict[str, Decimal] = Field(default_factory=dict)
+
+
+class VCMethodIn(BaseModel):
+    exit_value: Decimal = Field(gt=0)
+    target_multiple: Decimal = Field(gt=0)
+    planned_raise: Decimal = Field(default=Decimal("0"), ge=0)
+
+
+class DCFProjectionRow(BaseModel):
+    revenue: Decimal
+    expenses: Decimal
+
+
+class DCFIn(BaseModel):
+    projections: list[DCFProjectionRow] = Field(min_length=1, max_length=15)
+    discount_rate_pct: Decimal = Field(gt=0, le=100)
+    terminal_growth_pct: Decimal = Field(default=Decimal("0"), ge=0, lt=100)
+
+
+class ValuationEstimateIn(BaseModel):
+    label: str = Field(min_length=1, max_length=120)
+    weights: dict[str, Decimal]  # method -> weight (normalised server-side)
+    scorecard: ScorecardIn | None = None
+    vc_method: VCMethodIn | None = None
+    dcf: DCFIn | None = None
+    save: bool = True
+
+
+class ValuationEstimateOut(ORMModel):
+    id: str
+    label: str
+    inputs: dict
+    results: dict
+    created_at: datetime.datetime
+
+
+class SmartfillOut(BaseModel):
+    base_annual_revenue: Decimal
+    base_annual_expenses: Decimal
+    assumed_growth_pct: Decimal
+    months_of_data: int
+    projections: list[dict]
 
 
 # --- services marketplace ---
@@ -1194,6 +1248,31 @@ class ContractStatusIn(BaseModel):
 
 class ContractDocIn(BaseModel):
     template_key: str = "msa"
+
+
+# --- advisor (external professional) access ---
+class AdvisorAccessIn(BaseModel):
+    email: EmailStr
+    firm_name: str = Field(min_length=1, max_length=255)
+    # advisors get read-only (viewer) or acting (member) access; never owner/admin
+    role: Literal["viewer", "member"] = "viewer"
+
+
+class AdvisorAccessOut(ORMModel):
+    id: str
+    entity_id: str
+    email: str
+    firm_name: str
+    role: Role
+
+
+class AdvisorEntityOut(BaseModel):
+    entity_id: str
+    entity_name: str
+    entity_type: str
+    tenant_name: str
+    firm_name: str
+    role: Role
 
 
 # --- investor portal ---

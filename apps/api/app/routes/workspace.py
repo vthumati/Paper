@@ -7,6 +7,7 @@ from ..models.document import Document
 from ..models.tax import TaxRecord
 from ..schemas import FileOut, TaxRecordIn, TaxRecordOut
 from ..services.dashboard import entity_dashboard
+from ..services.tasks import entity_tasks
 
 router = APIRouter(tags=["workspace"])
 
@@ -14,6 +15,12 @@ router = APIRouter(tags=["workspace"])
 @router.get("/entities/{entity_id}/dashboard")
 def dashboard(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)):
     return entity_dashboard(db, ctx.entity)
+
+
+@router.get("/entities/{entity_id}/tasks")
+def tasks(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)):
+    """Everything actionable for this entity, ranked (FR-T-4)."""
+    return entity_tasks(db, ctx.entity.id)
 
 
 @router.get("/entities/{entity_id}/files", response_model=list[FileOut])

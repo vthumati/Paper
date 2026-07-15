@@ -340,3 +340,18 @@ register(
         "resolve high-severity items before opening a data room to investors.\n",
     )
 )
+register(
+    DocumentTemplate(
+        "valuation_estimate",
+        "Indicative Valuation Workpaper",
+        "valuation_estimate",
+        "INDICATIVE VALUATION WORKPAPER\n"
+        "Company: $company\nScenario: $label\nAs of: $date\n\n"
+        "$methods\n"
+        "Method weighting: $weights\n"
+        "Blended enterprise value: ₹$blended_value\n"
+        "Fully-diluted shares: $fd_shares\n"
+        "Indicative value per share: ₹$per_share\n\n"
+        "$disclaimer\n",
+    )
+)

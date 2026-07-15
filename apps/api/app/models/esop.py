@@ -23,8 +23,16 @@ class ESOPScheme(Base, TimestampMixin):
 
 
 class Grant(Base, TimestampMixin):
-    """An option grant to a stakeholder with a time-based vesting schedule
-    (cliff then monthly to total). FR-D-2."""
+    """An equity-incentive grant to a stakeholder with a time-based vesting
+    schedule (cliff then monthly to total). FR-D-2.
+
+    `grant_type` distinguishes the three award shapes that share this vesting
+    model but settle and tax differently:
+      - option: vest -> exercise (pay strike); perquisite (FMV-strike) at exercise
+      - rsu:    vest -> settle (no strike); perquisite = FMV at settlement
+      - rsa:    shares issued upfront at grant; perquisite (FMV-price) at grant;
+                the unvested portion is subject to repurchase on early exit
+    """
 
     __tablename__ = "esop_grants"
 
@@ -32,6 +40,7 @@ class Grant(Base, TimestampMixin):
     scheme_id: Mapped[str] = mapped_column(ForeignKey("esop_schemes.id"), index=True)
     entity_id: Mapped[str] = mapped_column(ForeignKey("legal_entities.id"), index=True)
     stakeholder_id: Mapped[str] = mapped_column(ForeignKey("stakeholders.id"))
+    grant_type: Mapped[str] = mapped_column(String(8), default="option")
     quantity: Mapped[int] = mapped_column(Integer)
     exercise_price: Mapped[Decimal] = mapped_column(Numeric(18, 4), default=Decimal("0"))
     grant_date: Mapped[datetime.date] = mapped_column(Date)

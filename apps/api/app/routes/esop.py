@@ -74,6 +74,9 @@ def create_grant(
         body.grant_date,
         body.cliff_months,
         body.total_months,
+        grant_type=body.grant_type,
+        security_class_id=body.security_class_id,
+        fmv=body.fmv,
     )
     return svc.grant_view(db, grant, today_ist())
 
