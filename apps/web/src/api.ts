@@ -578,9 +578,41 @@ export interface AppNotification {
   read: boolean;
   created_at: string;
 }
+export interface ClassSlice {
+  name: string;
+  kind: string | null;
+  quantity: number;
+  pct: number;
+}
+export interface TimelineEvent {
+  id: string;
+  date: string;
+  kind: string;
+  text: string;
+}
 export interface Dashboard {
   entity: { id: string; name: string; type: string };
-  cap_table: { total_shares: number; total_invested: string; holders: number };
+  cap_table: {
+    total_shares: number;
+    total_invested: string;
+    holders: number;
+    by_class: ClassSlice[];
+  };
+  capital: {
+    authorized_shares: number | null;
+    issued: number;
+    available: number | null;
+    esop_pool: number;
+    esop_granted: number;
+  };
+  valuation: {
+    status: "active" | "expired" | "missing";
+    fmv_per_share: string | null;
+    method: string | null;
+    valuation_date: string | null;
+    valid_until: string | null;
+    valuer_name: string | null;
+  };
   fundraising: { rounds: number; open_rounds: number };
   compliance: { total: number; overdue: number };
   esop: { schemes: number; options_granted: number };
@@ -786,6 +818,9 @@ export interface EquityGrant {
   grant_date: string;
   current_fmv: string | null;
   unrealized_gain: string | null;
+  vesting_pct: number;
+  full_vest_date: string;
+  next_vests: { date: string; quantity: number }[];
 }
 export interface PortalSPVDeal {
   co_investor_id: string;
@@ -1279,6 +1314,8 @@ export const api = {
   markAllNotificationsRead: () => post<{ ok: boolean }>("/notifications/read-all"),
 
   dashboard: (eid: string) => get<Dashboard>(`/entities/${eid}/dashboard`),
+  captableTimeline: (eid: string) =>
+    get<{ events: TimelineEvent[] }>(`/entities/${eid}/timeline`),
   files: (eid: string, q?: string) =>
     get<FileItem[]>(`/entities/${eid}/files${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   listTaxRecords: (eid: string) => get<TaxRecord[]>(`/entities/${eid}/tax-records`),

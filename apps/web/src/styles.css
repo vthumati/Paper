@@ -191,3 +191,35 @@ mark.ok { background: #d1fae5; color: #115e45; border-radius: 3px; padding: 0 2p
   width: 22px; height: 22px; border-radius: 6px;
   background: var(--blue); color: #fff; font-size: 12px; font-weight: 700;
 }
+
+/* tinted security-class chips (Eqvista-style) — coloured by class kind */
+.sec-chip {
+  display: inline-block; padding: 2px 10px; border-radius: 6px;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.sec-chip.equity { background: #e3efe6; color: #2f6b52; }
+.sec-chip.ccps { background: #dfe9f2; color: #2f4b6b; }
+.sec-chip.ccd { background: #f5ecd8; color: #8a6d3b; }
+.sec-chip.safe { background: #f5e6d8; color: #8a5a2b; }
+.sec-chip.warrant { background: #e8e8ea; color: #52525b; }
+.sec-chip.option_pool { background: #f7f1d1; color: #7a6512; }
+
+/* vesting / usage progress bar */
+.progress-track {
+  background: var(--light); border-radius: 6px; height: 14px;
+  overflow: hidden; width: 100%;
+}
+.progress-fill { background: var(--blue); height: 100%; border-radius: 6px 0 0 6px; }
+
+/* dashboard quick-action shortcut cards */
+.qa-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.qa-row button {
+  flex: 1; min-width: 150px; background: var(--card); color: var(--blue);
+  border: 1px solid var(--border); border-radius: 10px; padding: 14px 10px;
+  font-weight: 600;
+}
+.qa-row button:hover { border-color: var(--blue); }
+
+/* timeline event rows */
+.timeline-row { display: flex; gap: 10px; align-items: baseline; border-top: 1px solid var(--border); padding: 8px 0; }
+.timeline-row .tl-date { color: var(--muted); font-size: 12px; white-space: nowrap; min-width: 90px; }

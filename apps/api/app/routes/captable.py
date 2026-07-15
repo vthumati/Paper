@@ -37,8 +37,15 @@ from ..services.captable import compute_cap_table
 from ..services.diluted import anti_dilution_preview, fully_diluted
 from ..services.importer import TEMPLATE, apply_import, parse_and_validate
 from ..services.scenario import model_round
+from ..services.timeline import entity_timeline
 
 router = APIRouter(prefix="/entities/{entity_id}", tags=["cap-table"])
+
+
+@router.get("/timeline")
+def timeline(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)):
+    """Narrative equity timeline (FR-C-10) — newest first."""
+    return {"events": entity_timeline(db, ctx.entity.id)}
 
 
 # --- security classes ---

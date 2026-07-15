@@ -26,7 +26,7 @@ from ..models.portal import (
 )
 from ..models.spv import CoInvestor, SPV
 from .captable import compute_cap_table
-from .esop import grant_view
+from .esop import grant_view, vesting_projection
 from .fund import capital_accounts
 from .fund_perf import fund_performance
 from .valuation import current_fmv
@@ -244,6 +244,7 @@ def portal_for_user(db: Session, user: User) -> dict:
                 {"id": r.id, "quantity": r.quantity, "status": r.status.value}
                 for r in db.query(ExerciseRequest).filter_by(grant_id=g.id)
             ]
+            proj = vesting_projection(g, today)
             grants.append(
                 {
                     "grant_id": g.id,
@@ -257,6 +258,11 @@ def portal_for_user(db: Session, user: User) -> dict:
                     "grant_date": g.grant_date,
                     "current_fmv": str(fmv) if fmv is not None else None,
                     "unrealized_gain": unrealized,
+                    "vesting_pct": round(gv["vested"] / gv["quantity"] * 100, 2)
+                    if gv["quantity"]
+                    else 0.0,
+                    "full_vest_date": proj["full_vest_date"],
+                    "next_vests": proj["next_vests"],
                 }
             )
             total_vested += gv["vested"]

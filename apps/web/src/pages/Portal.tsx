@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type PortalDashboard } from "../api";
+import SecChip from "../components/SecChip";
 import Stat from "../components/Stat";
 
 export default function Portal() {
@@ -63,9 +64,31 @@ export default function Portal() {
         </div>
       )}
 
-      {d && d.equity_grants.length > 0 && (
+      {d && d.equity_grants.length > 0 && (() => {
+        const granted = d.equity_grants.reduce((s, g) => s + g.granted, 0);
+        const vested = d.equity_grants.reduce((s, g) => s + g.vested, 0);
+        const pct = granted > 0 ? (vested / granted) * 100 : 0;
+        const fullVest = d.equity_grants.map((g) => g.full_vest_date).sort().slice(-1)[0];
+        const upcoming = d.equity_grants
+          .flatMap((g) => g.next_vests.map((ev) => ({ ...ev, entity: g.entity_name })))
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .slice(0, 5);
+        return (
         <div className="card">
           <h2>Your equity (ESOP)</h2>
+          <div className="row" style={{ gap: 10 }}>
+            <Stat label="Vesting progress" value={`${pct.toFixed(2)}%`} big />
+            <Stat label="Options vested" value={vested.toLocaleString()} />
+            {fullVest && <Stat label="Est. 100% vesting date" value={fullVest} />}
+          </div>
+          <div style={{ margin: "10px 0 4px" }}>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${Math.min(100, pct)}%` }} />
+            </div>
+            <p className="muted" style={{ marginTop: 4 }}>
+              Vested {vested.toLocaleString()} · Unvested {(granted - vested).toLocaleString()}
+            </p>
+          </div>
           <table>
             <thead>
               <tr>
@@ -113,8 +136,23 @@ export default function Portal() {
               ))}
             </tbody>
           </table>
+          {upcoming.length > 0 && (
+            <>
+              <h3>Upcoming vest events</h3>
+              {upcoming.map((ev, i) => (
+                <div className="timeline-row" key={i}>
+                  <span className="tl-date">{ev.date}</span>
+                  <span>
+                    {ev.quantity.toLocaleString()} options will vest
+                    {ev.entity ? ` · ${ev.entity}` : ""}
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
         </div>
-      )}
+        );
+      })()}
 
       {empty && (
         <div className="card">
@@ -162,7 +200,7 @@ export default function Portal() {
               <tbody>
                 {c.holdings.map((h, i) => (
                   <tr key={i}>
-                    <td>{h.security_class}</td>
+                    <td><SecChip name={h.security_class} kind={h.kind} /></td>
                     <td>{h.quantity.toLocaleString()}</td>
                     <td>{h.amount_invested}</td>
                     <td>{h.ownership_pct}%</td>

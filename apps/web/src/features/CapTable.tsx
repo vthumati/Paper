@@ -3,12 +3,40 @@ import {
   api,
   downloadFile,
   type CapTable as CapTableT,
+  type CapTableRow,
   type SecurityClass,
   type Stakeholder,
 } from "../api";
+import SecChip from "../components/SecChip";
 import DownRoundCalc from "./DownRoundCalc";
 import FullyDilutedView from "./FullyDiluted";
 import ImportCapTable from "./ImportCapTable";
+
+type Pivot = "positions" | "holder" | "class";
+
+/** Re-slice the per-(stakeholder, class) positions by stakeholder or by
+ * security class (Eqvista's Class | Grant | Shareholder pivot). */
+function aggregate(rows: CapTableRow[], by: "holder" | "class") {
+  const agg = new Map<
+    string,
+    { name: string | null; sub: string | null; quantity: number; invested: number; pct: number }
+  >();
+  for (const r of rows) {
+    const key = by === "holder" ? r.stakeholder_id : r.security_class_id;
+    const row = agg.get(key) ?? {
+      name: by === "holder" ? r.stakeholder_name : r.security_class,
+      sub: by === "holder" ? r.stakeholder_type : r.kind,
+      quantity: 0,
+      invested: 0,
+      pct: 0,
+    };
+    row.quantity += r.quantity;
+    row.invested += Number(r.amount_invested);
+    row.pct += r.ownership_pct;
+    agg.set(key, row);
+  }
+  return [...agg.values()].sort((a, b) => b.quantity - a.quantity);
+}
 
 export default function CapTable({
   entityId,
@@ -24,6 +52,7 @@ export default function CapTable({
   const [holders, setHolders] = useState<Stakeholder[]>([]);
   const [capTable, setCapTable] = useState<CapTableT | null>(null);
   const [view, setView] = useState<"issued" | "fd">("issued");
+  const [pivot, setPivot] = useState<Pivot>("positions");
   const [error, setError] = useState("");
 
   // form state
@@ -121,30 +150,79 @@ export default function CapTable({
                 Total shares: <strong>{capTable.total_shares.toLocaleString()}</strong> · Total
                 invested: <strong>₹{capTable.total_invested}</strong>
               </p>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Stakeholder</th>
-                    <th>Type</th>
-                    <th>Security</th>
-                    <th>Quantity</th>
-                    <th>Invested (₹)</th>
-                    <th>Ownership %</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {capTable.holders.map((r, i) => (
-                    <tr key={i}>
-                      <td>{r.stakeholder_name}</td>
-                      <td>{r.stakeholder_type}</td>
-                      <td>{r.security_class}</td>
-                      <td>{r.quantity.toLocaleString()}</td>
-                      <td>{r.amount_invested}</td>
-                      <td>{r.ownership_pct}%</td>
+              <div style={{ marginBottom: 8 }}>
+                {(
+                  [
+                    ["positions", "Positions"],
+                    ["holder", "By stakeholder"],
+                    ["class", "By class"],
+                  ] as [Pivot, string][]
+                ).map(([k, label]) => (
+                  <button
+                    key={k}
+                    className={pivot === k ? "" : "secondary"}
+                    style={{ marginRight: 6 }}
+                    onClick={() => setPivot(k)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {pivot === "positions" ? (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Stakeholder</th>
+                      <th>Type</th>
+                      <th>Security</th>
+                      <th>Quantity</th>
+                      <th>Invested (₹)</th>
+                      <th>Ownership %</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {capTable.holders.map((r, i) => (
+                      <tr key={i}>
+                        <td>{r.stakeholder_name}</td>
+                        <td>{r.stakeholder_type}</td>
+                        <td><SecChip name={r.security_class} kind={r.kind} /></td>
+                        <td>{r.quantity.toLocaleString()}</td>
+                        <td>{r.amount_invested}</td>
+                        <td>{r.ownership_pct}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{pivot === "holder" ? "Stakeholder" : "Security"}</th>
+                      {pivot === "holder" && <th>Type</th>}
+                      <th>Quantity</th>
+                      <th>Invested (₹)</th>
+                      <th>Ownership %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {aggregate(capTable.holders, pivot).map((r, i) => (
+                      <tr key={i}>
+                        <td>
+                          {pivot === "class" ? (
+                            <SecChip name={r.name} kind={r.sub} />
+                          ) : (
+                            r.name
+                          )}
+                        </td>
+                        {pivot === "holder" && <td>{r.sub}</td>}
+                        <td>{r.quantity.toLocaleString()}</td>
+                        <td>{r.invested.toFixed(2)}</td>
+                        <td>{Math.round(r.pct * 10000) / 10000}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </>
           )
         ) : (

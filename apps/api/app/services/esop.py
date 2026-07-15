@@ -1,6 +1,7 @@
 """ESOP service (FR-D): vesting computation and exercise. Exercising options
 issues real shares via the cap-table ledger (so exercised options appear in
 the cap table) and records the perquisite value for tax."""
+import calendar
 import datetime
 from decimal import Decimal
 
@@ -30,6 +31,33 @@ def vested_quantity(grant: Grant, as_of: datetime.date) -> int:
     if m >= grant.total_months:
         return grant.quantity
     return grant.quantity * m // grant.total_months
+
+
+def add_months(d: datetime.date, m: int) -> datetime.date:
+    y = d.year + (d.month - 1 + m) // 12
+    mo = (d.month - 1 + m) % 12 + 1
+    return datetime.date(y, mo, min(d.day, calendar.monthrange(y, mo)[1]))
+
+
+def vesting_projection(grant: Grant, as_of: datetime.date, limit: int = 3) -> dict:
+    """Forward view of a grant's vesting: full-vest date and the next few
+    monthly vest events (the first event after the cliff is the cliff chunk)."""
+    events = []
+    prev = vested_quantity(grant, as_of)
+    for m in range(1, grant.total_months + 1):
+        d = add_months(grant.grant_date, m)
+        if d <= as_of:
+            continue
+        v = vested_quantity(grant, d)
+        if v > prev:
+            events.append({"date": d, "quantity": v - prev})
+            prev = v
+        if len(events) >= limit:
+            break
+    return {
+        "full_vest_date": add_months(grant.grant_date, grant.total_months),
+        "next_vests": events,
+    }
 
 
 def exercised_quantity(db: Session, grant_id: str) -> int:
