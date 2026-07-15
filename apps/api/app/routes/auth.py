@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import get_current_user
 from ..models.identity import User
-from ..ratelimit import login_limiter
+from ..ratelimit import login_limiter, signup_limiter
 from ..schemas import LoginIn, SignupIn, TokenOut, UserOut
 from ..security import create_access_token, hash_password, verify_password
 
@@ -12,7 +12,13 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/signup", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def signup(body: SignupIn, db: Session = Depends(get_db)):
+def signup(body: SignupIn, request: Request, db: Session = Depends(get_db)):
+    ip = request.client.host if request.client else "unknown"
+    if signup_limiter.blocked(ip):
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS, "Too many signups; try again later"
+        )
+    signup_limiter.record_failure(ip)  # every attempt counts toward the window
     if db.query(User).filter_by(email=body.email).first():
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
     user = User(

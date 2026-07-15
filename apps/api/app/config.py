@@ -25,6 +25,9 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
+    # Users allowed to verify marketplace providers (their own registrations
+    # are auto-verified). Set PAPER_PLATFORM_ADMIN_EMAILS='["ops@paper.in"]'.
+    platform_admin_emails: list[str] = []
 
 
 settings = Settings()

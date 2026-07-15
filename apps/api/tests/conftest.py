@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.db import engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Base  # noqa: E402
+from app.ratelimit import login_limiter, signup_limiter  # noqa: E402
 
 
 # Create the schema once; per-test isolation is achieved by wiping rows,
@@ -23,6 +24,9 @@ def client():
     with engine.begin() as conn:
         for table in reversed(Base.metadata.sorted_tables):
             conn.execute(table.delete())
+    # limiters are process-global in-memory state; isolate them per test too
+    login_limiter._failures.clear()
+    signup_limiter._failures.clear()
     with TestClient(app) as c:
         yield c
 

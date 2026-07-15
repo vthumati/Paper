@@ -1,4 +1,12 @@
+from app.config import settings
 from tests.conftest import auth_headers
+
+
+def _admin(client, email="platform-admin@paper.in"):
+    """Headers for a platform admin (their provider registrations auto-verify)."""
+    if email not in settings.platform_admin_emails:
+        settings.platform_admin_emails.append(email)
+    return auth_headers(client, email=email)
 
 
 def _entity(client, h):
@@ -30,7 +38,8 @@ def test_engagement_lifecycle(client):
     h = auth_headers(client)
     eid = _entity(client, h)
     pid = client.post(
-        "/service-providers", json={"name": "CS Rao & Co", "category": "cs"}, headers=h
+        "/service-providers", json={"name": "CS Rao & Co", "category": "cs"},
+        headers=_admin(client),
     ).json()["id"]
 
     eng = client.post(
@@ -66,6 +75,27 @@ def test_engagement_access_control(client):
             f"/entities/{eid}/engagements", json={"provider_id": pid}, headers=outsider
         ).status_code
         == 403
+    )
+
+
+def test_unverified_provider_cannot_be_engaged(client):
+    h = auth_headers(client)
+    eid = _entity(client, h)
+    # any user can register, but the listing is unverified…
+    pid = client.post(
+        "/service-providers", json={"name": "Fake CS", "category": "cs"}, headers=h
+    ).json()["id"]
+    r = client.post(f"/entities/{eid}/engagements", json={"provider_id": pid}, headers=h)
+    assert r.status_code == 400 and "not yet platform-verified" in r.json()["detail"]
+    # …a non-admin cannot verify…
+    assert client.post(f"/service-providers/{pid}/verify", headers=h).status_code == 403
+    # …a platform admin can, after which engagement works
+    admin = _admin(client)
+    v = client.post(f"/service-providers/{pid}/verify", headers=admin).json()
+    assert v["verified"] is True
+    assert (
+        client.post(f"/entities/{eid}/engagements", json={"provider_id": pid}, headers=h).status_code
+        == 201
     )
 
 

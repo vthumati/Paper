@@ -194,6 +194,7 @@ def charge_fees(db: Session, fund: Fund, as_of: datetime.date) -> dict:
     """Crystallise the management fee: charge each LP the fee accrued to
     `as_of` minus what has already been charged. Append-only and therefore
     safe to run repeatedly (a second run the same day charges nothing)."""
+    as_of = min(as_of, today_ist())  # never charge fees that haven't accrued yet
     accrued = management_fee_by_lp(db, fund, as_of)
     already = _fees_charged_by_lp(db, fund.id)
     charges = []

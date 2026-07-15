@@ -88,9 +88,17 @@ def list_demat(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_d
 
 
 # --- CSV exports ---
+def _defuse(cell):
+    """Neutralise spreadsheet formula injection: user-entered names starting
+    with = + - @ (or tab/CR) would execute as formulas when opened in Excel."""
+    if isinstance(cell, str) and cell[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + cell
+    return cell
+
+
 def _csv_response(rows: list[list], filename: str) -> Response:
     buf = io.StringIO()
-    csv.writer(buf).writerows(rows)
+    csv.writer(buf).writerows([[_defuse(c) for c in row] for row in rows])
     return Response(
         content=buf.getvalue(),
         media_type="text/csv",

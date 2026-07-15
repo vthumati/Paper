@@ -10,3 +10,4 @@ dist/
 
 # local dev database (recreate with: py scripts/seed_demo.py --fresh)
 *.db
+*.tsbuildinfo

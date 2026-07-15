@@ -81,8 +81,8 @@ export default function Services({ entityId }: { entityId: string }) {
                   <label>Provider</label>
                   <select value={provId} onChange={(e) => setProvId(e.target.value)}>
                     {providers.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.category})
+                      <option key={p.id} value={p.id} disabled={!p.verified}>
+                        {p.name} ({p.category}){p.verified ? "" : " — pending verification"}
                       </option>
                     ))}
                   </select>

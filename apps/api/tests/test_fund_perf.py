@@ -99,11 +99,16 @@ def test_management_fee_accrual(client):
     assert p["management_fee_accrued"] == "100000.00"  # 2% on 5M drawn for a year
 
 
-def test_fee_charging_into_capital_accounts(client):
+def test_fee_charging_into_capital_accounts(client, monkeypatch):
+    import app.services.fund as fundsvc
+
     h = auth_headers(client)
     fid = _fund(client, h)  # 2% committed basis (default)
     client.post(f"/funds/{fid}/lps", json={"name": "LP One", "commitment": "10000000"}, headers=h)
-    later = (today_ist() + dt.timedelta(days=365)).isoformat()
+    # a year passes (charging is clamped to "today", so move today itself)
+    later_date = today_ist() + dt.timedelta(days=365)
+    monkeypatch.setattr(fundsvc, "today_ist", lambda: later_date)
+    later = later_date.isoformat()
 
     r = client.post(f"/funds/{fid}/fees/charge?as_of={later}", headers=h).json()
     assert r["charged"] == "200000.00" and len(r["charges"]) == 1

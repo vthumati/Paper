@@ -130,7 +130,7 @@ Requirements are tagged **FR-<module>-<n>**. Priority reflects original intent: 
 - **FR-C-9 (P2)** ◐ Demat: ISIN + depository (NSDL/CDSL) + status tracked per security class. *Remaining:* RTA hand-off. ⛔
 - **FR-C-10 (M)** ✅ Effective-dated, append-only ledger; positions recomputable as of any date; microsecond-ordered events.
 - **FR-C-11 (M — added v1.0)** ✅ **Founder reverse-vesting / restricted stock**: cliff-then-monthly schedule over issued founder shares; unvested shares repurchasable (buy-back at nil) on early exit.
-- **FR-C-12 (M — added v1.0)** ✅ Cap-table **CSV export**.
+- **FR-C-12 (M — added v1.0)** ✅ Cap-table **CSV export**, and *(v1.3)* **CSV import** for onboarding an existing cap table: downloadable template, row-by-row validation as a dry run (nothing written), then an atomic apply that creates missing share classes and stakeholders and appends the issuances to the ledger; warns when the ledger already has entries.
 
 ### D. ESOP / Equity Incentive Administration
 
@@ -156,7 +156,7 @@ Requirements are tagged **FR-<module>-<n>**. Priority reflects original intent: 
 ### F. Document Automation & e-Signature
 
 - **FR-F-1 (M)** ✅ Template library (~20 India-specific templates): incorporation (SPICe+/eMoA/eAoA), board resolution, share certificate, SHA, PAS-4, term sheet, meeting notice, D&O indemnification, offer letter, IP assignment, NDA, MSA, SOW, fund/SPV docs. *Note:* parameterised merge; clause-level composition remains open.
-- **FR-F-2 (M)** ◐ Data merge + versioning. *Built:* entity/round/grant data merged into templates; append-only versions; regenerate blocked after signing. *Remaining:* redline comparison.
+- **FR-F-2 (M)** ◐ Data merge + versioning. *Built:* entity/round/grant data merged into templates; append-only versions; regenerate blocked after signing; **PDF download for every generated document** (members via Documents; LPs download their own statements/Form 64C from the portal). *Remaining:* redline comparison; richer PDF layouts.
 - **FR-F-3 (M)** ◐ e-Signature. *Built:* full signing lifecycle (request → signatories → provider-callback → signed, tamper-lock) with a simulated provider. *Remaining:* ⛔ real Aadhaar eSign (eMudhra/NSDL) / Leegality / DocuSign adapters.
 - **FR-F-4 (M)** ✅ Document as first-class object with polymorphic links (round, resolution, meeting, contract, team member, workflow run, director…).
 - **FR-F-5 (P2)** ○ Clause library + AI-assisted drafting/review.
@@ -244,7 +244,7 @@ Requirements are tagged **FR-<module>-<n>**. Priority reflects original intent: 
 
 ### O. Services Marketplace / Partner Network
 
-- **FR-O-1 (M)** ✅ Provider directory: CS / CA / lawyer / registered valuer / RTA / fund admin, category-filterable.
+- **FR-O-1 (M)** ✅ Provider directory: CS / CA / lawyer / registered valuer / RTA / fund admin, category-filterable, with **platform verification** — anyone may register a listing but only platform-verified providers can be engaged (admin allowlist via `PAPER_PLATFORM_ADMIN_EMAILS`).
 - **FR-O-2 (M)** ◐ Engagements: entity-scoped engagement with scope/SOW, status lifecycle (requested → accepted → in-progress → delivered → closed), deliverable-document link. *Remaining:* scoped provider access into the tenant's data room.
 - **FR-O-3 (P2)** ○ ⛔ In-platform billing/escrow; ratings.
 - **FR-O-4 (P2)** ○ Partner multi-client workspace.
@@ -522,7 +522,9 @@ Audit middleware ── records every mutation ; WorkflowRun ── orchestrates
 - **Management-fee accrual**: `mgmt_fee_pct` + `fee_basis` (committed/drawn, Alembic `f8c0e2a4b6d8`), simple annual accrual surfaced with performance.
 - **Angel portfolio summary**: portal totals gain position value at latest FMV and **MOIC**; per-company value shown.
 - **Fee charging** (append-only fee ledger per LP, Alembic `a9d1f3b5c7e9`), **unitised NAV** (₹10-par units, NAV/unit), **fund deal pipeline** (new FR-J-10, Alembic `b0e2a4c6d8f0`), and the **SEBI AIF compliance calendar** (FR-J-8 ◐).
-- **Form 64C/64D** LP tax pack (new FR-K-7), **investor consents on resolutions** (new FR-K-6), and **secondary sales with ROFR** (FR-E-7 ◐) — consents + secondary requests via Alembic `c1f3b5d7e9a1`. 174 backend tests.
+- **Form 64C/64D** LP tax pack (new FR-K-7), **investor consents on resolutions** (new FR-K-6), and **secondary sales with ROFR** (FR-E-7 ◐) — consents + secondary requests via Alembic `c1f3b5d7e9a1`.
+- **PDF rendering** for all generated documents incl. portal downloads (FR-F-2) and **cap-table CSV import** with dry-run validation (FR-C-12).
+- **Security hardening batch** (whole-code review): provider verification gate (FR-O-1, Alembic `d3a5c7e9f1b3`), bounds on money/percentage inputs (negative principals, carry ≥ 100% etc. now 422), fee charging clamped to accrued-to-date, signup rate limiting, spreadsheet-formula neutralisation on CSV exports, import size/row caps. 185 backend tests.
 
 **v1.2 (2026-07-08)** — stage-based guided workspace + grouped navigation (new **FR-T-7**, **FR-T-8**):
 - Companies get a lifecycle stage (Inception / Pre-seed / Seed / Series rounds / Pre-IPO): stage-filtered navigation and feature gates, a per-stage auto-checked "what to do now" checklist with deep links, data-driven stage suggestion, free skipping between stages, and an "All features" escape hatch. Stage registry is rules-as-data (`app/stages.py`); Alembic revision `c3e5a7b9d1f2`; 151 backend tests.

@@ -36,6 +36,8 @@ class ServiceProvider(Base, TimestampMixin):
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     profile: Mapped[str | None] = mapped_column(Text, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # anyone may register; only platform-verified providers can be engaged
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class ServiceEngagement(Base, TimestampMixin):

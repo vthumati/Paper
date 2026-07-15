@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..db import get_db
 from ..deps import (
     EngagementCtx,
@@ -40,11 +41,32 @@ def list_providers(
 @router.post("/service-providers", response_model=ProviderOut, status_code=201)
 def register_provider(
     body: ProviderIn,
-    _: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    p = ServiceProvider(**body.model_dump())
+    # open registration, but only platform-verified providers can be engaged;
+    # a platform admin's own registrations are trusted immediately
+    p = ServiceProvider(
+        **body.model_dump(), verified=user.email in settings.platform_admin_emails
+    )
     db.add(p)
+    db.commit()
+    db.refresh(p)
+    return p
+
+
+@router.post("/service-providers/{provider_id}/verify", response_model=ProviderOut)
+def verify_provider(
+    provider_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.email not in settings.platform_admin_emails:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Platform admin required")
+    p = db.get(ServiceProvider, provider_id)
+    if p is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Provider not found")
+    p.verified = True
     db.commit()
     db.refresh(p)
     return p
@@ -59,6 +81,13 @@ def create_engagement(
     db: Session = Depends(get_db),
 ):
     require_write(ctx.role)
+    provider = db.get(ServiceProvider, body.provider_id)
+    if provider is None or not provider.active:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown provider")
+    if not provider.verified:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Provider is not yet platform-verified"
+        )
     eng = ServiceEngagement(
         entity_id=ctx.entity.id,
         provider_id=body.provider_id,
