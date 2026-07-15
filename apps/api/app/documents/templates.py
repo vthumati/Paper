@@ -293,6 +293,41 @@ register(
 )
 register(
     DocumentTemplate(
+        "offer_letter_packages",
+        "Offer Letter (compensation packages)",
+        "offer_letter",
+        "OFFER OF EMPLOYMENT\n"
+        "Company: $company\nCandidate: $candidate\nPosition: $position\nDate: $date\n\n"
+        "Congratulations! We are delighted to offer you a position at $company.\n\n"
+        "YOUR CHOICE OF COMPENSATION PACKAGES\n"
+        "Pick the balance of cash and equity that fits you best:\n\n"
+        "$packages\n"
+        "Equity terms: ESOP options, $vesting vesting. Options are granted\n"
+        "under the company's ESOP scheme subject to board approval.\n\n"
+        "$projection\n"
+        "This offer is open for acceptance for 7 days.\n\nFor $company\n$signatory\n",
+    )
+)
+register(
+    DocumentTemplate(
+        "safe_agreement",
+        "SAFE / Convertible Note Agreement",
+        "safe_agreement",
+        "$instrument_label AGREEMENT (iSAFE-style summary)\n"
+        "Company: $company\nInvestor: $investor\nDate: $date\n\n"
+        "Investment amount: INR $principal\n"
+        "Valuation cap:     $cap\n"
+        "Discount:          $discount\n"
+        "MFN:               $mfn\n"
+        "Interest:          $interest\n\n"
+        "On a qualifying priced round the investment converts into the round's\n"
+        "security at the lower of the cap price and the discounted round price.\n"
+        "Issued under the private placement provisions of section 42 of the\n"
+        "Companies Act, 2013; board approval recorded separately.\n",
+    )
+)
+register(
+    DocumentTemplate(
         "diligence_report",
         "Diligence Readiness Report",
         "diligence_report",

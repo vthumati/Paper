@@ -15,6 +15,90 @@ from .captable import compute_cap_table
 from .money import CENTS, PRICE4 as PRICE  # shared quantisation constants
 
 
+def generate_agreement(db: Session, inst: ConvertibleInstrument, user_id: str):
+    """Generate (or re-version) the instrument's agreement document (FR-E-4)."""
+    from ..clock import today_ist
+    from ..models.entity import LegalEntity
+    from . import document as docsvc
+
+    entity = db.get(LegalEntity, inst.entity_id)
+    label = "SAFE" if inst.instrument_type.value == "safe" else "CONVERTIBLE NOTE"
+    data = {
+        "instrument_label": label,
+        "company": entity.name if entity else "",
+        "investor": inst.investor_name,
+        "date": today_ist().isoformat(),
+        "principal": str(inst.principal),
+        "cap": f"INR {inst.valuation_cap}" if inst.valuation_cap else "uncapped",
+        "discount": f"{Decimal(inst.discount_pct) * 100:.0f}%" if inst.discount_pct else "none",
+        "mfn": "yes" if inst.mfn else "no",
+        "interest": f"{Decimal(inst.interest_pct) * 100:.1f}% p.a." if inst.interest_pct else "none",
+    }
+    doc = db.get(docsvc.Document, inst.agreement_document_id) if inst.agreement_document_id else None
+    if doc is not None and doc.status != docsvc.DocumentStatus.SIGNED:
+        doc = docsvc.regenerate(db, doc, data, user_id)
+    else:
+        doc = docsvc.create_document(
+            db, entity_id=inst.entity_id, template_key="safe_agreement", data=data,
+            user_id=user_id, title=f"{label.title()} — {inst.investor_name}",
+            subject_type="instrument", subject_id=inst.id,
+        )
+        inst.agreement_document_id = doc.id
+        db.commit()
+    return doc
+
+
+def request_board_approval(db: Session, inst: ConvertibleInstrument):
+    """Draft the circular board resolution approving this issuance (FR-E-4)."""
+    from ..models.governance import Resolution, ResolutionType
+
+    if inst.board_resolution_id:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Board approval already requested")
+    label = "SAFE" if inst.instrument_type.value == "safe" else "convertible note"
+    res = Resolution(
+        entity_id=inst.entity_id,
+        type=ResolutionType.CIRCULAR,
+        title=f"Approve {label} issuance — {inst.investor_name} (INR {inst.principal})",
+        text=(
+            f"RESOLVED THAT the issuance of a {label} of INR {inst.principal} to "
+            f"{inst.investor_name} on the terms placed before the board be and is "
+            "hereby approved."
+        ),
+    )
+    db.add(res)
+    db.flush()
+    inst.board_resolution_id = res.id
+    db.commit()
+    db.refresh(res)
+    return res
+
+
+def execution_status(db: Session, instruments: list[ConvertibleInstrument]) -> dict:
+    """{instrument_id: {board, agreement, signature}} for the status dashboard."""
+    from ..models.document import Document, SignatureRequest
+    from ..models.governance import Resolution
+
+    out = {}
+    for inst in instruments:
+        board = agreement = signature = None
+        if inst.board_resolution_id:
+            res = db.get(Resolution, inst.board_resolution_id)
+            board = res.status.value if res else None
+        if inst.agreement_document_id:
+            doc = db.get(Document, inst.agreement_document_id)
+            if doc:
+                agreement = doc.status.value
+                sig = (
+                    db.query(SignatureRequest)
+                    .filter_by(document_id=doc.id)
+                    .order_by(SignatureRequest.created_at.desc())
+                    .first()
+                )
+                signature = sig.status.value if sig else None
+        out[inst.id] = {"board": board, "agreement": agreement, "signature": signature}
+    return out
+
+
 def conversion_preview(
     db: Session,
     inst: ConvertibleInstrument,

@@ -46,7 +46,7 @@ def document_pdf_response(db: Session, doc: Document) -> Response:
 @router.get("/document-templates", response_model=list[DocumentTemplateOut])
 def list_templates(_: User = Depends(get_current_user)):
     return [
-        DocumentTemplateOut(key=t.key, name=t.name, doc_type=t.doc_type)
+        DocumentTemplateOut(key=t.key, name=t.name, doc_type=t.doc_type, body=t.body)
         for t in REGISTRY.values()
     ]
 

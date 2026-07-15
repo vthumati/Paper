@@ -45,6 +45,9 @@ class ConvertibleInstrument(Base, TimestampMixin):
     )
     converted_shares: Mapped[int | None] = mapped_column(Integer, nullable=True)
     stakeholder_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # execution flow (FR-E-4): terms -> board approval -> agreement -> e-sign
+    agreement_document_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    board_resolution_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class DematRecord(Base, TimestampMixin):

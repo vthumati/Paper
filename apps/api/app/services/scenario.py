@@ -47,6 +47,9 @@ def model_round(
     safe_shares = fd["convertible_shares"]
     fd_post = fd_pre + safe_shares + new_shares
 
+    # three stages (Pulley-style matrix): today -> after SAFEs convert -> after
+    # the round; SAFE conversions land at the mid stage, new money at the last
+    fd_mid = fd_pre + safe_shares
     rows = []
     for r in fd["rows"]:
         before = r["issued"] + r["options"] + (pool_top_up if r["name"] == POOL_ROW else 0)
@@ -56,6 +59,7 @@ def model_round(
             "type": r["type"],
             "before": before,
             "before_pct": round(before / fd_pre * 100, 4),
+            "after_safes_pct": round(after / fd_mid * 100, 4) if fd_mid else 0.0,
             "after": after,
             "after_pct": round(after / fd_post * 100, 4) if fd_post else 0.0,
         })
@@ -63,11 +67,12 @@ def model_round(
         rows.append({
             "name": POOL_ROW, "type": "pool",
             "before": pool_top_up, "before_pct": round(pool_top_up / fd_pre * 100, 4),
+            "after_safes_pct": round(pool_top_up / fd_mid * 100, 4) if fd_mid else 0.0,
             "after": pool_top_up, "after_pct": round(pool_top_up / fd_post * 100, 4),
         })
     rows.append({
         "name": "New investors (this round)", "type": "investor",
-        "before": 0, "before_pct": 0.0,
+        "before": 0, "before_pct": 0.0, "after_safes_pct": 0.0,
         "after": new_shares, "after_pct": round(new_shares / fd_post * 100, 4) if fd_post else 0.0,
     })
     for r in rows:

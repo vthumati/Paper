@@ -7,16 +7,27 @@ from sqlalchemy.orm import Session
 
 from ..clock import today_ist
 from ..db import get_db
-from ..deps import EntityCtx, InstrumentCtx, entity_ctx, instrument_ctx, require_write
+from ..deps import (
+    EntityCtx,
+    InstrumentCtx,
+    entity_ctx,
+    get_current_user,
+    instrument_ctx,
+    require_write,
+)
 from ..models.compliance import ComplianceObligation
+from ..models.identity import User
 from ..models.instruments import ConvertibleInstrument, DematRecord
 from ..schemas import (
     DematIn,
     DematOut,
+    DocumentOut,
     InstrumentConvertIn,
     InstrumentIn,
     InstrumentOut,
+    ResolutionOut,
 )
+from ..services import document as docsvc
 from ..services import instruments as svc
 from ..services.captable import compute_cap_table
 from ..services.compliance import obligation_view
@@ -42,6 +53,32 @@ def create_instrument(
 @router.get("/entities/{entity_id}/instruments", response_model=list[InstrumentOut])
 def list_instruments(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)):
     return db.query(ConvertibleInstrument).filter_by(entity_id=ctx.entity.id).all()
+
+
+@router.get("/entities/{entity_id}/instruments/execution")
+def instruments_execution(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)):
+    """Per-instrument execution status: board approval / agreement / e-sign."""
+    instruments = db.query(ConvertibleInstrument).filter_by(entity_id=ctx.entity.id).all()
+    return svc.execution_status(db, instruments)
+
+
+@router.post("/instruments/{instrument_id}/agreement", response_model=DocumentOut, status_code=201)
+def generate_agreement(
+    ctx: InstrumentCtx = Depends(instrument_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    doc = svc.generate_agreement(db, ctx.instrument, user.id)
+    return docsvc.document_view(db, doc)
+
+
+@router.post("/instruments/{instrument_id}/board-approval", response_model=ResolutionOut, status_code=201)
+def request_board_approval(
+    ctx: InstrumentCtx = Depends(instrument_ctx), db: Session = Depends(get_db)
+):
+    require_write(ctx.role)
+    return svc.request_board_approval(db, ctx.instrument)
 
 
 @router.get("/instruments/{instrument_id}/conversion-preview")

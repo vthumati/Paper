@@ -347,6 +347,7 @@ class DocumentTemplateOut(BaseModel):
     key: str
     name: str
     doc_type: str
+    body: str  # $placeholder template text — drives the client-side live preview
 
 
 class DocumentCreateIn(BaseModel):
@@ -920,6 +921,10 @@ class FunnelInterestIn(BaseModel):
 class CharterAmendmentIn(BaseModel):
     kind: Literal["moa", "aoa"]
     description: str = Field(min_length=1, max_length=2000)
+
+
+class TermSheetScanIn(BaseModel):
+    text: str = Field(min_length=20, max_length=200_000)
 
 
 class TeamOffboardIn(BaseModel):
