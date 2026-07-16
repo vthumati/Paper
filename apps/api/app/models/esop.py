@@ -50,6 +50,21 @@ class Grant(Base, TimestampMixin):
     scheme: Mapped[ESOPScheme] = relationship(back_populates="grants")
 
 
+class ExerciseWindow(Base, TimestampMixin):
+    """A defined period during which vested options may be exercised (FR-D-4).
+    Opt-in: when an entity has any windows, exercise requests are gated to an
+    open one; with no windows defined, exercise stays unrestricted."""
+
+    __tablename__ = "exercise_windows"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    entity_id: Mapped[str] = mapped_column(ForeignKey("legal_entities.id"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    opens_on: Mapped[datetime.date] = mapped_column(Date)
+    closes_on: Mapped[datetime.date] = mapped_column(Date)
+    created_by: Mapped[str] = mapped_column(String(32))
+
+
 class ExerciseRequestStatus(str, enum.Enum):
     OPEN = "open"
     APPROVED = "approved"

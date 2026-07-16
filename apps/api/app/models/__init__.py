@@ -29,6 +29,7 @@ from . import (  # noqa: F401
     instruments,
     founders,
     funnel,
+    liquidity,
 )
 
 __all__ = ["Base"]

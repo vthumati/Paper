@@ -168,6 +168,49 @@ def list_portfolio(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_d
     return db.query(PortfolioInvestment).filter_by(fund_id=ctx.fund.id).all()
 
 
+@router.get("/funds/{fund_id}/soi")
+def schedule_of_investments(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    """Schedule of Investments (FR-J-11): cost, mark, MOIC, %NAV per holding."""
+    return svc.schedule_of_investments(db, ctx.fund)
+
+
+@router.post("/funds/{fund_id}/soi/report", response_model=DocumentOut, status_code=201)
+def soi_report(
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    soi = svc.schedule_of_investments(db, ctx.fund)
+    entity = db.get(LegalEntity, ctx.fund.entity_id)
+    lines = [
+        f"  {h['company_name']} ({h['instrument']}): cost ₹{h['cost']} · value ₹{h['current_value']}"
+        f" · MOIC {h['moic'] or '—'} · {h['pct_of_nav']}% of NAV"
+        for h in soi["holdings"]
+    ] or ["  No portfolio holdings recorded."]
+    t = soi["totals"]
+    doc = docsvc.create_document(
+        db,
+        entity_id=ctx.fund.entity_id,
+        template_key="soi_statement",
+        data={
+            "fund": entity.name if entity else "",
+            "date": today_ist().isoformat(),
+            "count": t["count"],
+            "holdings": "\n".join(lines),
+            "total_cost": t["cost"],
+            "total_value": t["current_value"],
+            "total_gain": t["unrealized_gain"],
+            "moic": t["moic"] or "—",
+        },
+        user_id=user.id,
+        title=f"Schedule of Investments — {today_ist().isoformat()}",
+        subject_type="soi",
+        subject_id=ctx.fund.id,
+    )
+    return docsvc.document_view(db, doc)
+
+
 @router.put("/funds/{fund_id}/portfolio/{investment_id}/mark", response_model=PortfolioOut)
 def mark_investment(
     investment_id: str,

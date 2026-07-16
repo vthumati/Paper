@@ -3,7 +3,7 @@ issues real shares via the cap-table ledger (so exercised options appear in
 the cap table) and records the perquisite value for tax."""
 import calendar
 import datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy import func
@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 
 from ..deps import get_owned
 from ..models.captable import IssuanceTransaction, SecurityClass, Stakeholder
-from ..models.esop import ESOPScheme, ExerciseTransaction, Grant
+from ..models.esop import ESOPScheme, ExerciseTransaction, ExerciseWindow, Grant
 from . import valuation as valsvc
+from .money import CENTS
 
 
 def months_between(start: datetime.date, end: datetime.date) -> int:
@@ -60,6 +61,94 @@ def vesting_projection(grant: Grant, as_of: datetime.date, limit: int = 3) -> di
     }
 
 
+def exercise_windows(db: Session, entity_id: str, as_of: datetime.date) -> list[dict]:
+    """The entity's exercise windows with a derived open/upcoming/closed state."""
+    rows = (
+        db.query(ExerciseWindow)
+        .filter_by(entity_id=entity_id)
+        .order_by(ExerciseWindow.opens_on)
+        .all()
+    )
+    out = []
+    for w in rows:
+        state = "open" if w.opens_on <= as_of <= w.closes_on else (
+            "upcoming" if as_of < w.opens_on else "closed"
+        )
+        out.append(
+            {
+                "id": w.id,
+                "name": w.name,
+                "opens_on": w.opens_on.isoformat(),
+                "closes_on": w.closes_on.isoformat(),
+                "state": state,
+            }
+        )
+    return out
+
+
+def exercise_allowed(db: Session, entity_id: str, as_of: datetime.date) -> bool:
+    """Exercise windows are opt-in: if the entity defines none, exercise is
+    unrestricted; otherwise it requires an open window."""
+    windows = db.query(ExerciseWindow).filter_by(entity_id=entity_id).all()
+    if not windows:
+        return True
+    return any(w.opens_on <= as_of <= w.closes_on for w in windows)
+
+
+def grant_unit_value(grant: Grant, fmv) -> Decimal | None:
+    """Per-unit value at today's price: intrinsic (FMV − strike, floored at 0)
+    for options; full FMV for RSUs/RSAs (no exercise cost)."""
+    if fmv is None:
+        return None
+    fmv = Decimal(fmv)
+    if grant.grant_type == "option":
+        return max(Decimal("0"), fmv - Decimal(grant.exercise_price))
+    return fmv
+
+
+def grant_value_summary(db: Session, grant: Grant, as_of: datetime.date, gv: dict | None = None) -> dict:
+    """Ledgy-style value framing for one grant: today's value (vested and still
+    held), value already exercised/settled, and the max potential value of the
+    whole grant at today's price — plus the segment split for the status bar."""
+    gv = gv or grant_view(db, grant, as_of)
+    uv = grant_unit_value(grant, valsvc.current_fmv(db, grant.entity_id, as_of))
+    qty, vested = gv["quantity"], gv["vested"]
+    if grant.grant_type == "rsa":
+        # shares issued upfront: vested = no longer at repurchase risk
+        exercised_seg, held_seg = 0, vested
+    else:
+        exercised_seg, held_seg = gv["exercised"], gv["exercisable"]
+    unvested_seg = qty - vested
+
+    def money(units: int) -> str | None:
+        return str((uv * units).quantize(CENTS, ROUND_HALF_UP)) if uv is not None else None
+
+    return {
+        "unit_value": str(uv.quantize(CENTS, ROUND_HALF_UP)) if uv is not None else None,
+        "today_value": money(held_seg),
+        "exercised_value": money(exercised_seg),
+        "max_potential_value": money(qty),
+        "segments": {"exercised": exercised_seg, "vested": held_seg, "unvested": unvested_seg},
+    }
+
+
+def grant_schedule(grant: Grant, as_of: datetime.date) -> list[dict]:
+    """Every vesting event of the grant as a timeline: each month where vested
+    units increase, with the delta, running total and whether it's in the past
+    (relative to `as_of`)."""
+    events = []
+    prev = 0
+    for m in range(1, grant.total_months + 1):
+        d = add_months(grant.grant_date, m)
+        v = vested_quantity(grant, d)
+        if v > prev:
+            events.append(
+                {"date": d.isoformat(), "units": v - prev, "cumulative": v, "past": d <= as_of}
+            )
+            prev = v
+    return events
+
+
 def exercised_quantity(db: Session, grant_id: str) -> int:
     return sum(
         e.quantity for e in db.query(ExerciseTransaction).filter_by(grant_id=grant_id)
@@ -103,6 +192,92 @@ def grant_view(db: Session, grant: Grant, as_of: datetime.date) -> dict:
     if grant.grant_type == "rsa":
         view["exercisable"] = 0
     return view
+
+
+def esop_overview(db: Session, entity_id: str, as_of: datetime.date) -> dict:
+    """Aggregate ESOP dashboard (FR-D-1): pool usage, option states across all
+    grants, grantee count, grant-type mix, and a top-grants leaderboard. All
+    derived from the grants/exercise ledger — read-only."""
+    schemes = db.query(ESOPScheme).filter_by(entity_id=entity_id).all()
+    pool_size = sum(s.pool_size for s in schemes)
+    grants = db.query(Grant).filter_by(entity_id=entity_id).all()
+    granted = vested = exercised = 0
+    per_holder: dict[str, int] = {}
+    by_type: dict[str, int] = {}
+    for g in grants:
+        gv = grant_view(db, g, as_of)
+        granted += gv["quantity"]
+        vested += gv["vested"]
+        exercised += gv["exercised"]
+        per_holder[g.stakeholder_id] = per_holder.get(g.stakeholder_id, 0) + gv["quantity"]
+        by_type[g.grant_type] = by_type.get(g.grant_type, 0) + 1
+    exercisable = vested - exercised
+    unvested = granted - vested
+    available = max(0, pool_size - granted)
+
+    names = {s.id: s.name for s in db.query(Stakeholder).filter_by(entity_id=entity_id)}
+    leaderboard = [
+        {"name": names.get(sid, "—"), "granted": qty}
+        for sid, qty in sorted(per_holder.items(), key=lambda kv: kv[1], reverse=True)[:5]
+    ]
+    return {
+        "pool_size": pool_size,
+        "granted": granted,
+        "available": available,
+        "used_pct": round(granted / pool_size * 100, 2) if pool_size else 0.0,
+        "vested": vested,
+        "exercised": exercised,
+        "exercisable": exercisable,
+        "unvested": unvested,
+        "grantees": len(per_holder),
+        "schemes": len(schemes),
+        "by_type": by_type,
+        "leaderboard": leaderboard,
+        # donut segments over the whole pool (sum to pool_size)
+        "pool_segments": {
+            "exercised": exercised,
+            "vested_unexercised": exercisable,
+            "unvested": unvested,
+            "available": available,
+        },
+    }
+
+
+def generate_scheme_pack(db: Session, scheme: ESOPScheme, user_id: str) -> list:
+    """The statutory ESOP-adoption pack (FR-D-1, s.62(1)(b)): board resolution,
+    EGM notice with the special resolution, and the scheme policy — the
+    documents a company needs to adopt an ESOP pool."""
+    from ..clock import today_ist
+    from ..models.entity import LegalEntity
+    from . import document as docsvc
+
+    entity = db.get(LegalEntity, scheme.entity_id)
+    company = entity.name if entity else ""
+    date = today_ist().isoformat()
+    common = {"company": company, "scheme": scheme.name, "pool_size": f"{scheme.pool_size:,}", "date": date}
+    specs = [
+        ("board_resolution", f"Board Resolution — {scheme.name}", {
+            **common,
+            "resolution_text": (
+                f"the {scheme.name} employee stock option scheme, with a pool of "
+                f"{scheme.pool_size:,} options, be adopted subject to the approval of "
+                "the members by special resolution, and the Board be authorised to "
+                "administer the scheme and grant options thereunder"
+            ),
+            "signatory": "Authorised Director",
+        }),
+        ("esop_egm_notice", f"EGM Notice — {scheme.name}", common),
+        ("esop_policy", f"ESOP Policy — {scheme.name}", common),
+    ]
+    docs = []
+    for template_key, title, data in specs:
+        docs.append(
+            docsvc.create_document(
+                db, entity_id=scheme.entity_id, template_key=template_key, data=data,
+                user_id=user_id, title=title, subject_type="esop_scheme", subject_id=scheme.id,
+            )
+        )
+    return docs
 
 
 def create_grant(

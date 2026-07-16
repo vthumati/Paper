@@ -27,8 +27,13 @@ from ..models.portal import (
 from ..models.valuation import ValuationReport, ValuationStatus
 from ..models.spv import CoInvestor, SPV
 from .captable import compute_cap_table
-from .esop import grant_view, vesting_projection
-from .fund import capital_accounts
+from .esop import (
+    grant_schedule,
+    grant_value_summary,
+    grant_view,
+    vesting_projection,
+)
+from .fund import capital_accounts, lp_look_through
 from .fund_perf import fund_performance
 from .valuation import current_fmv
 
@@ -53,6 +58,55 @@ def _shared_documents(db: Session, entity_id: str, email: str) -> list[dict]:
             if d is not None:
                 docs.append({"id": d.id, "title": d.title, "data_room": room.name})
     return docs
+
+
+def _liquidity_for_user(db: Session, user: User, today) -> list[dict]:
+    """Open buyback/tender windows the user is eligible for — gathered across
+    every entity where they hold shares (matched by stakeholder email), so both
+    investors and employee shareholders see them regardless of portal grants."""
+    from ..models.liquidity import LiquidityEvent, LiquidityEventStatus, Tender, TenderStatus
+
+    out = []
+    for sh in db.query(Stakeholder).filter_by(email=user.email):
+        events = [
+            ev
+            for ev in db.query(LiquidityEvent).filter_by(
+                entity_id=sh.entity_id, status=LiquidityEventStatus.OPEN
+            )
+            if ev.opens_on <= today <= ev.closes_on
+        ]
+        if not events:
+            continue
+        ct = compute_cap_table(db, sh.entity_id)
+        holdings = [
+            {"security_class_id": h["security_class_id"], "security_class": h["security_class"],
+             "kind": h["kind"], "quantity": h["quantity"]}
+            for h in ct["holders"]
+            if h["stakeholder_id"] == sh.id and h["quantity"] > 0
+        ]
+        if not holdings:
+            continue
+        entity = db.get(LegalEntity, sh.entity_id)
+        for ev in events:
+            my_tendered = sum(
+                t.quantity
+                for t in db.query(Tender).filter_by(
+                    event_id=ev.id, stakeholder_id=sh.id, status=TenderStatus.SUBMITTED
+                )
+            )
+            out.append(
+                {
+                    "id": ev.id,
+                    "name": ev.name,
+                    "kind": ev.kind,
+                    "entity_name": entity.name if entity else None,
+                    "price_per_share": str(ev.price_per_share),
+                    "closes_on": ev.closes_on.isoformat(),
+                    "my_tendered": my_tendered,
+                    "holdings": holdings,
+                }
+            )
+    return out
 
 
 def _updates(db: Session, entity_id: str) -> list[dict]:
@@ -106,6 +160,44 @@ def portfolio_value_history(db: Session, user: User) -> dict:
         "series": series,
         "current_value": series[-1]["value"] if series else "0.00",
         "holdings": len(holdings),
+    }
+
+
+def grant_detail_for_user(db: Session, user: User, grant_id: str) -> dict | None:
+    """One equity grant's full detail for the owning employee (matched by
+    email): value summary + vesting status segments + the vesting timeline.
+    Returns None if the grant isn't the user's."""
+    grant = db.get(Grant, grant_id)
+    if grant is None:
+        return None
+    sh = db.get(Stakeholder, grant.stakeholder_id)
+    if sh is None or sh.email != user.email:
+        return None
+    today = today_ist()
+    entity = db.get(LegalEntity, grant.entity_id)
+    gv = grant_view(db, grant, today)
+    summ = grant_value_summary(db, grant, today, gv)
+    fmv = current_fmv(db, grant.entity_id, today)
+    proj = vesting_projection(grant, today)
+    return {
+        "grant_id": grant.id,
+        "grant_type": grant.grant_type,
+        "entity_name": entity.name if entity else None,
+        "granted": gv["quantity"],
+        "vested": gv["vested"],
+        "exercised": gv["exercised"],
+        "exercisable": gv["exercisable"],
+        "unvested": gv["unvested"],
+        "exercise_price": str(grant.exercise_price),
+        "grant_date": grant.grant_date.isoformat(),
+        "current_fmv": str(fmv) if fmv is not None else None,
+        "vesting_pct": round(gv["vested"] / gv["quantity"] * 100, 2) if gv["quantity"] else 0.0,
+        "full_vest_date": proj["full_vest_date"].isoformat(),
+        "next_vests": [
+            {"date": e["date"].isoformat(), "quantity": e["quantity"]} for e in proj["next_vests"]
+        ],
+        "schedule": grant_schedule(grant, today),
+        **summ,
     }
 
 
@@ -225,6 +317,7 @@ def portal_for_user(db: Session, user: User) -> dict:
                 "fund_name": entity.name if entity else None,
                 "sebi_category": fund.sebi_category.value,
                 "account": mine,
+                "look_through": lp_look_through(db, fund, lp),
                 "performance": fund_performance(db, fund),
                 # statements + tax forms generated for this LP surface here automatically
                 "statements": [
@@ -291,11 +384,13 @@ def portal_for_user(db: Session, user: User) -> dict:
                 for r in db.query(ExerciseRequest).filter_by(grant_id=g.id)
             ]
             proj = vesting_projection(g, today)
+            summ = grant_value_summary(db, g, today, gv)
             grants.append(
                 {
                     "grant_id": g.id,
                     "exercise_requests": requests,
                     "entity_name": entity.name if entity else None,
+                    "grant_type": g.grant_type,
                     "granted": gv["quantity"],
                     "vested": gv["vested"],
                     "exercised": gv["exercised"],
@@ -309,6 +404,11 @@ def portal_for_user(db: Session, user: User) -> dict:
                     else 0.0,
                     "full_vest_date": proj["full_vest_date"],
                     "next_vests": proj["next_vests"],
+                    "today_value": summ["today_value"],
+                    "exercised_value": summ["exercised_value"],
+                    "max_potential_value": summ["max_potential_value"],
+                    "unit_value": summ["unit_value"],
+                    "segments": summ["segments"],
                 }
             )
             total_vested += gv["vested"]
@@ -335,4 +435,5 @@ def portal_for_user(db: Session, user: User) -> dict:
         "funds": funds,
         "spvs": spvs,
         "equity_grants": grants,
+        "liquidity_events": _liquidity_for_user(db, user, today),
     }

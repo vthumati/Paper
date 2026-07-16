@@ -32,6 +32,7 @@ from ..schemas import (
     SecondaryDecideIn,
     SecondaryRequestIn,
     SPVCommitIn,
+    TenderIn,
 )
 from ..services import portal as svc
 from ..services.captable import holding_quantity, stamp_duty_on_transfer
@@ -110,6 +111,18 @@ def my_portal_value_history(
     return svc.portfolio_value_history(db, user)
 
 
+@router.get("/portal/grants/{grant_id}/detail")
+def my_grant_detail(
+    grant_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    detail = svc.grant_detail_for_user(db, user, grant_id)
+    if detail is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Grant not found")
+    return detail
+
+
 # --- portal PDF: LPs download their own statements / Form 64C by email match ---
 @router.get("/portal/documents/{document_id}/pdf")
 def portal_document_pdf(
@@ -163,12 +176,17 @@ def request_exercise(
     db: Session = Depends(get_db),
 ):
     from ..models.esop import ExerciseRequest, ExerciseRequestStatus, Grant
-    from ..services.esop import exercised_quantity, vested_quantity
+    from ..services.esop import exercise_allowed, exercised_quantity, vested_quantity
 
     grant = db.get(Grant, body.grant_id)
     sh = db.get(Stakeholder, grant.stakeholder_id) if grant else None
     if grant is None or sh is None or sh.email != user.email:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Grant not found")
+    if not exercise_allowed(db, grant.entity_id, today_ist()):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Exercise is only allowed during an open exercise window",
+        )
     exercisable = vested_quantity(grant, today_ist()) - exercised_quantity(db, grant.id)
     pending = sum(
         r.quantity
@@ -206,6 +224,31 @@ def commit_to_spv(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Invitation not found")
     ci = spv_svc.commit_to_spv(db, ci, body.amount, user.id)
     return {"id": ci.id, "status": ci.status, "commitment": str(ci.commitment)}
+
+
+# --- liquidity: a holder tenders shares into an open buyback/tender window ---
+@router.post("/portal/tenders", status_code=201)
+def tender_shares(
+    body: TenderIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from ..models.liquidity import LiquidityEvent
+    from ..services import liquidity as liq
+
+    ev = db.get(LiquidityEvent, body.event_id)
+    if ev is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Liquidity event not found")
+    # the tendering holder must be a stakeholder of the entity matched by email
+    sh = (
+        db.query(Stakeholder)
+        .filter_by(entity_id=ev.entity_id, email=user.email)
+        .first()
+    )
+    if sh is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "You hold no shares in this company")
+    t = liq.tender_shares(db, ev, sh.id, body.security_class_id, body.quantity)
+    return {"id": t.id, "status": t.status.value, "quantity": t.quantity}
 
 
 # --- secondary sales: the investor asks, the company decides (ROFR) ---

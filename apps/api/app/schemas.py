@@ -680,6 +680,45 @@ class EsopGrantOut(BaseModel):
     unvested: int
 
 
+class SBPAssumptionsIn(BaseModel):
+    volatility: Decimal = Field(default=Decimal("0.5"), gt=0, le=3)
+    risk_free: Decimal = Field(default=Decimal("0.07"), ge=0, le=1)
+    expected_life: Decimal = Field(default=Decimal("5"), gt=0, le=30)
+    dividend_yield: Decimal = Field(default=Decimal("0"), ge=0, le=1)
+
+
+class InvestorReportIn(BaseModel):
+    period_label: str = Field(min_length=1, max_length=120)
+    highlights: str = Field(default="", max_length=8000)
+
+
+class ExerciseWindowIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    opens_on: datetime.date
+    closes_on: datetime.date
+
+
+class ExerciseWindowOut(ORMModel):
+    id: str
+    name: str
+    opens_on: datetime.date
+    closes_on: datetime.date
+
+
+class LiquidityEventIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    kind: Literal["buyback", "tender"] = "buyback"
+    price_per_share: Decimal = Field(gt=0)
+    opens_on: datetime.date
+    closes_on: datetime.date
+
+
+class TenderIn(BaseModel):
+    event_id: str
+    security_class_id: str
+    quantity: int = Field(gt=0)
+
+
 class ExerciseIn(BaseModel):
     quantity: int
     security_class_id: str

@@ -342,6 +342,88 @@ register(
 )
 register(
     DocumentTemplate(
+        "esop_expense",
+        "ESOP Expense Report (Ind AS 102)",
+        "esop_expense",
+        "SHARE-BASED PAYMENT EXPENSE — Ind AS 102\n"
+        "Company: $company\nAs of: $date\n\n"
+        "Valuation assumptions: $assumptions\n\n"
+        "Per grant (grant-date fair value):\n$grants\n\n"
+        "Expense by financial year (straight-line over vesting):\n$by_fy\n\n"
+        "Total grant-date fair value: INR $total_fair_value\n"
+        "Recognised to date: INR $recognized_to_date\n"
+        "Unrecognised (future periods): INR $unrecognized\n\n"
+        "Options are valued using Black-Scholes at grant; RSUs/RSAs at full FMV. "
+        "Forfeiture true-ups are not modelled — review with your auditor.\n",
+    )
+)
+register(
+    DocumentTemplate(
+        "investor_report",
+        "Investor Report",
+        "investor_report",
+        "INVESTOR REPORT — $period\n"
+        "Company: $company\n\n"
+        "KEY METRICS\n$metrics\n\n"
+        "HIGHLIGHTS\n$highlights\n",
+    )
+)
+register(
+    DocumentTemplate(
+        "esop_egm_notice",
+        "EGM Notice — ESOP Scheme (s.62(1)(b))",
+        "esop_egm_notice",
+        "NOTICE OF EXTRAORDINARY GENERAL MEETING\n"
+        "$company\nDate of notice: $date\n\n"
+        "Notice is hereby given that an EGM of the members will be held to consider, "
+        "and if thought fit, to pass the following as a SPECIAL RESOLUTION under "
+        "Section 62(1)(b) of the Companies Act, 2013:\n\n"
+        "\"RESOLVED THAT approval of the members be and is hereby accorded to the "
+        "$scheme employee stock option scheme, and to the creation of a pool of "
+        "$pool_size options exercisable into equity shares, and that the Board be "
+        "authorised to grant, and to do all acts necessary to give effect to the scheme.\"\n\n"
+        "Explanatory statement (s.102) and the scheme policy are annexed.\n"
+        "By order of the Board, $company\n",
+    )
+)
+register(
+    DocumentTemplate(
+        "esop_policy",
+        "ESOP Scheme Policy",
+        "esop_policy",
+        "EMPLOYEE STOCK OPTION SCHEME — $scheme\n"
+        "Company: $company\nAdopted: $date\n\n"
+        "1. Pool size: $pool_size options.\n"
+        "2. Eligibility: permanent employees and directors (excluding promoters and "
+        "independent directors, per SBEB norms).\n"
+        "3. Vesting: minimum one-year cliff from grant; balance over the vesting term "
+        "set per grant.\n"
+        "4. Exercise: within the exercise window(s) notified by the Board; lapse on the "
+        "terms in the grant letter on cessation of employment.\n"
+        "5. Administration: the Board (or its Compensation Committee) administers the "
+        "scheme and fixes the exercise price at or above face value.\n"
+        "6. Adjustments: the pool and grants adjust for splits, bonuses and other "
+        "corporate actions.\n",
+    )
+)
+register(
+    DocumentTemplate(
+        "soi_statement",
+        "Schedule of Investments",
+        "soi",
+        "SCHEDULE OF INVESTMENTS\n"
+        "Fund: $fund\nAs of: $date\n\n"
+        "Holdings ($count):\n"
+        "$holdings\n\n"
+        "Total cost: ₹$total_cost\n"
+        "Total fair value: ₹$total_value\n"
+        "Unrealised gain: ₹$total_gain\n"
+        "Blended MOIC: $moic\n\n"
+        "Fair values are the fund's own marks; unmarked positions are held at cost.\n",
+    )
+)
+register(
+    DocumentTemplate(
         "valuation_estimate",
         "Indicative Valuation Workpaper",
         "valuation_estimate",
