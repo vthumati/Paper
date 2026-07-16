@@ -11,6 +11,7 @@ import {
   type FundPerformance,
   type LP,
   type PortfolioInvestment,
+  type ScheduleOfInvestments,
 } from "../api";
 
 export default function Fund({ entityId }: { entityId: string }) {
@@ -20,6 +21,7 @@ export default function Fund({ entityId }: { entityId: string }) {
   const [dists, setDists] = useState<Distribution[]>([]);
   const [accounts, setAccounts] = useState<CapitalAccounts | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioInvestment[]>([]);
+  const [soi, setSoi] = useState<ScheduleOfInvestments | null>(null);
   const [perf, setPerf] = useState<FundPerformance | null>(null);
   const [note, setNote] = useState("");
   const { error, setError, guard } = useGuard(async () => {
@@ -47,13 +49,14 @@ export default function Fund({ entityId }: { entityId: string }) {
     }
   }
   async function refresh(fid: string) {
-    const [l, c, d, a, p, pf] = await Promise.all([
+    const [l, c, d, a, p, pf, s] = await Promise.all([
       api.listLPs(fid),
       api.listCalls(fid),
       api.listDistributions(fid),
       api.capitalAccounts(fid),
       api.listPortfolio(fid),
       api.fundPerformance(fid),
+      api.scheduleOfInvestments(fid),
     ]);
     setLps(l);
     setCalls(c);
@@ -61,6 +64,7 @@ export default function Fund({ entityId }: { entityId: string }) {
     setAccounts(a);
     setPortfolio(p);
     setPerf(pf);
+    setSoi(s);
   }
   useEffect(() => {
     loadFund();
@@ -386,6 +390,64 @@ export default function Fund({ entityId }: { entityId: string }) {
           </table>
         )}
       </div>
+
+      {soi && soi.holdings.length > 0 && (
+        <div className="card">
+          <h3>
+            Schedule of Investments{" "}
+            <button
+              className="secondary"
+              style={{ marginLeft: 8 }}
+              onClick={guard(async () => {
+                await api.soiReport(fund.id);
+                setNote("Schedule of Investments statement generated (see Documents).");
+              })}
+            >
+              Generate statement
+            </button>
+          </h3>
+          <p className="muted">
+            Fair values are the fund's own marks; unmarked positions are held at cost.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Cost</th>
+                <th>Fair value</th>
+                <th>MOIC</th>
+                <th>Unrealised gain</th>
+                <th>% of NAV</th>
+              </tr>
+            </thead>
+            <tbody>
+              {soi.holdings.map((h) => (
+                <tr key={h.id}>
+                  <td>
+                    {h.company_name}{" "}
+                    {!h.marked && <span className="badge">at cost</span>}
+                  </td>
+                  <td>₹{h.cost}</td>
+                  <td>₹{h.current_value}</td>
+                  <td>{h.moic ? `${h.moic}×` : "—"}</td>
+                  <td className={Number(h.unrealized_gain) < 0 ? "delta-down" : "delta-up"}>
+                    ₹{h.unrealized_gain}
+                  </td>
+                  <td>{h.pct_of_nav}%</td>
+                </tr>
+              ))}
+              <tr style={{ fontWeight: 700, borderTop: "2px solid var(--border)" }}>
+                <td>Total ({soi.totals.count})</td>
+                <td>₹{soi.totals.cost}</td>
+                <td>₹{soi.totals.current_value}</td>
+                <td>{soi.totals.moic ? `${soi.totals.moic}×` : "—"}</td>
+                <td>₹{soi.totals.unrealized_gain}</td>
+                <td>100%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <DealPipeline fundId={fund.id} onInvested={() => refresh(fund.id)} />
     </div>

@@ -124,15 +124,15 @@ export default function Dashboard({ entityId }: { entityId: string }) {
         <div className="card" style={{ flex: 1 }}>
           <h3>Fundraising</h3>
           <div className="row" style={{ gap: 10 }}>
-            <Stat label="Rounds" value={d.fundraising.rounds} />
-            <Stat label="Open" value={d.fundraising.open_rounds} />
+            <Stat label="Rounds" value={d.fundraising.rounds} hint="Fundraising rounds created (draft, open or closed)." />
+            <Stat label="Open" value={d.fundraising.open_rounds} hint="Rounds currently open for commitments." />
           </div>
         </div>
         <div className="card" style={{ flex: 1 }}>
           <h3>Compliance</h3>
           <div className="row" style={{ gap: 10 }}>
-            <Stat label="Obligations" value={d.compliance.total} />
-            <Stat label="Overdue" value={d.compliance.overdue} alert={d.compliance.overdue > 0} />
+            <Stat label="Obligations" value={d.compliance.total} hint="Statutory filings tracked on the compliance calendar." />
+            <Stat label="Overdue" value={d.compliance.overdue} alert={d.compliance.overdue > 0} hint="Obligations past their due date and not yet filed." />
           </div>
         </div>
       </div>
@@ -141,26 +141,27 @@ export default function Dashboard({ entityId }: { entityId: string }) {
         <div className="card" style={{ flex: 1 }}>
           <h3>ESOP</h3>
           <div className="row" style={{ gap: 10 }}>
-            <Stat label="Schemes" value={d.esop.schemes} />
-            <Stat label="Options granted" value={d.esop.options_granted.toLocaleString()} />
+            <Stat label="Schemes" value={d.esop.schemes} hint="Option pools / incentive schemes created." />
+            <Stat label="Options granted" value={d.esop.options_granted.toLocaleString()} hint="Total options granted across all schemes." />
           </div>
         </div>
         <div className="card" style={{ flex: 1 }}>
           <h3>Governance</h3>
           <div className="row" style={{ gap: 10 }}>
-            <Stat label="Meetings" value={d.governance.meetings} />
+            <Stat label="Meetings" value={d.governance.meetings} hint="Board and general meetings recorded." />
             <Stat
               label="Pending resolutions"
               value={d.governance.pending_resolutions}
               alert={d.governance.pending_resolutions > 0}
+              hint="Resolutions still in draft, awaiting passing."
             />
           </div>
         </div>
         <div className="card" style={{ flex: 1 }}>
           <h3>Records</h3>
           <div className="row" style={{ gap: 10 }}>
-            <Stat label="Documents" value={d.documents} />
-            <Stat label="Data rooms" value={d.data_rooms} />
+            <Stat label="Documents" value={d.documents} hint="Generated and uploaded documents on file." />
+            <Stat label="Data rooms" value={d.data_rooms} hint="Diligence data rooms shared with investors." />
           </div>
         </div>
       </div>
@@ -169,9 +170,9 @@ export default function Dashboard({ entityId }: { entityId: string }) {
         <div className="card">
           <h3>Fund (AIF)</h3>
           <div className="row" style={{ gap: 10 }}>
-            <Stat label="LPs" value={d.fund.lps} />
-            <Stat label="Committed (₹)" value={d.fund.committed} />
-            <Stat label="Drawn (₹)" value={d.fund.drawn} />
+            <Stat label="LPs" value={d.fund.lps} hint="Limited partners admitted to the fund." />
+            <Stat label="Committed (₹)" value={d.fund.committed} hint="Total capital committed by LPs." />
+            <Stat label="Drawn (₹)" value={d.fund.drawn} hint="Capital actually called and paid in." />
           </div>
         </div>
       )}

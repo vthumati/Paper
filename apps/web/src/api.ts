@@ -859,11 +859,50 @@ export interface FundPerformance {
   units_outstanding: string;
   nav_per_unit: string | null;
 }
+export interface LookThrough {
+  fund_id: string;
+  share_pct: number;
+  holdings: {
+    company_name: string;
+    instrument: string;
+    fund_cost: string;
+    fund_value: string;
+    look_through_cost: string;
+    look_through_value: string;
+    moic: string | null;
+  }[];
+  totals: { look_through_cost: string; look_through_value: string };
+}
+export interface SOIHolding {
+  id: string;
+  company_name: string;
+  instrument: string;
+  invested_on: string | null;
+  cost: string;
+  current_value: string;
+  marked: boolean;
+  ownership_pct: string;
+  moic: string | null;
+  unrealized_gain: string;
+  pct_of_nav: number;
+}
+export interface ScheduleOfInvestments {
+  fund_id: string;
+  holdings: SOIHolding[];
+  totals: {
+    cost: string;
+    current_value: string;
+    unrealized_gain: string;
+    moic: string | null;
+    count: number;
+  };
+}
 export interface PortalFundEntry {
   fund_id: string;
   fund_name: string | null;
   sebi_category: string;
   account: { committed: string; drawn: string; remaining: string; distributed: string } | null;
+  look_through: LookThrough;
   performance: FundPerformance;
   statements: { id: string; title: string; created_at: string }[];
   updates: InvestorUpdate[];
@@ -883,6 +922,117 @@ export interface EquityGrant {
   vesting_pct: number;
   full_vest_date: string;
   next_vests: { date: string; quantity: number }[];
+  grant_type: "option" | "rsu" | "rsa";
+  today_value: string | null;
+  exercised_value: string | null;
+  max_potential_value: string | null;
+  unit_value: string | null;
+  segments: { exercised: number; vested: number; unvested: number };
+}
+export interface EsopOverview {
+  pool_size: number;
+  granted: number;
+  available: number;
+  used_pct: number;
+  vested: number;
+  exercised: number;
+  exercisable: number;
+  unvested: number;
+  grantees: number;
+  schemes: number;
+  by_type: Record<string, number>;
+  leaderboard: { name: string; granted: number }[];
+  pool_segments: {
+    exercised: number;
+    vested_unexercised: number;
+    unvested: number;
+    available: number;
+  };
+}
+export interface EsopExpense {
+  as_of: string;
+  grants: {
+    grant_id: string;
+    grant_type: string;
+    quantity: number;
+    fair_value_per_unit: string;
+    total_fair_value: string;
+    recognized_to_date: string;
+    unrecognized: string;
+  }[];
+  by_financial_year: { fy: string; expense: string }[];
+  unpriced_grants: number;
+  totals: { total_fair_value: string; recognized_to_date: string; unrecognized: string };
+}
+export interface InvestorMetrics {
+  shares_issued: number;
+  stakeholders: number;
+  capital_raised: string;
+  fmv_per_share: string | null;
+  valuation_date: string | null;
+  open_rounds: number;
+  options_granted: number;
+  runway_months: number | null;
+  latest_cash: string | null;
+  monthly_burn: string | null;
+  compliance_overdue: number;
+}
+export interface ExerciseWindow {
+  id: string;
+  name: string;
+  opens_on: string;
+  closes_on: string;
+  state?: "open" | "upcoming" | "closed";
+}
+export interface LiquidityEvent {
+  id: string;
+  name: string;
+  kind: string;
+  price_per_share: string;
+  opens_on: string;
+  closes_on: string;
+  status: string;
+  tenders: number;
+  shares_tendered: number;
+  indicative_payout: string;
+}
+export interface PortalLiquidityEvent {
+  id: string;
+  name: string;
+  kind: string;
+  entity_name: string | null;
+  price_per_share: string;
+  closes_on: string;
+  my_tendered: number;
+  holdings: { security_class_id: string; security_class: string; kind: string; quantity: number }[];
+}
+export interface GrantScheduleEvent {
+  date: string;
+  units: number;
+  cumulative: number;
+  past: boolean;
+}
+export interface GrantDetail {
+  grant_id: string;
+  grant_type: "option" | "rsu" | "rsa";
+  entity_name: string | null;
+  granted: number;
+  vested: number;
+  exercised: number;
+  exercisable: number;
+  unvested: number;
+  exercise_price: string;
+  grant_date: string;
+  current_fmv: string | null;
+  vesting_pct: number;
+  full_vest_date: string;
+  next_vests: { date: string; quantity: number }[];
+  unit_value: string | null;
+  today_value: string | null;
+  exercised_value: string | null;
+  max_potential_value: string | null;
+  segments: { exercised: number; vested: number; unvested: number };
+  schedule: GrantScheduleEvent[];
 }
 export interface PortalSPVDeal {
   co_investor_id: string;
@@ -978,6 +1128,7 @@ export interface PortalDashboard {
   funds: PortalFundEntry[];
   spvs: PortalSPVDeal[];
   equity_grants: EquityGrant[];
+  liquidity_events: PortalLiquidityEvent[];
 }
 export interface Prospect {
   id: string;
@@ -1237,6 +1388,9 @@ export const api = {
     post<PortfolioInvestment>(`/funds/${fid}/portfolio`, b),
   markInvestment: (fid: string, iid: string, b: unknown) =>
     put<PortfolioInvestment>(`/funds/${fid}/portfolio/${iid}/mark`, b),
+  scheduleOfInvestments: (fid: string) =>
+    get<ScheduleOfInvestments>(`/funds/${fid}/soi`),
+  soiReport: (fid: string) => post<Document>(`/funds/${fid}/soi/report`),
   fundPerformance: (fid: string) => get<FundPerformance>(`/funds/${fid}/performance`),
   lpStatement: (fid: string, lpId: string) =>
     post<Document>(`/funds/${fid}/lps/${lpId}/statement`),
@@ -1276,6 +1430,38 @@ export const api = {
   createGrant: (eid: string, b: unknown) => post<EsopGrant>(`/entities/${eid}/esop/grants`, b),
   exerciseGrant: (gid: string, b: unknown) =>
     post(`/esop/grants/${gid}/exercise`, b),
+  listExerciseWindows: (eid: string) =>
+    get<ExerciseWindow[]>(`/entities/${eid}/exercise-windows`),
+  createExerciseWindow: (eid: string, b: unknown) =>
+    post<ExerciseWindow>(`/entities/${eid}/exercise-windows`, b),
+
+  listLiquidityEvents: (eid: string) =>
+    get<LiquidityEvent[]>(`/entities/${eid}/liquidity-events`),
+  createLiquidityEvent: (eid: string, b: unknown) =>
+    post<LiquidityEvent>(`/entities/${eid}/liquidity-events`, b),
+  liquidityTenders: (eid: string, evId: string) =>
+    get<{ id: string; stakeholder: string | null; quantity: number; status: string }[]>(
+      `/entities/${eid}/liquidity-events/${evId}/tenders`
+    ),
+  settleLiquidityEvent: (eid: string, evId: string) =>
+    post<{ tenders_settled: number; shares_bought_back: number; total_paid: string }>(
+      `/entities/${eid}/liquidity-events/${evId}/settle`
+    ),
+  tenderShares: (b: unknown) => post<{ id: string; status: string; quantity: number }>("/portal/tenders", b),
+
+  esopOverview: (eid: string) => get<EsopOverview>(`/entities/${eid}/esop/overview`),
+  esopExpense: (eid: string, p: { volatility: number; risk_free: number; expected_life: number }) =>
+    get<EsopExpense>(
+      `/entities/${eid}/esop/expense?volatility=${p.volatility}&risk_free=${p.risk_free}&expected_life=${p.expected_life}`
+    ),
+  esopExpenseReport: (eid: string, b: unknown) =>
+    post<Document>(`/entities/${eid}/esop/expense-report`, b),
+  schemePack: (eid: string, schemeId: string) =>
+    post<Document[]>(`/entities/${eid}/esop/schemes/${schemeId}/pack`),
+  investorReportPreview: (eid: string) =>
+    get<InvestorMetrics>(`/entities/${eid}/investor-report/preview`),
+  createInvestorReport: (eid: string, b: unknown) =>
+    post<Document>(`/entities/${eid}/investor-reports`, b),
 
   listAdvisorAccess: (eid: string) =>
     get<AdvisorAccess[]>(`/entities/${eid}/advisor-access`),
@@ -1403,6 +1589,7 @@ export const api = {
   captableTimeline: (eid: string) =>
     get<{ events: TimelineEvent[] }>(`/entities/${eid}/timeline`),
   portalValueHistory: () => get<ValueHistory>("/portal/value-history"),
+  grantDetail: (grantId: string) => get<GrantDetail>(`/portal/grants/${grantId}/detail`),
   files: (eid: string, q?: string) =>
     get<FileItem[]>(`/entities/${eid}/files${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   listTaxRecords: (eid: string) => get<TaxRecord[]>(`/entities/${eid}/tax-records`),

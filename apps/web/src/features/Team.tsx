@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useGuard } from "../hooks";
 import { api, type TeamMember } from "../api";
+import EmptyState from "../components/EmptyState";
+import PageHeader from "../components/PageHeader";
 
 export default function Team({ entityId }: { entityId: string }) {
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -18,6 +20,12 @@ export default function Team({ entityId }: { entityId: string }) {
 
   return (
     <div>
+      <PageHeader
+        icon="👥"
+        title="Team"
+        subtitle="Employees, contractors and advisors — onboard to generate HR docs and link to the cap table."
+        right={<span className="badge">{members.length} member{members.length === 1 ? "" : "s"}</span>}
+      />
       {error && <p className="error">{error}</p>}
       {note && <p className="muted">{note}</p>}
 
@@ -47,7 +55,7 @@ export default function Team({ entityId }: { entityId: string }) {
       <div className="card">
         <h3>Team</h3>
         {members.length === 0 ? (
-          <p className="muted">No team members yet.</p>
+          <EmptyState icon="👥" title="No team members yet" hint="Add employees, contractors and advisors above — onboarding generates HR documents and links them to the cap table." />
         ) : (
           <table>
             <thead>

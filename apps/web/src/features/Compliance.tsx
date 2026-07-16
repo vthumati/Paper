@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type Obligation } from "../api";
+import ProgressRing from "../components/ProgressRing";
 
 const STATUSES = ["due", "in_prep", "filed", "acknowledged"];
 
@@ -96,14 +97,17 @@ export default function Compliance({
           </div>
         </div>
         {health && health.total > 0 && (
-          <p className="muted" style={{ marginTop: 10 }}>
-            Health score: <strong>{health.score}%</strong> · {health.filed}/{health.total} filed ·{" "}
-            {health.overdue > 0 ? (
-              <span className="badge active">{health.overdue} overdue</span>
-            ) : (
-              <span className="badge complete">none overdue</span>
-            )}
-          </p>
+          <div className="row" style={{ alignItems: "center", gap: 20, marginTop: 10 }}>
+            <ProgressRing value={health.score} label="compliance health" size={110} />
+            <p className="muted">
+              {health.filed}/{health.total} filed ·{" "}
+              {health.overdue > 0 ? (
+                <span className="badge active">{health.overdue} overdue</span>
+              ) : (
+                <span className="badge complete">none overdue</span>
+              )}
+            </p>
+          </div>
         )}
       </div>
 

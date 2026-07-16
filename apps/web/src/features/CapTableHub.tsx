@@ -2,6 +2,7 @@ import { useState } from "react";
 import CapTable from "./CapTable";
 import CapTableAdvanced from "./CapTableAdvanced";
 import CapTableTimeline from "./CapTableTimeline";
+import Liquidity from "./Liquidity";
 import RightsIssues from "./RightsIssues";
 
 type Features = Record<string, boolean>;
@@ -10,6 +11,7 @@ const SUBTABS = [
   { key: "holdings", label: "Holdings" },
   { key: "advanced", label: "Transactions & waterfall" },
   { key: "rights", label: "Rights issues" },
+  { key: "liquidity", label: "Liquidity" },
   { key: "timeline", label: "Timeline" },
 ] as const;
 
@@ -72,6 +74,7 @@ export default function CapTableHub({
       {sub === "rights" && showRights && (
         <RightsIssues entityId={entityId} onChanged={onChanged} />
       )}
+      {sub === "liquidity" && <Liquidity entityId={entityId} onChanged={onChanged} />}
       {sub === "timeline" && <CapTableTimeline entityId={entityId} />}
     </div>
   );

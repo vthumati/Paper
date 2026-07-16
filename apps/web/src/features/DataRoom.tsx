@@ -7,6 +7,7 @@ import {
   type Document,
   type Engagement,
 } from "../api";
+import EmptyState from "../components/EmptyState";
 
 export default function DataRoom({ entityId }: { entityId: string }) {
   const [rooms, setRooms] = useState<DataRoomT[]>([]);
@@ -64,7 +65,9 @@ export default function DataRoom({ entityId }: { entityId: string }) {
       <div className="row">
         <div className="card" style={{ flex: 1 }}>
           <h3>Rooms</h3>
-          {rooms.length === 0 && <p className="muted">None yet.</p>}
+          {rooms.length === 0 && (
+            <EmptyState icon="🗂️" title="No data rooms yet" hint="Create a room to share documents with investors for diligence, with per-email access and expiry." />
+          )}
           {rooms.map((r) => (
             <div
               key={r.id}

@@ -8,6 +8,7 @@ import {
   type Stakeholder,
 } from "../api";
 import Avatar from "../components/Avatar";
+import EmptyState from "../components/EmptyState";
 import SecChip from "../components/SecChip";
 import StackedBar from "../components/StackedBar";
 import DownRoundCalc from "./DownRoundCalc";
@@ -145,7 +146,11 @@ export default function CapTable({
         </h2>
         {view === "issued" ? (
           !capTable || capTable.holders.length === 0 ? (
-            <p className="muted">No issuances yet. Add a security class, a stakeholder, then issue shares.</p>
+            <EmptyState
+              icon="📊"
+              title="No shares issued yet"
+              hint="Add a security class and a stakeholder below, then record an issuance — your cap table builds from there."
+            />
           ) : (
             <>
               <p className="muted">

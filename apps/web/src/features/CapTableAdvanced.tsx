@@ -8,6 +8,7 @@ import {
   type WaterfallRange,
   type WaterfallResult,
 } from "../api";
+import BarChart from "../components/BarChart";
 
 export default function CapTableAdvanced({
   entityId,
@@ -310,14 +311,13 @@ export default function CapTableAdvanced({
         {wf && (
           <>
             <p className="muted">Distributed ₹{wf.distributed} of ₹{wf.exit_amount}</p>
-            <table>
-              <thead><tr><th>Stakeholder</th><th>Payout (₹)</th></tr></thead>
-              <tbody>
-                {wf.payouts.map((p) => (
-                  <tr key={p.stakeholder_id}><td>{p.stakeholder_name}</td><td>{p.payout}</td></tr>
-                ))}
-              </tbody>
-            </table>
+            <BarChart
+              bars={wf.payouts.map((p) => ({
+                label: p.stakeholder_name ?? "—",
+                value: Number(p.payout),
+                display: `₹${Number(p.payout).toLocaleString("en-IN")}`,
+              }))}
+            />
           </>
         )}
 

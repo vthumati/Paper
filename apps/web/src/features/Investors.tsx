@@ -3,10 +3,12 @@ import { useGuard } from "../hooks";
 import {
   api,
   type InvestorAccess,
+  type InvestorMetrics,
   type InvestorUpdate,
   type SecondaryRequestRow,
   type Stakeholder,
 } from "../api";
+import EmptyState from "../components/EmptyState";
 
 export default function Investors({ entityId }: { entityId: string }) {
   const [access, setAccess] = useState<InvestorAccess[]>([]);
@@ -20,19 +22,24 @@ export default function Investors({ entityId }: { entityId: string }) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [buyers, setBuyers] = useState<Record<string, string>>({});
+  const [metrics, setMetrics] = useState<InvestorMetrics | null>(null);
+  const [period, setPeriod] = useState("");
+  const [highlights, setHighlights] = useState("");
 
   async function load() {
     try {
-      const [a, u, sh, sr] = await Promise.all([
+      const [a, u, sh, sr, m] = await Promise.all([
         api.listInvestorAccess(entityId),
         api.listInvestorUpdates(entityId),
         api.listStakeholders(entityId),
         api.listSecondaryRequests(entityId),
+        api.investorReportPreview(entityId).catch(() => null),
       ]);
       setAccess(a);
       setUpdates(u);
       setHolders(sh);
       setSales(sr);
+      setMetrics(m);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -156,9 +163,45 @@ export default function Investors({ entityId }: { entityId: string }) {
       )}
 
       <div className="card">
+        <h3>Investor report</h3>
+        <p className="muted">
+          Generate a periodic report combining a live metrics snapshot with your highlights —
+          share it via a data room.
+        </p>
+        {metrics && (
+          <div className="row" style={{ gap: 16, flexWrap: "wrap", marginBottom: 8 }}>
+            <span className="muted">Shares issued <strong>{metrics.shares_issued.toLocaleString()}</strong></span>
+            <span className="muted">FMV <strong>{metrics.fmv_per_share ? `₹${metrics.fmv_per_share}` : "—"}</strong></span>
+            <span className="muted">Open rounds <strong>{metrics.open_rounds}</strong></span>
+            <span className="muted">Runway <strong>{metrics.runway_months ?? "—"} mo</strong></span>
+            <span className="muted">Overdue compliance <strong>{metrics.compliance_overdue}</strong></span>
+          </div>
+        )}
+        <div className="row">
+          <div><label>Period</label><input placeholder="Q1 FY26" value={period} onChange={(e) => setPeriod(e.target.value)} /></div>
+          <div style={{ flex: 1 }}>
+            <label>Highlights</label>
+            <textarea rows={2} value={highlights} onChange={(e) => setHighlights(e.target.value)} />
+          </div>
+          <button
+            style={{ flex: "0 0 auto", alignSelf: "flex-end" }}
+            disabled={!period}
+            onClick={guard(async () => {
+              await api.createInvestorReport(entityId, { period_label: period, highlights });
+              setPeriod(""); setHighlights("");
+              window.alert("Investor report generated — see the Documents tab.");
+            })}
+          >
+            Generate report
+          </button>
+        </div>
+      </div>
+
+      <div className="card">
         <h3>Updates</h3>
         {updates.length === 0 ? (
-          <p className="muted">No updates published yet.</p>
+          <EmptyState icon="📣" title="No updates published yet" hint="Publish an update above — invited investors see it in their portal." />
+
         ) : (
           updates.map((u) => (
             <div key={u.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}>

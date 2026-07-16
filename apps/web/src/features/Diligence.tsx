@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api, type DiligenceResult } from "../api";
 import { useGuard } from "../hooks";
+import EmptyState from "../components/EmptyState";
+import ProgressRing from "../components/ProgressRing";
 
 const SEV_LABEL: Record<string, string> = { high: "High", medium: "Medium", low: "Low" };
 
@@ -37,28 +39,29 @@ export default function Diligence({
           {d.checks_run} automated checks over your own records — what an investor's lawyers
           will look for, before they look.
         </p>
-        <div className="row" style={{ alignItems: "baseline", gap: 16 }}>
-          <span style={{ fontSize: 42, fontWeight: 700 }}>{d.score}</span>
-          <span className="muted">/ 100</span>
-          <span className="muted">
-            {d.counts.high} high · {d.counts.medium} medium · {d.counts.low} low
-          </span>
-          <button
-            className="secondary"
-            onClick={guard(async () => {
-              const doc = await api.generateDiligenceReport(entityId);
-              setReportMsg(`Report saved to Documents: "${doc.title}"`);
-            })}
-          >
-            Save report to Documents
-          </button>
+        <div className="row" style={{ alignItems: "center", gap: 24 }}>
+          <ProgressRing value={d.score} label="readiness score" size={120} />
+          <div>
+            <div className="muted" style={{ marginBottom: 8 }}>
+              {d.counts.high} high · {d.counts.medium} medium · {d.counts.low} low findings
+            </div>
+            <button
+              className="secondary"
+              onClick={guard(async () => {
+                const doc = await api.generateDiligenceReport(entityId);
+                setReportMsg(`Report saved to Documents: "${doc.title}"`);
+              })}
+            >
+              Save report to Documents
+            </button>
+          </div>
         </div>
         {reportMsg && <p className="muted">{reportMsg}</p>}
       </div>
 
       {d.findings.length === 0 ? (
         <div className="card">
-          <p>No findings — the record is diligence-ready. 🎉</p>
+          <EmptyState icon="✅" title="Diligence-ready" hint="No findings — your records pass every automated check. You're ready to open a data room." />
         </div>
       ) : (
         <div className="card">

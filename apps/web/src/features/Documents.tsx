@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type Document, type DocTemplate } from "../api";
+import EmptyState from "../components/EmptyState";
 import { placeholders, renderPreview } from "../lib/templates";
 
 export default function Documents({ entityId }: { entityId: string }) {
@@ -107,7 +108,9 @@ export default function Documents({ entityId }: { entityId: string }) {
       <div className="row">
         <div className="card" style={{ flex: 1 }}>
           <h3>Documents</h3>
-          {docs.length === 0 && <p className="muted">None yet.</p>}
+          {docs.length === 0 && (
+            <EmptyState icon="📄" title="No documents yet" hint="Generate one from a template above — resolutions, agreements, statements and more." />
+          )}
           <div className="doc-grid">
             {docs.map((d) => (
               <button
