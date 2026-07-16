@@ -2,7 +2,7 @@ import csv
 import io
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from ..clock import today_ist

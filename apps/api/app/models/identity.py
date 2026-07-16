@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Enum, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Boolean, Enum, ForeignKey, String, UniqueConstraint, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin, gen_id
@@ -29,6 +29,11 @@ class User(Base, TimestampMixin):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     full_name: Mapped[str] = mapped_column(String(255))
     password_hash: Mapped[str] = mapped_column(String(255))
+    # Proof-of-ownership gate for email-matched cross-tenant access (SEC H-1).
+    # Set at signup: true when verification is not required (dev), otherwise
+    # flipped by /auth/verify-email once the emailed token is presented.
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    email_verification_token: Mapped[str | None] = mapped_column(String(64), default=None)
 
     memberships: Mapped[list["Membership"]] = relationship(back_populates="user")
 

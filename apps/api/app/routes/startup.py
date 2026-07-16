@@ -6,7 +6,6 @@ from ..clock import today_ist
 from ..db import get_db
 from ..deps import BenefitCtx, EntityCtx, benefit_ctx, entity_ctx, require_write
 from ..models.startup import (
-    BenefitType,
     RecognitionStatus,
     StartupRecognition,
     TaxBenefitApplication,

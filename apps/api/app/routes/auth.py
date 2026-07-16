@@ -1,11 +1,14 @@
+import secrets
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
 from ..models.identity import User
 from ..ratelimit import login_limiter, signup_limiter
-from ..schemas import LoginIn, SignupIn, TokenOut, UserOut
+from ..schemas import LoginIn, SignupIn, TokenOut, UserOut, VerifyEmailIn
 from ..security import create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -21,12 +24,34 @@ def signup(body: SignupIn, request: Request, db: Session = Depends(get_db)):
     signup_limiter.record_failure(ip)  # every attempt counts toward the window
     if db.query(User).filter_by(email=body.email).first():
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
+    required = settings.email_verification_required
+    token = secrets.token_urlsafe(24) if required else None
     user = User(
         email=body.email,
         full_name=body.full_name,
         password_hash=hash_password(body.password),
+        email_verified=not required,
+        email_verification_token=token,
     )
     db.add(user)
+    db.commit()
+    db.refresh(user)
+    if token:
+        # MVP shim for email delivery (HLD defers to OIDC/OTP): the token would
+        # be emailed; here it is logged so a verify link can be completed.
+        print(f"[email-verification] token for {user.email}: {token}")
+    return user
+
+
+@router.post("/verify-email", response_model=UserOut)
+def verify_email(body: VerifyEmailIn, db: Session = Depends(get_db)):
+    """Present the emailed token to prove ownership and unlock email-matched
+    cross-tenant access (investor portal, advisor console)."""
+    user = db.query(User).filter_by(email_verification_token=body.token).first()
+    if user is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid or expired verification token")
+    user.email_verified = True
+    user.email_verification_token = None
     db.commit()
     db.refresh(user)
     return user

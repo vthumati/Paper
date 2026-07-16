@@ -15,6 +15,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy.orm import Session
 
 from ..models.esop import Grant
+from . import fy
 from .esop import add_months, months_between
 from .money import CENTS
 from .valuation import current_fmv
@@ -32,18 +33,6 @@ def black_scholes_call(spot, strike, t_years, vol, rate, div=0.0) -> float:
     d1 = (math.log(spot / strike) + (rate - div + vol * vol / 2) * t_years) / (vol * math.sqrt(t_years))
     d2 = d1 - vol * math.sqrt(t_years)
     return spot * math.exp(-div * t_years) * _norm_cdf(d1) - strike * math.exp(-rate * t_years) * _norm_cdf(d2)
-
-
-def _fy_label(d) -> str:
-    """Indian financial year label for a date (Apr–Mar): 2025-06-01 → FY2025-26."""
-    y = d.year if d.month >= 4 else d.year - 1
-    return f"FY{y}-{str(y + 1)[-2:]}"
-
-
-def _fy_end(fy_start_year: int):
-    import datetime
-
-    return datetime.date(fy_start_year + 1, 3, 31)
 
 
 def grant_fair_value_per_unit(db: Session, grant: Grant, a: dict) -> float | None:
@@ -80,16 +69,16 @@ def expense_report(db: Session, entity_id: str, assumptions: dict, as_of) -> dic
 
         recognized_to_date += recognized_at(as_of)
         # spread across financial years by differencing cumulative recognition
-        start_y = g.grant_date.year if g.grant_date.month >= 4 else g.grant_date.year - 1
+        start_y = fy.fy_start_year(g.grant_date)
         full = add_months(g.grant_date, months)
-        end_y = full.year if full.month >= 4 else full.year - 1
+        end_y = fy.fy_start_year(full)
         prev = Decimal("0")
         for y in range(start_y, end_y + 1):
-            cum = recognized_at(_fy_end(y))
+            cum = recognized_at(fy.fy_end_for_start_year(y))
             amt = cum - prev
             prev = cum
             if amt > 0:
-                label = f"FY{y}-{str(y + 1)[-2:]}"
+                label = fy.fy_label_for_start_year(y)
                 by_fy[label] = by_fy.get(label, Decimal("0")) + amt
         per_grant.append(
             {

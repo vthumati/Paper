@@ -81,6 +81,17 @@ for module in ROUTE_MODULES:
     app.include_router(module.router)
 
 
+@app.get("/", tags=["meta"])
+def root():
+    return {
+        "app": settings.app_name,
+        "status": "ok",
+        "docs": "/docs",
+        "openapi": "/openapi.json",
+        "message": "This is the Paper API. The web app runs separately (dev: http://localhost:5173).",
+    }
+
+
 @app.get("/health", tags=["meta"])
 def health():
     return {"status": "ok", "app": settings.app_name}

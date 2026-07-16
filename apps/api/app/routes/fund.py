@@ -54,6 +54,7 @@ from ..clock import today_ist
 from ..models.entity import LegalEntity
 from ..services import document as docsvc
 from ..services import fund as svc
+from ..services import fy
 from ..services.fund_perf import fund_performance
 
 router = APIRouter(tags=["fund"])
@@ -310,8 +311,8 @@ def tax_statements(
 ):
     require_write(ctx.role)
     fy_end = body.financial_year_end
-    fy_start = datetime.date(fy_end.year - 1, 4, 1)
-    fy_label = f"FY{fy_end.year}"
+    fy_start = fy.fy_start(fy_end)
+    fy_label = fy.fy_label(fy_end)
     entity = db.get(LegalEntity, ctx.fund.entity_id)
 
     dist_ids = {

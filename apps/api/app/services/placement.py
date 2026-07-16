@@ -15,17 +15,13 @@ from sqlalchemy.orm import Session
 
 from ..models.instruments import ConvertibleInstrument
 from ..models.round import Commitment, Round
+from . import fy
 
 MAX_OFFEREES_PER_FY = 200
 
 
-def _fy_start(as_of: datetime.date) -> datetime.date:
-    year = as_of.year if as_of.month >= 4 else as_of.year - 1
-    return datetime.date(year, 4, 1)
-
-
 def offerees_in_fy(db: Session, entity_id: str, as_of: datetime.date) -> set[str]:
-    start = _fy_start(as_of)
+    start = fy.fy_start(as_of)
     names = {
         i.investor_name
         for i in db.query(ConvertibleInstrument)

@@ -56,6 +56,10 @@ class LoginIn(BaseModel):
     password: str
 
 
+class VerifyEmailIn(BaseModel):
+    token: str = Field(min_length=1)
+
+
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -65,6 +69,7 @@ class UserOut(ORMModel):
     id: str
     email: str
     full_name: str
+    email_verified: bool
 
 
 # --- tenants ---
@@ -77,11 +82,6 @@ class TenantOut(ORMModel):
     id: str
     name: str
     type: TenantType
-
-
-class MembershipOut(ORMModel):
-    tenant_id: str
-    role: Role
 
 
 # --- entities ---

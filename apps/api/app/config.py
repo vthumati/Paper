@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     # Users allowed to verify marketplace providers (their own registrations
     # are auto-verified). Set PAPER_PLATFORM_ADMIN_EMAILS='["ops@paper.in"]'.
     platform_admin_emails: list[str] = []
+    # Require proof-of-ownership of an email (OTP/link) before any email-matched
+    # cross-tenant access (investor portal, advisor console, LP statements)
+    # resolves. Dev leaves this off so signups are usable without email infra;
+    # prod sets it true (mirrors auto_create_tables). See SEC review H-1.
+    email_verification_required: bool = False
 
 
 settings = Settings()

@@ -18,6 +18,7 @@ from ..models.entity import Incorporation, IncorporationStatus, LegalEntity
 from ..models.governance import DirectorDesignation, DirectorOfficer
 from . import compliance as compliancesvc
 from . import document as docsvc
+from . import fy
 
 
 def validate_intake(data: dict) -> None:
@@ -137,9 +138,7 @@ def register(
         ))
         directors += 1
 
-    fy_end = inc.fy_end or datetime.date(
-        incorporation_date.year + (1 if incorporation_date.month > 3 else 0), 3, 31
-    )
+    fy_end = inc.fy_end or fy.fy_end(incorporation_date)
     obligations = compliancesvc.generate_for_fy(db, entity.id, fy_end)
 
     inc.cin = cin

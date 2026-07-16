@@ -9,6 +9,8 @@ from ..deps import (
     entity_ctx,
     get_current_user,
     get_owned,
+    require_admin,
+    require_verified_email,
     require_write,
     secondary_ctx,
 )
@@ -48,7 +50,7 @@ def grant_access(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    require_write(ctx.role)
+    require_admin(ctx.role)
     if body.stakeholder_id:
         sh = db.get(Stakeholder, body.stakeholder_id)
         if sh is None or sh.entity_id != ctx.entity.id:
@@ -100,13 +102,13 @@ def list_updates(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get
 
 # --- investor side: scoped read-only portal (any authenticated user) ---
 @router.get("/portal")
-def my_portal(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def my_portal(user: User = Depends(require_verified_email), db: Session = Depends(get_db)):
     return svc.portal_for_user(db, user)
 
 
 @router.get("/portal/value-history")
 def my_portal_value_history(
-    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    user: User = Depends(require_verified_email), db: Session = Depends(get_db)
 ):
     return svc.portfolio_value_history(db, user)
 
@@ -114,7 +116,7 @@ def my_portal_value_history(
 @router.get("/portal/grants/{grant_id}/detail")
 def my_grant_detail(
     grant_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_verified_email),
     db: Session = Depends(get_db),
 ):
     detail = svc.grant_detail_for_user(db, user, grant_id)
@@ -127,7 +129,7 @@ def my_grant_detail(
 @router.get("/portal/documents/{document_id}/pdf")
 def portal_document_pdf(
     document_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_verified_email),
     db: Session = Depends(get_db),
 ):
     from ..models.document import Document
@@ -154,7 +156,7 @@ def portal_document_pdf(
 def decide_consent(
     consent_id: str,
     body: ConsentDecisionIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_verified_email),
     db: Session = Depends(get_db),
 ):
     consent = db.get(InvestorConsent, consent_id)
@@ -172,7 +174,7 @@ def decide_consent(
 @router.post("/portal/exercise-requests", status_code=201)
 def request_exercise(
     body: ExerciseRequestIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_verified_email),
     db: Session = Depends(get_db),
 ):
     from ..models.esop import ExerciseRequest, ExerciseRequestStatus, Grant
@@ -213,7 +215,7 @@ def request_exercise(
 @router.post("/portal/spv-commitments")
 def commit_to_spv(
     body: SPVCommitIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_verified_email),
     db: Session = Depends(get_db),
 ):
     from ..models.spv import CoInvestor
@@ -230,7 +232,7 @@ def commit_to_spv(
 @router.post("/portal/tenders", status_code=201)
 def tender_shares(
     body: TenderIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_verified_email),
     db: Session = Depends(get_db),
 ):
     from ..models.liquidity import LiquidityEvent
@@ -255,7 +257,7 @@ def tender_shares(
 @router.post("/portal/secondary-requests", status_code=201)
 def request_sale(
     body: SecondaryRequestIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_verified_email),
     db: Session = Depends(get_db),
 ):
     access = (

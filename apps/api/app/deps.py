@@ -69,19 +69,42 @@ def _entity_role(db: Session, user: User, entity: LegalEntity) -> Role:
     m = db.query(Membership).filter_by(user_id=user.id, tenant_id=entity.tenant_id).first()
     if m is not None:
         return m.role
-    adv = (
-        db.query(AdvisorAccess)
-        .filter_by(entity_id=entity.id, email=user.email)
-        .first()
-    )
-    if adv is not None:
-        return adv.role
+    # Cross-tenant advisor access resolves by email, so it only counts once the
+    # email is proven owned (SEC H-1) — otherwise a pre-registered invited email
+    # could inherit an advisor's grant.
+    if user.email_verified:
+        adv = (
+            db.query(AdvisorAccess)
+            .filter_by(entity_id=entity.id, email=user.email)
+            .first()
+        )
+        if adv is not None:
+            return adv.role
     raise HTTPException(status.HTTP_403_FORBIDDEN, "No access to this entity")
 
 
 def require_write(role: Role) -> None:
     if role not in WRITE_ROLES:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Write access required")
+
+
+def require_admin(role: Role) -> None:
+    """Owner/admin only — for actions that delegate or broaden access (granting
+    external advisor / investor portal access). See SEC M-1."""
+    if role not in (Role.OWNER, Role.ADMIN):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Owner or admin access required")
+
+
+def require_verified_email(user: User = Depends(get_current_user)) -> User:
+    """Dependency for email-matched cross-tenant surfaces (investor portal, LP
+    statements, advisor console): the caller must have proven email ownership
+    (SEC H-1). In dev, verification is off so signups are verified immediately."""
+    if not user.email_verified:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Verify your email address to access investor and advisor features",
+        )
+    return user
 
 
 def get_owned(db: Session, model, obj_id: str, entity_id: str, label: str):

@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..deps import EntityCtx, entity_ctx, get_current_user, require_write
+from ..deps import (
+    EntityCtx,
+    entity_ctx,
+    get_current_user,
+    require_admin,
+    require_verified_email,
+)
 from ..models.entity import LegalEntity
 from ..models.identity import AdvisorAccess, Role, Tenant, User
 from ..schemas import AdvisorAccessIn, AdvisorAccessOut, AdvisorEntityOut
@@ -23,7 +29,7 @@ def grant_advisor_access(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    require_write(ctx.role)
+    require_admin(ctx.role)
     existing = (
         db.query(AdvisorAccess)
         .filter_by(entity_id=ctx.entity.id, email=body.email)
@@ -59,7 +65,7 @@ def revoke_advisor_access(
     ctx: EntityCtx = Depends(entity_ctx),
     db: Session = Depends(get_db),
 ):
-    require_write(ctx.role)
+    require_admin(ctx.role)
     adv = db.get(AdvisorAccess, advisor_id)
     if adv is None or adv.entity_id != ctx.entity.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Advisor access not found")
@@ -69,7 +75,7 @@ def revoke_advisor_access(
 
 @router.get("/advisor/entities", response_model=list[AdvisorEntityOut])
 def my_advised_entities(
-    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    user: User = Depends(require_verified_email), db: Session = Depends(get_db)
 ):
     """Cross-tenant console: every client entity this advisor can act on."""
     out = []
