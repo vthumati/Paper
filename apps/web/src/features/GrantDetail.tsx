@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type GrantDetail as GrantDetailT } from "../api";
 import StackedBar from "../components/StackedBar";
+import { fmtMoney } from "../lib/format";
 
 const TYPE_LABEL: Record<string, string> = { option: "Options", rsu: "RSUs", rsa: "RSAs" };
 
@@ -8,7 +9,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub: string
   return (
     <div style={{ flex: 1, minWidth: 150 }}>
       <div className="muted" style={{ fontSize: 12 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 700, color: "var(--navy)" }}>{value}</div>
+      <div style={{ fontSize: 24, fontWeight: 700, color: "var(--heading)" }}>{value}</div>
       <div className="muted" style={{ fontSize: 12 }}>{sub}</div>
     </div>
   );
@@ -28,7 +29,7 @@ export default function GrantDetail({ grantId, onClose }: { grantId: string; onC
   if (error) return <div className="card"><p className="error">{error}</p></div>;
   if (!d) return <div className="card"><p className="muted">Loading…</p></div>;
 
-  const money = (v: string | null) => (v ? `₹${Number(v).toLocaleString("en-IN")}` : "—");
+  const money = (v: string | null) => fmtMoney(v);
   const past = d.schedule.filter((e) => e.past);
   const upcoming = d.schedule.filter((e) => !e.past);
   const settleWord = d.grant_type === "rsu" ? "settled" : d.grant_type === "rsa" ? "issued" : "exercised";

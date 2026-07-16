@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
 import { useGuard } from "../hooks";
 import { api, ApiError, type AdminSubscription } from "../api";
 
@@ -111,7 +112,7 @@ export default function Admin({ entityId }: { entityId: string }) {
       <div className="card">
         <h3>Touchpoints</h3>
         {sub.touchpoints.length === 0 ? (
-          <p className="muted">None yet.</p>
+          <EmptyState icon="📇" title="No touchpoints yet" hint="Log client meetings and calls here as they happen." />
         ) : (
           <table>
             <thead>
@@ -137,7 +138,7 @@ export default function Admin({ entityId }: { entityId: string }) {
       <div className="card">
         <h3>Audit engagements</h3>
         {sub.audits.length === 0 ? (
-          <p className="muted">None yet.</p>
+          <EmptyState icon="🧾" title="No audit engagements yet" hint="Audit engagements you record for this subscription appear here." />
         ) : (
           <table>
             <thead>

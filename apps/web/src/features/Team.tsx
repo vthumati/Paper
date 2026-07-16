@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { uiPrompt } from "../components/Prompt";
 import { useGuard } from "../hooks";
 import { api, type TeamMember } from "../api";
 import EmptyState from "../components/EmptyState";
@@ -45,7 +46,7 @@ export default function Team({ entityId }: { entityId: string }) {
             onClick={guard(async () => {
               await api.addTeamMember(entityId, { name, title, employment_type: type });
               setName(""); setTitle("");
-            })}
+            }, "Team member added")}
           >
             Add
           </button>
@@ -76,7 +77,7 @@ export default function Team({ entityId }: { entityId: string }) {
                         onClick={guard(async () => {
                           const r = await api.onboardMember(m.id);
                           setNote(`Onboarded ${m.name}: ${r.documents.length} HR documents generated (see Files) and added to the cap table for ESOP.`);
-                        })}
+                        }, `${m.name} onboarded`)}
                       >
                         Onboard
                       </button>
@@ -85,7 +86,7 @@ export default function Team({ entityId }: { entityId: string }) {
                       <button
                         className="secondary"
                         onClick={guard(async () => {
-                          const left = window.prompt(
+                          const left = await uiPrompt(
                             "Leaving date (YYYY-MM-DD) — unvested options lapse back to the pool:",
                             new Date().toISOString().slice(0, 10)
                           );

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../auth";
+// branded, centered auth screen
 
 export default function Login() {
   const { user, login, signup } = useAuth();
@@ -28,8 +29,12 @@ export default function Login() {
   }
 
   return (
-    <div className="auth-wrap">
-      <h1>Paper</h1>
+    <div className="auth-page">
+      <div className="auth-wrap">
+        <div className="auth-brand">
+          <div className="mark">Paper</div>
+          <div className="tag">OS for corporate legal</div>
+        </div>
       <div className="card">
         <h2>{mode === "login" ? "Log in" : "Create account"}</h2>
         <form onSubmit={submit}>
@@ -68,6 +73,7 @@ export default function Login() {
             {mode === "login" ? "Sign up" : "Log in"}
           </a>
         </p>
+      </div>
       </div>
     </div>
   );

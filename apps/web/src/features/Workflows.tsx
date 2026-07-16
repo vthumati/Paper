@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
 import { api, type WorkflowDefinition, type WorkflowRun } from "../api";
 
 export default function Workflows({ entityId }: { entityId: string }) {
@@ -84,7 +85,9 @@ export default function Workflows({ entityId }: { entityId: string }) {
       <div className="row">
         <div className="card" style={{ flex: 1 }}>
           <h3>Runs</h3>
-          {runs.length === 0 && <p className="muted">None yet.</p>}
+          {runs.length === 0 && (
+            <EmptyState icon="⚙️" title="No workflow runs yet" hint="Start a workflow above to walk a multi-step process (priced round, incorporation) with tracked steps." />
+          )}
           {runs.map((r) => (
             <div
               key={r.id}

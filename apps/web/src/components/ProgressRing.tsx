@@ -39,7 +39,7 @@ export default function ProgressRing({
           y="50%"
           textAnchor="middle"
           dominantBaseline="central"
-          style={{ fontSize: size * 0.24, fontWeight: 700, fill: "var(--navy)" }}
+          style={{ fontSize: size * 0.24, fontWeight: 700, fill: "var(--heading)" }}
         >
           {Math.round(value)}
           <tspan style={{ fontSize: size * 0.13 }}>{suffix}</tspan>

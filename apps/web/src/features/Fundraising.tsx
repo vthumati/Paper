@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
 import KindBadge from "../components/KindBadge";
 import Stepper, { type StepState } from "../components/Stepper";
 import { useGuard } from "../hooks";
@@ -113,7 +114,8 @@ export default function Fundraising({ entityId }: { entityId: string }) {
                 target_amount: target,
                 price_per_share: pps,
                 security_class_id: scId,
-              })
+              }),
+              "Round opened"
             )}
           >
             Create round
@@ -124,7 +126,9 @@ export default function Fundraising({ entityId }: { entityId: string }) {
       <div className="row">
         <div className="card" style={{ flex: 1 }}>
           <h3>Rounds</h3>
-          {rounds.length === 0 && <p className="muted">None yet.</p>}
+          {rounds.length === 0 && (
+            <EmptyState icon="🚀" title="No rounds yet" hint="Open a priced round on the left to start collecting commitments and generating term sheets." />
+          )}
           {rounds.map((r) => (
             <div
               key={r.id}
@@ -168,7 +172,7 @@ export default function Fundraising({ entityId }: { entityId: string }) {
                       onClick={guard(async () => {
                         await api.addCommitment(selected.id, { investor_name: invName, investor_kind: invKind, amount: invAmt, is_foreign: invForeign });
                         setInvName(""); setInvAmt(""); setInvForeign(false);
-                      })}
+                      }, "Commitment added")}
                     >
                       Add commitment
                     </button>
@@ -206,7 +210,7 @@ export default function Fundraising({ entityId }: { entityId: string }) {
                           onClick={guard(async () => {
                             await api.generateOfferLetter(selected.id, c.id);
                             setNote(`PAS-4 offer letter generated for ${c.investor_name} (see Documents tab).`);
-                          })}
+                          }, "PAS-4 offer letter generated")}
                         >
                           PAS-4
                         </button>
@@ -223,7 +227,7 @@ export default function Fundraising({ entityId }: { entityId: string }) {
                   onClick={guard(async () => {
                     await api.generateTermSheet(selected.id);
                     setNote("Term sheet generated (see Documents tab).");
-                  })}
+                  }, "Term sheet generated")}
                 >
                   Generate term sheet
                 </button>
@@ -239,7 +243,7 @@ export default function Fundraising({ entityId }: { entityId: string }) {
                             : "") +
                           (r.foreign_investors ? "; FC-GPR FEMA filing added to Compliance." : ".")
                       );
-                    })}
+                    }, "Round closed")}
                   >
                     Close round
                   </button>

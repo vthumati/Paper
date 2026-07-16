@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
 import { useNavigate } from "react-router-dom";
 import { api, type AuditEntry } from "../api";
 
@@ -23,7 +24,7 @@ export default function Activity() {
         <p className="muted">An immutable audit trail of every change you make (NFR-4).</p>
         {error && <p className="error">{error}</p>}
         {entries.length === 0 ? (
-          <p className="muted">No recorded activity yet.</p>
+          <EmptyState icon="📜" title="No activity yet" hint="Actions across your workspaces — issuances, filings, document generation — are logged here." />
         ) : (
           <table>
             <thead>

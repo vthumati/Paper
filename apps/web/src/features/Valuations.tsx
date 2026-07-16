@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
+import { toast } from "../components/Toast";
 import { api, type CurrentFmv, type Valuation, type ValuationEstimate } from "../api";
 import LineChart from "../components/LineChart";
 import StartupValuation from "./StartupValuation";
@@ -57,6 +59,7 @@ export default function Valuations({ entityId }: { entityId: string }) {
       setFmv("");
       setValuer("");
       load();
+      toast("Valuation recorded");
     } catch (e) {
       setError((e as Error).message);
     }
@@ -150,7 +153,7 @@ export default function Valuations({ entityId }: { entityId: string }) {
           <div className="card">
             <h3>History</h3>
             {vals.length === 0 ? (
-              <p className="muted">No valuations yet.</p>
+              <EmptyState icon="📈" title="No valuations yet" hint="Record an FMV (Rule 11UA / FEMA / fair value) to price ESOP grants, exercises and new rounds." />
             ) : (
               <table>
                 <thead>

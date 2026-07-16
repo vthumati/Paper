@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
 import { api, type TimelineEvent } from "../api";
 
 const KIND_LABEL: Record<string, string> = {
@@ -49,7 +50,7 @@ export default function CapTableTimeline({ entityId }: { entityId: string }) {
       </p>
       {error && <p className="error">{error}</p>}
       {events.length === 0 ? (
-        <p className="muted">No equity events recorded yet.</p>
+        <EmptyState icon="🧭" title="No equity events yet" hint="Issuances, transfers, conversions and corporate actions appear here as a plain-language timeline." />
       ) : (
         events.map((e) => (
           <div className="timeline-row" key={`${e.kind}-${e.id}`}>

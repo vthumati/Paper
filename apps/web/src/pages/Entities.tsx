@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
 import { useNavigate, useParams } from "react-router-dom";
 import IncorporationWizard from "../features/IncorporationWizard";
 import { api, type Entity } from "../api";
@@ -68,7 +69,9 @@ export default function Entities() {
 
       <div className="card">
         <h2>Entities</h2>
-        {entities.length === 0 && <p className="muted">No entities yet.</p>}
+        {entities.length === 0 && (
+          <EmptyState icon="🏢" title="No entities yet" hint="Incorporate a company or add an existing entity above to open its workspace." />
+        )}
         {entities.map((e) => (
           <div key={e.id} className="list-item" onClick={() => nav(`/entities/${e.id}`)}>
             <strong>{e.name}</strong> <span className="badge">{e.type}</span>

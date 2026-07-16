@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
+import { uiPrompt } from "../components/Prompt";
 import DealPipeline from "./DealPipeline";
 import { useGuard } from "../hooks";
 import {
@@ -247,7 +249,9 @@ export default function Fund({ entityId }: { entityId: string }) {
 
       <div className="card">
         <h3>Capital calls</h3>
-        {calls.length === 0 && <p className="muted">No calls yet.</p>}
+        {calls.length === 0 && (
+          <EmptyState icon="💸" title="No capital calls yet" hint="Issue a drawdown to call committed capital from the fund's LPs." />
+        )}
         {calls.map((c) => (
           <div key={c.id} style={{ marginBottom: 10 }}>
             <strong>
@@ -286,7 +290,7 @@ export default function Fund({ entityId }: { entityId: string }) {
             <button
               className="secondary"
               onClick={guard(async () => {
-                const fy = window.prompt("Financial year end (YYYY-MM-DD):", "2026-03-31");
+                const fy = await uiPrompt("Financial year end (YYYY-MM-DD):", "2026-03-31");
                 if (!fy) return;
                 const r = await api.taxStatements(fund.id, fy);
                 setNote(`Generated Form 64D + ${r.form_64c} Form 64C statement(s) — ₹${r.total_distributed} distributed. LPs see their 64C in the portal.`);
@@ -377,7 +381,7 @@ export default function Fund({ entityId }: { entityId: string }) {
                     <button
                       className="secondary"
                       onClick={guard(async () => {
-                        const v = window.prompt(`Mark ${p.company_name} — current fair value (₹):`, p.current_value ?? p.amount);
+                        const v = await uiPrompt(`Mark ${p.company_name} — current fair value (₹):`, p.current_value ?? p.amount);
                         if (v) await api.markInvestment(fund.id, p.id, { current_value: v });
                       })}
                     >

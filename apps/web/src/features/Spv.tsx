@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
 import Stepper from "../components/Stepper";
 import { useGuard } from "../hooks";
 import {
@@ -220,7 +221,7 @@ export default function Spv({ entityId }: { entityId: string }) {
       <div className="card">
         <h3>Co-investors</h3>
         {coInvestors.length === 0 ? (
-          <p className="muted">None yet.</p>
+          <EmptyState icon="🤝" title="No co-investors yet" hint="Invite backers by email — they commit from their portal and the deal funds when commitments land." />
         ) : (
           <table>
             <thead>

@@ -67,7 +67,7 @@ export default function Donut({
             y={centerLabel ? "47%" : "50%"}
             textAnchor="middle"
             dominantBaseline="central"
-            style={{ fontSize: 17, fontWeight: 700, fill: "var(--navy)" }}
+            style={{ fontSize: 17, fontWeight: 700, fill: "var(--heading)" }}
           >
             {centerValue}
           </text>

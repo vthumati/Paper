@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
 import { useGuard } from "../hooks";
 import { api, type Contract, type Counterparty } from "../api";
 
@@ -124,7 +125,7 @@ export default function Contracts({ entityId }: { entityId: string }) {
       <div className="card">
         <h3>Contracts</h3>
         {contracts.length === 0 ? (
-          <p className="muted">No contracts yet.</p>
+          <EmptyState icon="📑" title="No contracts yet" hint="Add a customer, vendor or partner contract to track its value and renewal date." />
         ) : (
           <table>
             <thead>

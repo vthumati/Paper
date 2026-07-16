@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
 import { useNavigate } from "react-router-dom";
 import { api, type AdvisorEntity } from "../api";
 import Avatar from "../components/Avatar";
@@ -29,10 +30,7 @@ export default function Advisor() {
       {error && <p className="error">{error}</p>}
       {loaded && entities.length === 0 ? (
         <div className="card">
-          <p className="muted">
-            No client entities yet. When a company grants your email advisor access, its
-            workspace appears here.
-          </p>
+          <EmptyState icon="⚖️" title="No client entities yet" hint="When a company grants your email advisor access, its workspace appears here." />
         </div>
       ) : (
         <div className="card">

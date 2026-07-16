@@ -10,6 +10,15 @@ export default function Layout() {
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
   const [open, setOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [theme, setTheme] = useState(
+    () => document.documentElement.dataset.theme || "light"
+  );
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("paper_theme", next);
+    setTheme(next);
+  };
   const [workspaces, setWorkspaces] = useState<(Entity & { tenant_name: string })[]>([]);
 
   const loadWorkspaces = () =>
@@ -111,7 +120,7 @@ export default function Layout() {
                 width: 320,
                 maxHeight: 400,
                 overflowY: "auto",
-                background: "#fff",
+                background: "var(--panel)",
                 color: "var(--text)",
                 border: "1px solid var(--border)",
                 borderRadius: 8,
@@ -121,7 +130,7 @@ export default function Layout() {
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <strong style={{ color: "var(--navy)" }}>Notifications</strong>
+                <strong style={{ color: "var(--heading)" }}>Notifications</strong>
                 {unread > 0 && (
                   <button className="secondary" onClick={markAll}>
                     Mark all read
@@ -149,6 +158,13 @@ export default function Layout() {
           )}
         </div>
         <span style={{ fontSize: 14 }}>{user?.full_name}</span>
+        <button
+          className="secondary"
+          onClick={toggleTheme}
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {theme === "dark" ? "☀" : "🌙"}
+        </button>
         <button className="secondary" onClick={logout}>
           Log out
         </button>

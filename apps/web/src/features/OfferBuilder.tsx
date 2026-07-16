@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useGuard } from "../hooks";
+import { fmtMoney } from "../lib/format";
 
 interface Pkg {
   salary: string;
@@ -43,7 +44,7 @@ export default function OfferBuilder({ entityId }: { entityId: string }) {
   if (!position) missing.push("position");
   if (filled.length === 0) missing.push("at least one package");
 
-  const inr = (v: string | number) => `₹${Number(v || 0).toLocaleString()}`;
+  const inr = (v: string | number) => fmtMoney(v || 0);
 
   const packagesText = filled
     .map(

@@ -22,7 +22,7 @@ export default function EmptyState({
       }}
     >
       <div style={{ fontSize: 34, marginBottom: 8, opacity: 0.85 }}>{icon}</div>
-      <div style={{ fontWeight: 600, color: "var(--navy)", marginBottom: 4 }}>{title}</div>
+      <div style={{ fontWeight: 600, color: "var(--heading)", marginBottom: 4 }}>{title}</div>
       {hint && <div style={{ fontSize: 13, maxWidth: 420, margin: "0 auto 12px" }}>{hint}</div>}
       {action}
     </div>

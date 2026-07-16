@@ -30,6 +30,24 @@ export async function downloadFile(path: string, filename: string): Promise<void
   URL.revokeObjectURL(url);
 }
 
+/** Turn a FastAPI error `detail` into a readable string. `detail` is a plain
+ * string for HTTPExceptions, but a list of {loc, msg} objects for 422
+ * validation errors — which would otherwise stringify to "[object Object]". */
+function formatDetail(detail: unknown): string | undefined {
+  if (detail == null) return undefined;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((e) => {
+        const loc = Array.isArray(e?.loc) ? e.loc[e.loc.length - 1] : undefined;
+        const msg = e?.msg ?? JSON.stringify(e);
+        return loc && loc !== "body" ? `${loc}: ${msg}` : msg;
+      })
+      .join("; ");
+  }
+  return JSON.stringify(detail);
+}
+
 async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const token = tokenStore.get();
   const res = await fetch(API + path, {
@@ -44,7 +62,7 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
     let detail = res.statusText;
     try {
       const body = await res.json();
-      detail = body.detail ?? JSON.stringify(body);
+      detail = formatDetail(body.detail) ?? JSON.stringify(body);
     } catch {
       /* ignore */
     }
@@ -66,6 +84,7 @@ export interface User {
   id: string;
   email: string;
   full_name: string;
+  email_verified: boolean;
 }
 export interface Tenant {
   id: string;
@@ -1263,6 +1282,7 @@ export const api = {
   login: (b: { email: string; password: string }) =>
     post<{ access_token: string }>("/auth/login", b),
   refresh: () => post<{ access_token: string }>("/auth/refresh"),
+  verifyEmail: (token: string) => post<User>("/auth/verify-email", { token }),
   me: () => get<User>("/auth/me"),
 
   listTenants: () => get<Tenant[]>("/tenants"),
@@ -1317,7 +1337,6 @@ export const api = {
     ),
   createTransfer: (eid: string, b: unknown) => post(`/entities/${eid}/transfers`, b),
   createConversion: (eid: string, b: unknown) => post(`/entities/${eid}/conversions`, b),
-  createBuyback: (eid: string, b: unknown) => post(`/entities/${eid}/buybacks`, b),
   createCorporateAction: (eid: string, b: unknown) =>
     post(`/entities/${eid}/corporate-actions`, b),
   listRightsIssues: (eid: string) => get<RightsIssue[]>(`/entities/${eid}/rights-issues`),
@@ -1439,10 +1458,6 @@ export const api = {
     get<LiquidityEvent[]>(`/entities/${eid}/liquidity-events`),
   createLiquidityEvent: (eid: string, b: unknown) =>
     post<LiquidityEvent>(`/entities/${eid}/liquidity-events`, b),
-  liquidityTenders: (eid: string, evId: string) =>
-    get<{ id: string; stakeholder: string | null; quantity: number; status: string }[]>(
-      `/entities/${eid}/liquidity-events/${evId}/tenders`
-    ),
   settleLiquidityEvent: (eid: string, evId: string) =>
     post<{ tenders_settled: number; shares_bought_back: number; total_paid: string }>(
       `/entities/${eid}/liquidity-events/${evId}/settle`
@@ -1581,7 +1596,6 @@ export const api = {
   auditLog: () => get<AuditEntry[]>("/audit-log"),
   notifications: (unreadOnly = false) =>
     get<AppNotification[]>(`/notifications${unreadOnly ? "?unread_only=true" : ""}`),
-  markNotificationRead: (id: string) => post<AppNotification>(`/notifications/${id}/read`),
   markAllNotificationsRead: () => post<{ ok: boolean }>("/notifications/read-all"),
 
   dashboard: (eid: string) => get<Dashboard>(`/entities/${eid}/dashboard`),
@@ -1599,10 +1613,6 @@ export const api = {
   addTeamMember: (eid: string, b: unknown) => post<TeamMember>(`/entities/${eid}/team`, b),
   onboardMember: (mid: string) =>
     post<{ stakeholder_id: string; documents: string[] }>(`/team/${mid}/onboard`),
-  generateTeamDoc: (mid: string, template_key: string) =>
-    post<Document>(`/team/${mid}/documents`, { template_key }),
-  updateMemberStatus: (mid: string, b: unknown) =>
-    post<TeamMember>(`/team/${mid}/status`, b),
 
   listCounterparties: (eid: string) => get<Counterparty[]>(`/entities/${eid}/counterparties`),
   addCounterparty: (eid: string, b: unknown) =>
@@ -1658,10 +1668,6 @@ export const api = {
 
   listInstruments: (eid: string) => get<Instrument[]>(`/entities/${eid}/instruments`),
   createInstrument: (eid: string, b: unknown) => post<Instrument>(`/entities/${eid}/instruments`, b),
-  conversionPreview: (id: string, roundPrice: string) =>
-    get<{ conversion_price: string; shares: number; amount: string }>(
-      `/instruments/${id}/conversion-preview?round_price_per_share=${roundPrice}`
-    ),
   convertInstrument: (id: string, b: unknown) =>
     post<{ converted_shares: number; conversion_price: string }>(`/instruments/${id}/convert`, b),
   listDemat: (eid: string) => get<DematRec[]>(`/entities/${eid}/demat`),

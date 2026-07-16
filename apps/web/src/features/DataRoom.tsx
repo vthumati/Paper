@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { uiPrompt } from "../components/Prompt";
 import { useGuard } from "../hooks";
 import {
   api,
@@ -205,7 +206,7 @@ export default function DataRoom({ entityId }: { entityId: string }) {
                     <button
                       className="secondary"
                       onClick={guard(async () => {
-                        const a = prompt("Answer:");
+                        const a = await uiPrompt("Answer:");
                         if (a) {
                           await api.answerQuestion(q.id, { answer: a });
                           setQuestions(await api.listQuestions(selected.id));

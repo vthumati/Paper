@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { uiPrompt } from "../components/Prompt";
 import { useGuard } from "../hooks";
 import { api, type Deal } from "../api";
 
@@ -78,7 +79,7 @@ export default function DealPipeline({
                     <button
                       className="secondary"
                       onClick={guard(async () => {
-                        const pct = window.prompt(`Ownership % acquired in ${d.company_name}:`, "10");
+                        const pct = await uiPrompt(`Ownership % acquired in ${d.company_name}:`, "10");
                         await api.investDeal(d.id, { ownership_pct: pct || "0" });
                         onInvested?.();
                       })}

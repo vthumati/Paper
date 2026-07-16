@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
 import { useNavigate } from "react-router-dom";
 import { api, type Alert, type Tenant } from "../api";
 
@@ -80,7 +81,9 @@ export default function Tenants() {
 
       <div className="card">
         <h2>Your organisations</h2>
-        {tenants.length === 0 && <p className="muted">None yet — create one above.</p>}
+        {tenants.length === 0 && (
+          <EmptyState icon="🗂️" title="No organisations yet" hint="Create your first organisation above — a company, fund or firm — to get started." />
+        )}
         {tenants.map((t) => (
           <div
             key={t.id}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { uiPrompt } from "../components/Prompt";
 import { useGuard } from "../hooks";
 import {
   api,
@@ -74,7 +75,7 @@ export default function Esop({ entityId }: { entityId: string }) {
     setError("");
     const isRsu = g.grant_type === "rsu";
     const verb = isRsu ? "Settle" : "Exercise";
-    const qty = Number(prompt(`${verb} how many? (${isRsu ? "settleable" : "exercisable"}: ${g.exercisable})`, "0"));
+    const qty = Number(await uiPrompt(`${verb} how many? (${isRsu ? "settleable" : "exercisable"}: ${g.exercisable})`, "0"));
     if (!qty) return;
     const equity = classes.find((c) => c.kind === "equity");
     if (!equity) {
@@ -83,7 +84,7 @@ export default function Esop({ entityId }: { entityId: string }) {
     }
     const cur = await api.currentValuation(entityId).catch(() => null);
     const fmv =
-      prompt("FMV per share (for perquisite)? Blank uses current valuation.", cur?.fmv_per_share ?? "") ||
+      await uiPrompt("FMV per share (for perquisite)? Blank uses current valuation.", cur?.fmv_per_share ?? "") ||
       "0";
     // RSUs settle for no consideration — cashless prompt only applies to options
     const cashless = !isRsu && confirm("Cashless exercise? (shares withheld to cover the strike — no cash paid)");

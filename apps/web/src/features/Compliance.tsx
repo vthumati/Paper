@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
 import { api, type Obligation } from "../api";
 import ProgressRing from "../components/ProgressRing";
 
@@ -114,7 +115,7 @@ export default function Compliance({
       <div className="card">
         <h3>Obligations</h3>
         {obs.length === 0 ? (
-          <p className="muted">None yet — generate the calendar above.</p>
+          <EmptyState icon="🗂️" title="No obligations yet" hint="Generate the ROC and GST/TDS calendar above to populate statutory due dates and track filing status." />
         ) : (
           <table>
             <thead>

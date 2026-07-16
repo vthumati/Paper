@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { uiPrompt } from "../components/Prompt";
 import { api, type Incorporation, type IncorporationFounder } from "../api";
 
 const EMPTY_FOUNDER: IncorporationFounder = { name: "", email: "", din: "", shares: 0, is_director: true };
@@ -183,7 +184,7 @@ export default function IncorporationWizard({
                     <button
                       className="secondary"
                       onClick={act(async () => {
-                        const srn = window.prompt("SRN from MCA filing:");
+                        const srn = await uiPrompt("SRN from MCA filing:");
                         if (srn) await api.incorporationFiled(tenantId, x.id, srn);
                       })}
                     >
@@ -194,9 +195,9 @@ export default function IncorporationWizard({
                     <button
                       className="secondary"
                       onClick={act(async () => {
-                        const cin = window.prompt("CIN from the Certificate of Incorporation:");
+                        const cin = await uiPrompt("CIN from the Certificate of Incorporation:");
                         if (!cin) return;
-                        const date = window.prompt("Incorporation date (YYYY-MM-DD):");
+                        const date = await uiPrompt("Incorporation date (YYYY-MM-DD):");
                         if (!date) return;
                         const r = await api.incorporationRegistered(tenantId, x.id, {
                           cin, incorporation_date: date,

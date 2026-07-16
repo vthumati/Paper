@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
 import { api, type AdvisorAccess } from "../api";
 import Avatar from "../components/Avatar";
 
@@ -71,7 +72,7 @@ export default function Advisors({ entityId }: { entityId: string }) {
       <div className="card">
         <h3>Advisors with access</h3>
         {advisors.length === 0 ? (
-          <p className="muted">No external advisors yet.</p>
+          <EmptyState icon="⚖️" title="No advisors yet" hint="Grant a law firm, CA or CS scoped access by email — they reach this entity from their own advisor console." />
         ) : (
           <table>
             <thead>

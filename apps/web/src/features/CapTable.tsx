@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "../components/Toast";
 import {
   api,
   downloadFile,
@@ -90,12 +91,13 @@ export default function CapTable({
     loadAll();
   }, [entityId, refreshKey]);
 
-  const wrap = (fn: () => Promise<unknown>) => async (e: React.FormEvent) => {
+  const wrap = (fn: () => Promise<unknown>, success?: string) => async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     try {
       await fn();
       await loadAll();
+      if (success) toast(success);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -266,7 +268,8 @@ export default function CapTable({
                 participating: scPart,
                 anti_dilution: scAd,
                 orig_issue_price: scOip || null,
-              })
+              }),
+              "Security class added"
             )}
           >
             <label>Name</label>
@@ -308,7 +311,7 @@ export default function CapTable({
 
         <div className="card">
           <h3>Stakeholder</h3>
-          <form onSubmit={wrap(() => api.createStakeholder(entityId, { name: shName, type: shType }))}>
+          <form onSubmit={wrap(() => api.createStakeholder(entityId, { name: shName, type: shType }), "Stakeholder added")}>
             <label>Name</label>
             <input value={shName} onChange={(e) => setShName(e.target.value)} required />
             <label>Type</label>
@@ -335,7 +338,8 @@ export default function CapTable({
               quantity: Number(iQty),
               price_per_unit: iPrice || "0",
               issue_date: new Date().toISOString().slice(0, 10),
-            })
+            }),
+            "Shares issued"
           )}
         >
           <div className="row">

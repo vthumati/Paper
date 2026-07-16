@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
+import { uiPrompt } from "../components/Prompt";
 import { useNavigate } from "react-router-dom";
 import { api, type PortalDashboard, type ValueHistory } from "../api";
 import LineChart from "../components/LineChart";
 import SecChip from "../components/SecChip";
 import Stat from "../components/Stat";
 import GrantDetail from "../features/GrantDetail";
+import { fmtMoney } from "../lib/format";
+import { useGuard } from "../hooks";
+import Skeleton from "../components/Skeleton";
 
 const RANGES = [
   { key: "3M", months: 3 },
@@ -19,7 +24,6 @@ export default function Portal() {
   const [hist, setHist] = useState<ValueHistory | null>(null);
   const [range, setRange] = useState<string>("All");
   const [openGrant, setOpenGrant] = useState<string | null>(null);
-  const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
 
   const load = () => {
@@ -47,15 +51,7 @@ export default function Portal() {
     return pts.map((p) => ({ x: p.date, y: Number(p.value) }));
   })();
 
-  const act = (fn: () => Promise<unknown>) => async () => {
-    setError("");
-    try {
-      await fn();
-      await load();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
+  const { error, setError, guard } = useGuard(load);
 
   const empty =
     loaded && d && d.companies.length === 0 && d.funds.length === 0 &&
@@ -71,13 +67,19 @@ export default function Portal() {
       <h1>Investor portal</h1>
       {error && <p className="error">{error}</p>}
 
+      {!loaded && (
+        <div className="card">
+          <Skeleton lines={5} height={18} />
+        </div>
+      )}
+
       {hist && hist.holdings > 0 && (
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
             <div>
               <div className="muted" style={{ fontSize: 12 }}>Equity holdings — marked value</div>
-              <div style={{ fontSize: 30, fontWeight: 700, color: "var(--navy)" }}>
-                ₹{Number(hist.current_value).toLocaleString("en-IN")}
+              <div style={{ fontSize: 30, fontWeight: 700, color: "var(--heading)" }}>
+                {fmtMoney(hist.current_value)}
               </div>
             </div>
             <div className="tabs subtabs" style={{ borderBottom: "none" }}>
@@ -142,13 +144,13 @@ export default function Portal() {
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
             <div>
               <div className="muted" style={{ fontSize: 12 }}>Today's value (vested)</div>
-              <div style={{ fontSize: 30, fontWeight: 700, color: "var(--navy)" }}>
-                ₹{todayValue.toLocaleString("en-IN")}
+              <div style={{ fontSize: 30, fontWeight: 700, color: "var(--heading)" }}>
+                {fmtMoney(todayValue)}
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div className="muted" style={{ fontSize: 12 }}>Max potential value</div>
-              <div style={{ fontSize: 20, fontWeight: 700 }}>₹{potential.toLocaleString("en-IN")}</div>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>{fmtMoney(potential)}</div>
             </div>
           </div>
           <div style={{ margin: "10px 0 4px" }}>
@@ -202,8 +204,8 @@ export default function Portal() {
                       g.exercisable > 0 && (
                         <button
                           className="secondary"
-                          onClick={act(async () => {
-                            const qty = window.prompt(`Exercise how many options? (${g.exercisable.toLocaleString()} exercisable)`);
+                          onClick={guard(async () => {
+                            const qty = await uiPrompt(`Exercise how many options? (${g.exercisable.toLocaleString()} exercisable)`);
                             if (!qty) return;
                             await api.requestExercise({ grant_id: g.grant_id, quantity: Number(qty) });
                           })}
@@ -253,8 +255,8 @@ export default function Portal() {
                   <span className="muted">{hld.quantity.toLocaleString()} held</span>{" "}
                   <button
                     className="secondary"
-                    onClick={act(async () => {
-                      const qty = window.prompt(
+                    onClick={guard(async () => {
+                      const qty = await uiPrompt(
                         `Tender how many ${hld.security_class} shares at ₹${ev.price_per_share}? (you hold ${hld.quantity.toLocaleString()})`
                       );
                       if (!qty) return;
@@ -300,10 +302,10 @@ export default function Portal() {
               {c.consents.filter((x) => x.status === "pending").map((x) => (
                 <div className="list-item" key={x.id}>
                   <strong>{x.title}</strong> <span className="badge">{x.type}</span>{" "}
-                  <button style={{ marginLeft: 8 }} onClick={act(() => api.decideConsent(x.id, true))}>
+                  <button style={{ marginLeft: 8 }} onClick={guard(() => api.decideConsent(x.id, true))}>
                     Approve
                   </button>{" "}
-                  <button className="secondary" onClick={act(() => api.decideConsent(x.id, false))}>
+                  <button className="secondary" onClick={guard(() => api.decideConsent(x.id, false))}>
                     Reject
                   </button>
                 </div>
@@ -327,10 +329,10 @@ export default function Portal() {
                     <td>
                       <button
                         className="secondary"
-                        onClick={act(async () => {
-                          const qty = window.prompt(`Sell how many ${h.security_class} shares? (you hold ${h.quantity.toLocaleString()})`);
+                        onClick={guard(async () => {
+                          const qty = await uiPrompt(`Sell how many ${h.security_class} shares? (you hold ${h.quantity.toLocaleString()})`);
                           if (!qty) return;
-                          const price = window.prompt("Asking price per share (₹):");
+                          const price = await uiPrompt("Asking price per share (₹):");
                           if (!price) return;
                           await api.requestSale({
                             entity_id: c.entity_id,
@@ -394,7 +396,7 @@ export default function Portal() {
 
           <h3>Updates</h3>
           {c.updates.length === 0 ? (
-            <p className="muted">No updates yet.</p>
+            <EmptyState icon="📣" title="No updates yet" hint="Investor updates the company publishes will appear here." />
           ) : (
             c.updates.map((u) => (
               <div key={u.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}>
@@ -443,8 +445,8 @@ export default function Portal() {
                     {s.status !== "funded" && (
                       <button
                         className="secondary"
-                        onClick={act(async () => {
-                          const amt = window.prompt(
+                        onClick={guard(async () => {
+                          const amt = await uiPrompt(
                             `Commit how much (₹)? Minimum ticket ₹${s.min_ticket}`,
                             s.commitment !== "0.00" ? s.commitment : ""
                           );

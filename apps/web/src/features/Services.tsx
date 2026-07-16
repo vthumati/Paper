@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
 import { useGuard } from "../hooks";
 import { api, type Provider, type ServiceEngagement } from "../api";
 
@@ -73,7 +74,7 @@ export default function Services({ entityId }: { entityId: string }) {
         <div className="card" style={{ flex: 2 }}>
           <h3>Engage a provider</h3>
           {providers.length === 0 ? (
-            <p className="muted">No providers in the directory yet — add one.</p>
+            <EmptyState icon="🏪" title="No providers yet" hint="Add a CS, CA, lawyer, valuer, RTA or fund admin to the directory to engage them." />
           ) : (
             <>
               <div className="row">
@@ -113,7 +114,7 @@ export default function Services({ entityId }: { entityId: string }) {
       <div className="card">
         <h3>Engagements</h3>
         {engagements.length === 0 ? (
-          <p className="muted">No engagements yet.</p>
+          <EmptyState icon="🤝" title="No engagements yet" hint="Engage a provider above with a scope of work; active engagements show here." />
         ) : (
           <table>
             <thead>

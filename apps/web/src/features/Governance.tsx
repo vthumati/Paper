@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import EmptyState from "../components/EmptyState";
+import { uiPrompt } from "../components/Prompt";
 import { useGuard } from "../hooks";
 import { api, type Director, type Meeting, type Resolution } from "../api";
 
@@ -86,7 +88,9 @@ export default function Governance({ entityId }: { entityId: string }) {
 
         <div className="card" style={{ flex: 2 }}>
           <h3>Meetings</h3>
-          {meetings.length === 0 && <p className="muted">None yet.</p>}
+          {meetings.length === 0 && (
+            <EmptyState icon="🗓️" title="No meetings yet" hint="Schedule a board meeting, AGM or EGM on the left — add agenda items and generate the notice." />
+          )}
           {meetings.map((m) => (
             <div key={m.id} className="list-item" style={{ cursor: "default" }}>
               <strong>{m.title}</strong> <span className="badge">{m.type}</span>{" "}
@@ -240,15 +244,15 @@ export default function Governance({ entityId }: { entityId: string }) {
             className="secondary"
             title="Alter the MoA or AoA — creates a special resolution + document; MGT-14 is filed on passing"
             onClick={guard(async () => {
-              const kind = window.prompt("Amend which charter document? (moa / aoa)", "aoa");
+              const kind = await uiPrompt("Amend which charter document? (moa / aoa)", "aoa");
               if (!kind || !["moa", "aoa"].includes(kind.toLowerCase())) return;
-              const description = window.prompt("Describe the alteration:");
+              const description = await uiPrompt("Describe the alteration:");
               if (!description) return;
               await api.charterAmendment(entityId, { kind: kind.toLowerCase(), description });
               setNote(
                 "Charter amendment drafted: special resolution + document created. Passing the resolution adds the MGT-14 filing to Compliance."
               );
-            })}
+            }, "Charter amendment drafted")}
           >
             Amend charter (MoA/AoA)
           </button>
@@ -258,7 +262,7 @@ export default function Governance({ entityId }: { entityId: string }) {
       <div className="card">
         <h3>Resolutions</h3>
         {resolutions.length === 0 ? (
-          <p className="muted">None yet.</p>
+          <EmptyState icon="📜" title="No resolutions yet" hint="Propose a board, ordinary or special resolution above — pass it to generate the document and any linked filing." />
         ) : (
           <table>
             <thead>
