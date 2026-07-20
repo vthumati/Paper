@@ -17,7 +17,7 @@ from .models.document import DocumentStatus, SignatureStatus
 from .models.entity import EntityType
 from .models.instruments import InstrumentStatus, InstrumentType
 from .models.registers import RegistrationKind
-from .models.fund import DealStage, DistributionKind, SebiCategory
+from .models.fund import DealStage, DistributionKind, LPProspectStage, SebiCategory
 from .models.identity import Role, TenantType
 from .models.governance import (
     DirectorDesignation,
@@ -580,6 +580,24 @@ class PortfolioOut(ORMModel):
 class PortfolioMarkIn(BaseModel):
     current_value: Decimal = Field(ge=0)
     marked_on: datetime.date | None = None
+
+
+class LPProspectIn(BaseModel):
+    name: str
+    firm: str | None = None
+    kind: str = "institutional"
+    email: EmailStr | None = None
+    stage: LPProspectStage = LPProspectStage.PROSPECT
+    target_commitment: Decimal = Field(default=Decimal("0"), ge=0)
+    notes: str | None = None
+
+
+class LPProspectStageIn(BaseModel):
+    stage: LPProspectStage
+
+
+class LPProspectConvertIn(BaseModel):
+    commitment: Decimal | None = Field(default=None, ge=0)
 
 
 class FundValuationPolicyIn(BaseModel):

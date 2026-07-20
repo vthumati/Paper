@@ -68,6 +68,36 @@ class LP(Base, TimestampMixin):
     fund: Mapped[Fund] = relationship(back_populates="lps")
 
 
+class LPProspectStage(str, enum.Enum):
+    PROSPECT = "prospect"
+    CONTACTED = "contacted"
+    MEETING = "meeting"
+    DILIGENCE = "diligence"
+    SOFT_CIRCLED = "soft_circled"
+    COMMITTED = "committed"
+    PASSED = "passed"
+
+
+class LPProspect(Base, TimestampMixin):
+    """A prospective LP in the fund's own fundraise (GP raising capital) — the
+    pipeline that precedes an LP commitment. Converting a prospect creates an LP."""
+
+    __tablename__ = "lp_prospects"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    firm: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    kind: Mapped[str] = mapped_column(String(32), default="institutional")
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    stage: Mapped[LPProspectStage] = mapped_column(
+        Enum(LPProspectStage), default=LPProspectStage.PROSPECT
+    )
+    target_commitment: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
+    notes: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    lp_id: Mapped[str | None] = mapped_column(String(32), nullable=True)  # set on convert
+
+
 class CapitalCall(Base, TimestampMixin):
     __tablename__ = "capital_calls"
 

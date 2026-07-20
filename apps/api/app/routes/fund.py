@@ -24,6 +24,7 @@ from ..models.fund import (
     Fund,
     LP,
     LPDistribution,
+    LPProspect,
     PortfolioInvestment,
 )
 from ..services.money import q
@@ -48,6 +49,9 @@ from ..schemas import (
     FundValuationPolicyIn,
     LPIn,
     LPOut,
+    LPProspectConvertIn,
+    LPProspectIn,
+    LPProspectStageIn,
     PortfolioValuationIn,
     PortfolioIn,
     PortfolioKPIIn,
@@ -103,6 +107,53 @@ def save_plan(
     require_write(ctx.role)
     svc.upsert_plan(db, ctx.fund, body.model_dump())
     return svc.compute_plan(db, ctx.fund)
+
+
+# --- LP-fundraising CRM (raising the fund from prospective LPs) ---
+def _get_prospect(db: Session, fund_id: str, prospect_id: str) -> LPProspect:
+    p = db.get(LPProspect, prospect_id)
+    if p is None or p.fund_id != fund_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Prospect not found")
+    return p
+
+
+@router.get("/funds/{fund_id}/fundraise")
+def fundraise(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    return svc.fundraise_summary(db, ctx.fund)
+
+
+@router.post("/funds/{fund_id}/prospects", status_code=201)
+def add_prospect(
+    body: LPProspectIn, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+):
+    require_write(ctx.role)
+    svc.add_prospect(db, ctx.fund, body.model_dump())
+    return svc.fundraise_summary(db, ctx.fund)
+
+
+@router.post("/funds/{fund_id}/prospects/{prospect_id}/stage")
+def set_prospect_stage(
+    prospect_id: str,
+    body: LPProspectStageIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    p = _get_prospect(db, ctx.fund.id, prospect_id)
+    svc.set_prospect_stage(db, p, body.stage)
+    return svc.fundraise_summary(db, ctx.fund)
+
+
+@router.post("/funds/{fund_id}/prospects/{prospect_id}/convert", response_model=LPOut, status_code=201)
+def convert_prospect(
+    prospect_id: str,
+    body: LPProspectConvertIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    p = _get_prospect(db, ctx.fund.id, prospect_id)
+    return svc.convert_prospect_to_lp(db, p, body.commitment)
 
 
 # --- LPs ---
