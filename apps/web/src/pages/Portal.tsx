@@ -210,7 +210,7 @@ export default function Portal() {
                   <td>{g.vested.toLocaleString()}</td>
                   <td>{g.exercised.toLocaleString()}</td>
                   <td>{g.exercisable.toLocaleString()}</td>
-                  <td>₹{g.exercise_price}</td>
+                  <td>{fmtMoney(g.exercise_price)}</td>
                   <td>{g.current_fmv ? `₹${g.current_fmv}` : "—"}</td>
                   <td>{g.unrealized_gain ? `₹${g.unrealized_gain}` : "—"}</td>
                   <td style={{ whiteSpace: "nowrap" }}>
@@ -265,7 +265,7 @@ export default function Portal() {
               <strong>{ev.name}</strong> <span className="muted">· {ev.entity_name}</span>{" "}
               <span className="badge active">{ev.kind}</span>
               <div className="muted" style={{ margin: "4px 0" }}>
-                ₹{ev.price_per_share}/share · closes {ev.closes_on}
+                {fmtMoney(ev.price_per_share)}/share · closes {ev.closes_on}
                 {ev.my_tendered > 0 && ` · you've tendered ${ev.my_tendered.toLocaleString()}`}
               </div>
               {ev.holdings.map((hld) => (
@@ -310,7 +310,7 @@ export default function Portal() {
             {c.entity_name} <span className="badge">{c.entity_type}</span>
             {Number(c.current_value) > 0 && (
               <span className="muted" style={{ fontSize: 14, marginLeft: 8 }}>
-                position value ₹{c.current_value} (at latest FMV)
+                position value {fmtMoney(c.current_value)} (at latest FMV)
               </span>
             )}
           </h2>
@@ -452,14 +452,14 @@ export default function Portal() {
                   <td>{s.target_company}</td>
                   <td>{s.sponsor}</td>
                   <td>{(Number(s.carry_pct) * 100).toFixed(1)}%</td>
-                  <td>₹{s.min_ticket}</td>
+                  <td>{fmtMoney(s.min_ticket)}</td>
                   <td>
                     <span className={`badge ${s.status === "funded" ? "complete" : ""}`}>
                       {s.status}
                     </span>
                   </td>
-                  <td>₹{s.commitment}</td>
-                  <td>₹{s.contributed}</td>
+                  <td>{fmtMoney(s.commitment)}</td>
+                  <td>{fmtMoney(s.contributed)}</td>
                   <td>
                     {s.status !== "funded" && (
                       <button
@@ -527,7 +527,7 @@ export default function Portal() {
           {f.performance && f.performance.paid_in !== "0.00" && (
             <p className="muted">
               Fund performance: DPI {f.performance.dpi ?? "—"} · <strong>TVPI {f.performance.tvpi ?? "—"}</strong> · XIRR{" "}
-              {f.performance.xirr_pct !== null ? `${f.performance.xirr_pct}%` : "—"} · NAV ₹{f.performance.nav}
+              {f.performance.xirr_pct !== null ? `${f.performance.xirr_pct}%` : "—"} · NAV {fmtMoney(f.performance.nav)}
             </p>
           )}
           {f.statements.length > 0 && (
@@ -599,10 +599,10 @@ export default function Portal() {
               <thead><tr><th>Committed</th><th>Drawn</th><th>Remaining</th><th>Distributed</th></tr></thead>
               <tbody>
                 <tr>
-                  <td>₹{f.account.committed}</td>
-                  <td>₹{f.account.drawn}</td>
-                  <td>₹{f.account.remaining}</td>
-                  <td>₹{f.account.distributed}</td>
+                  <td>{fmtMoney(f.account.committed)}</td>
+                  <td>{fmtMoney(f.account.drawn)}</td>
+                  <td>{fmtMoney(f.account.remaining)}</td>
+                  <td>{fmtMoney(f.account.distributed)}</td>
                 </tr>
               </tbody>
             </table>
@@ -631,17 +631,17 @@ export default function Portal() {
                   {f.look_through.holdings.map((hld, i) => (
                     <tr key={i}>
                       <td>{hld.company_name} <span className="muted">{hld.instrument}</span></td>
-                      <td className="muted">₹{hld.fund_value}</td>
-                      <td>₹{hld.look_through_cost}</td>
-                      <td>₹{hld.look_through_value}</td>
+                      <td className="muted">{fmtMoney(hld.fund_value)}</td>
+                      <td>{fmtMoney(hld.look_through_cost)}</td>
+                      <td>{fmtMoney(hld.look_through_value)}</td>
                       <td>{hld.moic ? `${hld.moic}×` : "—"}</td>
                     </tr>
                   ))}
                   <tr style={{ fontWeight: 700, borderTop: "2px solid var(--border)" }}>
                     <td>Your total exposure</td>
                     <td></td>
-                    <td>₹{f.look_through.totals.look_through_cost}</td>
-                    <td>₹{f.look_through.totals.look_through_value}</td>
+                    <td>{fmtMoney(f.look_through.totals.look_through_cost)}</td>
+                    <td>{fmtMoney(f.look_through.totals.look_through_value)}</td>
                     <td></td>
                   </tr>
                 </tbody>

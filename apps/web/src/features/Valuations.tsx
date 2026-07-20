@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import EmptyState from "../components/EmptyState";
 import { toast } from "../components/Toast";
 import { api, type CurrentFmv, type Valuation, type ValuationEstimate } from "../api";
@@ -104,7 +105,7 @@ export default function Valuations({ entityId }: { entityId: string }) {
               Current FMV:{" "}
               {current?.fmv_per_share ? (
                 <strong>
-                  ₹{current.fmv_per_share} (as of {current.valuation_date})
+                  {fmtMoney(current.fmv_per_share)} (as of {current.valuation_date})
                 </strong>
               ) : (
                 <em>none on record — ESOP perquisite will use the value entered at exercise.</em>
@@ -170,7 +171,7 @@ export default function Valuations({ entityId }: { entityId: string }) {
                     <tr key={v.id}>
                       <td>{v.valuation_date}</td>
                       <td>{v.method}</td>
-                      <td>₹{v.fmv_per_share}</td>
+                      <td>{fmtMoney(v.fmv_per_share)}</td>
                       <td>{v.valuer_name || "—"}</td>
                       <td>{v.valid_until || "—"}</td>
                     </tr>

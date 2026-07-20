@@ -34,9 +34,25 @@ const SUBTABS = [
 ] as const;
 type SubTab = (typeof SUBTABS)[number]["key"];
 
-export default function Fund({ entityId }: { entityId: string }) {
+export default function Fund({
+  entityId,
+  initialSub,
+}: {
+  entityId: string;
+  /** ?tab=fund&sub=<key> deep link (command palette, shared URLs) */
+  initialSub?: string | null;
+}) {
   const [fund, setFund] = useState<FundT | null>(null);
-  const [sub, setSub] = useState<SubTab>("capital");
+  const [sub, setSub] = useState<SubTab>(
+    initialSub && SUBTABS.some((t) => t.key === initialSub)
+      ? (initialSub as SubTab)
+      : "capital"
+  );
+  useEffect(() => {
+    if (initialSub && SUBTABS.some((t) => t.key === initialSub)) {
+      setSub(initialSub as SubTab);
+    }
+  }, [initialSub]);
   const [lps, setLps] = useState<LP[]>([]);
   const [calls, setCalls] = useState<CapitalCall[]>([]);
   const [dists, setDists] = useState<Distribution[]>([]);

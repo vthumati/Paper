@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import {
   api,
   type ScorecardFactor,
@@ -268,7 +269,7 @@ export default function StartupValuation({
                 {Object.entries(result.methods).map(([m, v]) => (
                   <tr key={m}>
                     <td>{METHOD_LABEL[m as Method] ?? m}</td>
-                    <td>₹{v}</td>
+                    <td>{fmtMoney(v)}</td>
                     <td className="muted">
                       weight {(Number(result.weights[m]) * 100).toFixed(0)}%
                     </td>
@@ -276,13 +277,13 @@ export default function StartupValuation({
                 ))}
                 <tr style={{ fontWeight: 700, borderTop: "2px solid var(--border)" }}>
                   <td>Blended value</td>
-                  <td>₹{result.blended_value}</td>
+                  <td>{fmtMoney(result.blended_value)}</td>
                   <td className="muted">{result.fd_shares.toLocaleString()} FD shares</td>
                 </tr>
                 {result.per_share && (
                   <tr style={{ fontWeight: 700 }}>
                     <td>Indicative per share</td>
-                    <td>₹{result.per_share}</td>
+                    <td>{fmtMoney(result.per_share)}</td>
                     <td></td>
                   </tr>
                 )}
@@ -304,7 +305,7 @@ export default function StartupValuation({
               {saved.map((e) => (
                 <tr key={e.id}>
                   <td>{e.label}</td>
-                  <td>₹{e.results.blended_value}</td>
+                  <td>{fmtMoney(e.results.blended_value)}</td>
                   <td>{e.results.per_share ? `₹${e.results.per_share}` : "—"}</td>
                   <td className="muted">{new Date(e.created_at).toLocaleDateString()}</td>
                   <td>

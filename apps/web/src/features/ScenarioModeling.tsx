@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { fmtMoney } from "../lib/format";
 import { api, type Scenario } from "../api";
 
 /** Pro-forma round modeling: what the cap table looks like AFTER a
@@ -65,8 +66,8 @@ export default function ScenarioModeling({ entityId }: { entityId: string }) {
         return (
           <div style={{ marginTop: 12 }}>
             <h4 style={{ margin: "4px 0" }}>
-              Stage breakdown — latest scenario (₹{Number(latest.new_money).toLocaleString()} @ pre ₹
-              {Number(latest.pre_money).toLocaleString()})
+              Stage breakdown — latest scenario ({fmtMoney(Number(latest.new_money))} @ pre{" "}
+              {fmtMoney(Number(latest.pre_money))})
             </h4>
             <table>
               <thead>
@@ -109,13 +110,13 @@ export default function ScenarioModeling({ entityId }: { entityId: string }) {
             <tr>
               <th></th>
               {scenarios.map((s, i) => (
-                <th key={i}>₹{Number(s.new_money).toLocaleString()} @ pre ₹{Number(s.pre_money).toLocaleString()}</th>
+                <th key={i}>{fmtMoney(Number(s.new_money))} @ pre {fmtMoney(Number(s.pre_money))}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            <tr><td>Price / share</td>{scenarios.map((s, i) => <td key={i}>₹{s.price_per_share}</td>)}</tr>
-            <tr><td>Post-money</td>{scenarios.map((s, i) => <td key={i}>₹{Number(s.post_money).toLocaleString()}</td>)}</tr>
+            <tr><td>Price / share</td>{scenarios.map((s, i) => <td key={i}>{fmtMoney(s.price_per_share)}</td>)}</tr>
+            <tr><td>Post-money</td>{scenarios.map((s, i) => <td key={i}>{fmtMoney(Number(s.post_money))}</td>)}</tr>
             <tr><td>New shares</td>{scenarios.map((s, i) => <td key={i}>{s.new_shares.toLocaleString()}</td>)}</tr>
             <tr><td>SAFEs convert to</td>{scenarios.map((s, i) => <td key={i}>{s.safe_shares_converted.toLocaleString()}</td>)}</tr>
             <tr><td>FD after</td>{scenarios.map((s, i) => <td key={i}>{s.fd_post.toLocaleString()}</td>)}</tr>

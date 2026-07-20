@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import {
   api,
   type DematRec,
@@ -310,7 +311,7 @@ export default function CapTableAdvanced({
         </div>
         {wf && (
           <>
-            <p className="muted">Distributed ₹{wf.distributed} of ₹{wf.exit_amount}</p>
+            <p className="muted">Distributed {fmtMoney(wf.distributed)} of {fmtMoney(wf.exit_amount)}</p>
             <BarChart
               bars={wf.payouts.map((p) => ({
                 label: p.stakeholder_name ?? "—",
@@ -347,14 +348,14 @@ export default function CapTableAdvanced({
             <thead>
               <tr>
                 <th>Stakeholder</th>
-                {range.exit_amounts.map((a, i) => <th key={i}>Exit ₹{Number(a).toLocaleString()}</th>)}
+                {range.exit_amounts.map((a, i) => <th key={i}>Exit {fmtMoney(Number(a))}</th>)}
               </tr>
             </thead>
             <tbody>
               {range.rows.map((r) => (
                 <tr key={r.stakeholder_id}>
                   <td>{r.stakeholder_name}</td>
-                  {r.payouts.map((p, i) => <td key={i}>₹{p}</td>)}
+                  {r.payouts.map((p, i) => <td key={i}>{fmtMoney(p)}</td>)}
                 </tr>
               ))}
             </tbody>

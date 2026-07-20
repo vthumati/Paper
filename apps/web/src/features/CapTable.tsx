@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import { toast } from "../components/Toast";
 import {
   api,
@@ -157,7 +158,7 @@ export default function CapTable({
             <>
               <p className="muted">
                 Total shares: <strong>{capTable.total_shares.toLocaleString()}</strong> · Total
-                invested: <strong>₹{capTable.total_invested}</strong>
+                invested: <strong>{fmtMoney(capTable.total_invested)}</strong>
               </p>
               <div style={{ margin: "12px 0 16px" }}>
                 <StackedBar

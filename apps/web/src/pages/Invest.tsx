@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import { useParams } from "react-router-dom";
 import { api, type PublicFunnelInfo } from "../api";
 
@@ -36,7 +37,7 @@ export default function Invest() {
       <div className="card">
         <h1>{info.company}</h1>
         <p className="muted">
-          {info.round} round · {info.instrument?.toUpperCase()} · raising ₹{info.target_amount}
+          {info.round} round · {info.instrument?.toUpperCase()} · raising {fmtMoney(info.target_amount)}
         </p>
 
         {done ? (

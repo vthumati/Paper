@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import { api, type FullyDiluted as FullyDilutedT } from "../api";
 
 /** The as-if-converted view: issued + options + pool + SAFEs/notes. */
@@ -43,7 +44,7 @@ export default function FullyDilutedView({
             Fully diluted: <strong>{fd.fully_diluted_shares.toLocaleString()}</strong> ·
             Issued {fd.issued_shares.toLocaleString()} · Options {fd.option_shares.toLocaleString()} ·
             Pool {fd.pool_unallocated.toLocaleString()} · Converts {fd.convertible_shares.toLocaleString()}
-            {fd.assumed_price && <> · at ₹{fd.assumed_price}/share</>}
+            {fd.assumed_price && <> · at {fmtMoney(fd.assumed_price)}/share</>}
           </p>
           {fd.excluded_instruments.length > 0 && (
             <p className="error">

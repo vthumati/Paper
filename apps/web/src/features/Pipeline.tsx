@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import { useGuard } from "../hooks";
 import { api, type Prospect, type Round } from "../api";
 
@@ -47,7 +48,7 @@ export default function Pipeline({
       {note && <p className="muted">{note}</p>}
       {summary && (
         <p className="muted">
-          {summary.total} prospects · Open value ₹{summary.open_value} · Committed ₹{summary.committed_value}
+          {summary.total} prospects · Open value {fmtMoney(summary.open_value)} · Committed {fmtMoney(summary.committed_value)}
         </p>
       )}
 

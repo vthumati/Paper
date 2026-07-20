@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import EmptyState from "../components/EmptyState";
 import KindBadge from "../components/KindBadge";
 import Stepper, { type StepState } from "../components/Stepper";
@@ -147,7 +148,7 @@ export default function Fundraising({ entityId }: { entityId: string }) {
             <>
               <h3>{selected.name}</h3>
               <p className="muted">
-                Pre ₹{summary.pre_money} · Committed ₹{summary.committed} · Post ₹{summary.post_money} ·
+                Pre {fmtMoney(summary.pre_money)} · Committed {fmtMoney(summary.committed)} · Post {fmtMoney(summary.post_money)} ·
                 New shares {summary.new_shares.toLocaleString()} ({summary.implied_new_ownership_pct}% to
                 new investors)
               </p>
@@ -189,7 +190,7 @@ export default function Fundraising({ entityId }: { entityId: string }) {
                     <tr key={c.id}>
                       <td>{c.investor_name}</td>
                       <td><KindBadge kind={c.investor_kind} /></td>
-                      <td>₹{c.amount}</td>
+                      <td>{fmtMoney(c.amount)}</td>
                       <td>{c.is_foreign ? "yes" : "—"}</td>
                       <td>
                         {selected.status === "closed" ? (
@@ -329,7 +330,7 @@ export default function Fundraising({ entityId }: { entityId: string }) {
                     <td>
                       {p.commitment ? (
                         <span className="badge complete">
-                          ₹{p.commitment.amount} ({p.commitment.status})
+                          {fmtMoney(p.commitment.amount)} ({p.commitment.status})
                         </span>
                       ) : (
                         "—"

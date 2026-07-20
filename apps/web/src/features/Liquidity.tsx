@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import { api, type LiquidityEvent } from "../api";
 
 /** Company liquidity windows (buyback/tender): open a window, holders tender
@@ -73,11 +74,11 @@ export default function Liquidity({ entityId, onChanged }: { entityId: string; o
             {events.map((ev) => (
               <tr key={ev.id}>
                 <td>{ev.name}</td>
-                <td>₹{ev.price_per_share}</td>
+                <td>{fmtMoney(ev.price_per_share)}</td>
                 <td className="muted">{ev.opens_on} → {ev.closes_on}</td>
                 <td>{ev.tenders}</td>
                 <td>{ev.shares_tendered.toLocaleString()}</td>
-                <td>₹{ev.indicative_payout}</td>
+                <td>{fmtMoney(ev.indicative_payout)}</td>
                 <td>
                   <span className={`badge ${ev.status === "settled" ? "complete" : ev.status === "open" ? "active" : ""}`}>
                     {ev.status}

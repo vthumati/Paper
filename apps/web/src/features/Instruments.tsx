@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import KindBadge from "../components/KindBadge";
 import Stepper, { type StepState } from "../components/Stepper";
 import { useGuard } from "../hooks";
@@ -125,7 +126,7 @@ export default function Instruments({
                 <td>{x.investor_name}</td>
                 <td><KindBadge kind={x.investor_kind} /></td>
                 <td>{x.instrument_type === "safe" ? "SAFE" : "Note"}</td>
-                <td>₹{x.principal}</td>
+                <td>{fmtMoney(x.principal)}</td>
                 <td>{x.valuation_cap ? `₹${x.valuation_cap}` : "—"}</td>
                 <td>{Number(x.discount_pct) > 0 ? `${(Number(x.discount_pct) * 100).toFixed(0)}%` : "—"}</td>
                 <td>

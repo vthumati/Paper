@@ -110,11 +110,14 @@ export default function EntityDetail() {
   const [showAll, setShowAll] = useState(false);
   const [tab, setTab] = useState<Tab>("dashboard");
 
-  // ?tab= deep links (command palette, shared URLs); cleared once applied
+  // ?tab= (+ optional ?sub= for tabs with sub-tabs, e.g. fund) deep links
+  // (command palette, shared URLs); cleared once applied
+  const [fundSub, setFundSub] = useState<string | null>(null);
   useEffect(() => {
     const wanted = searchParams.get("tab");
     if (wanted && TAB_DEFS.some((t) => t.key === wanted)) {
       setTab(wanted as Tab);
+      setFundSub(searchParams.get("sub"));
       setSearchParams({}, { replace: true });
     }
   }, [searchParams]);
@@ -343,7 +346,7 @@ export default function EntityDetail() {
       {tab === "dataroom" && <DataRoom entityId={entityId} />}
       {tab === "diligence" && <Diligence entityId={entityId} onNavigate={goTab} />}
       {tab === "compliance" && <Compliance entityId={entityId} entityType={entity.type} />}
-      {tab === "fund" && <Fund entityId={entityId} />}
+      {tab === "fund" && <Fund entityId={entityId} initialSub={fundSub} />}
       {tab === "esop" && (
         <>
           <ExerciseRequests entityId={entityId} />

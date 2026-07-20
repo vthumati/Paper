@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import { useGuard } from "../hooks";
 import { api, type Charge, type Registration, type SBO } from "../api";
 
@@ -89,7 +90,7 @@ export default function Registers({ entityId }: { entityId: string }) {
               {charges.map((c) => (
                 <tr key={c.id}>
                   <td>{c.holder}</td>
-                  <td>₹{c.amount}</td>
+                  <td>{fmtMoney(c.amount)}</td>
                   <td><span className={`badge ${c.satisfied ? "complete" : "active"}`}>{c.satisfied ? "satisfied" : "open"}</span></td>
                   <td>{!c.satisfied && <button className="secondary" onClick={guard(() => api.satisfyCharge(c.id))}>Mark satisfied</button>}</td>
                 </tr>

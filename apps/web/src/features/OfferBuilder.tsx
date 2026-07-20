@@ -187,7 +187,7 @@ export default function OfferBuilder({ entityId }: { entityId: string }) {
                     </tbody>
                   </table>
                   <p className="muted">
-                    Illustrative, at multiples of the current FMV (₹{fmv}/share) — before exercise
+                    Illustrative, at multiples of the current FMV ({fmtMoney(fmv)}/share) — before exercise
                     cost and tax.
                   </p>
                 </>

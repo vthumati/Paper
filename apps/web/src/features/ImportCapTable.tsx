@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { fmtMoney } from "../lib/format";
 import { api, type CapTableImportReport } from "../api";
 
 /** CSV onboarding: pick a file, validate (dry run), then apply atomically. */
@@ -80,7 +81,7 @@ export default function ImportCapTable({
         <p className={report.applied ? "" : "muted"}>
           {report.applied ? "Imported: " : "Ready to import: "}
           <strong>{report.summary.issuances}</strong> issuance(s) ·{" "}
-          {report.summary.total_shares.toLocaleString()} shares · ₹{report.summary.total_invested} invested
+          {report.summary.total_shares.toLocaleString()} shares · {fmtMoney(report.summary.total_invested)} invested
           {report.summary.classes_to_create.length > 0 && (
             <> · new classes: {report.summary.classes_to_create.join(", ")}</>
           )}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import { uiPrompt } from "../components/Prompt";
 import { useGuard } from "../hooks";
 import {
@@ -427,9 +428,9 @@ export default function Esop({ entityId }: { entityId: string }) {
         {expense && (
           <div style={{ marginTop: 10 }}>
             <p className="muted">
-              Total grant-date fair value <strong>₹{expense.totals.total_fair_value}</strong> ·
-              recognised to date <strong>₹{expense.totals.recognized_to_date}</strong> ·
-              unrecognised ₹{expense.totals.unrecognized}
+              Total grant-date fair value <strong>{fmtMoney(expense.totals.total_fair_value)}</strong> ·
+              recognised to date <strong>{fmtMoney(expense.totals.recognized_to_date)}</strong> ·
+              unrecognised {fmtMoney(expense.totals.unrecognized)}
               {expense.unpriced_grants > 0 && ` · ${expense.unpriced_grants} grant(s) unpriced (no FMV at grant date)`}
             </p>
             {expense.by_financial_year.length > 0 && (

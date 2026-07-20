@@ -61,7 +61,8 @@ describe("Dashboard", () => {
     expect(screen.getByText("Available to issue")).toBeTruthy();
     expect(screen.getByText("90,000")).toBeTruthy();
     // valuation status card
-    expect(screen.getByText("FMV ₹120.5000 per share")).toBeTruthy();
+    // fmtMoney renders the per-share FMV with lakh/crore grouping, ≤2dp
+    expect(screen.getByText("FMV ₹120.5 per share")).toBeTruthy();
     // overdue stat present and non-zero
     expect(screen.getByText("Overdue")).toBeTruthy();
     expect(screen.getByText("2")).toBeTruthy();

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import { useGuard } from "../hooks";
 import {
   api,
@@ -118,7 +119,7 @@ export default function Investors({ entityId }: { entityId: string }) {
                   <td>{s.seller}</td>
                   <td>{s.security_class}</td>
                   <td>{s.quantity.toLocaleString()}</td>
-                  <td>₹{s.price_per_unit}</td>
+                  <td>{fmtMoney(s.price_per_unit)}</td>
                   <td><span className={`badge ${s.status === "executed" ? "complete" : ""}`}>{s.status}</span></td>
                   <td>
                     {s.status === "open" ? (

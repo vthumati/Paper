@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import EmptyState from "../components/EmptyState";
 import Stepper from "../components/Stepper";
 import { useGuard } from "../hooks";
@@ -107,7 +108,7 @@ export default function Spv({ entityId }: { entityId: string }) {
           <p className="muted">
             {summary.co_investor_count} co-investors ({summary.by_status.invited} invited ·{" "}
             {summary.by_status.committed} committed · {summary.by_status.funded} funded) ·
-            Committed ₹{summary.committed} · Contributed ₹{summary.contributed}
+            Committed {fmtMoney(summary.committed)} · Contributed {fmtMoney(summary.contributed)}
           </p>
         )}
         <p className="muted">
@@ -250,8 +251,8 @@ export default function Spv({ entityId }: { entityId: string }) {
                       })}
                     />
                   </td>
-                  <td>₹{c.commitment}</td>
-                  <td>₹{c.contributed}</td>
+                  <td>{fmtMoney(c.commitment)}</td>
+                  <td>{fmtMoney(c.contributed)}</td>
                   <td>
                     {c.status === "committed" && (
                       <button

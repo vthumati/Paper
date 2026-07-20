@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import { useGuard } from "../hooks";
 import { api, type Entitlement, type RightsIssue, type SecurityClass } from "../api";
 
@@ -83,7 +84,7 @@ export default function RightsIssues({
           className={`list-item ${selected?.id === ri.id ? "selected" : ""}`}
           onClick={() => select(ri)}
         >
-          {ri.ratio_num}:{ri.ratio_den} @ ₹{ri.price_per_unit}{" "}
+          {ri.ratio_num}:{ri.ratio_den} @ {fmtMoney(ri.price_per_unit)}{" "}
           <span className={`badge ${ri.status === "closed" ? "complete" : ""}`}>{ri.status}</span>
         </div>
       ))}

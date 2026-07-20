@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fmtMoney } from "../lib/format";
 import { useNavigate } from "react-router-dom";
 import { api, type Dashboard as DashboardT } from "../api";
 
@@ -89,7 +90,7 @@ export default function Dashboard({ entityId }: { entityId: string }) {
           {val.status === "active" ? (
             <>
               <span className="badge complete">Active</span>{" "}
-              <strong>FMV ₹{val.fmv_per_share} per share</strong>
+              <strong>FMV {fmtMoney(val.fmv_per_share)} per share</strong>
               <p className="muted" style={{ marginTop: 6 }}>
                 {val.method} · effective {val.valuation_date}
                 {val.valid_until ? `, valid until ${val.valid_until}` : ""}

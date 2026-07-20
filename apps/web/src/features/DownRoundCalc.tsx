@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { fmtMoney } from "../lib/format";
 import { api, type AntiDilutionPreview, type SecurityClass } from "../api";
 
 /** Anti-dilution what-if: adjusted conversion price/ratio for a down round. */
@@ -60,7 +61,7 @@ export default function DownRoundCalc({
       {result && (
         <>
           <p className="muted">
-            Conversion price ₹{result.orig_issue_price} → <strong>₹{result.adjusted_price}</strong> ·
+            Conversion price {fmtMoney(result.orig_issue_price)} → <strong>{fmtMoney(result.adjusted_price)}</strong> ·
             conversion ratio <strong>{result.conversion_ratio} : 1</strong> ({result.method})
           </p>
           <table>
