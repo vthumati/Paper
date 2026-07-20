@@ -998,6 +998,16 @@ export interface ValuationSummary {
     stale: boolean;
   }[];
 }
+export interface PortfolioSignal {
+  kind: string;
+  severity: "high" | "warn" | "info" | "positive";
+  message: string;
+}
+export interface PortfolioSignals {
+  fund_id: string;
+  totals: { high: number; warn: number; info: number; positive: number; clear: number };
+  companies: { investment_id: string; company_name: string; signals: PortfolioSignal[] }[];
+}
 export interface KPIRequest {
   id: string;
   investment_id: string;
@@ -1661,6 +1671,7 @@ export const api = {
   listPortfolio: (fid: string) => get<PortfolioInvestment[]>(`/funds/${fid}/portfolio`),
   portfolioMonitoring: (fid: string) =>
     get<PortfolioMonitoring>(`/funds/${fid}/portfolio-monitoring`),
+  portfolioSignals: (fid: string) => get<PortfolioSignals>(`/funds/${fid}/signals`),
   listKpiRequests: (fid: string) => get<KPIRequest[]>(`/funds/${fid}/kpi-requests`),
   createKpiRequest: (fid: string, iid: string, b: { period_label: string; as_of: string; due_date?: string | null; contact_email: string }) =>
     post<KPIRequest[]>(`/funds/${fid}/portfolio/${iid}/kpi-requests`, b),

@@ -4,6 +4,7 @@ import { uiPrompt } from "../components/Prompt";
 import DealPipeline from "./DealPipeline";
 import FundForecast from "./FundForecast";
 import FundRaise from "./FundRaise";
+import FundSignals from "./FundSignals";
 import FundFinancials from "./FundFinancials";
 import FundValuations from "./FundValuations";
 import PortfolioMonitoring from "./PortfolioMonitoring";
@@ -400,6 +401,8 @@ export default function Fund({
 
       {sub === "portfolio" && (
         <>
+          <FundSignals fundId={fund.id} />
+
           <div className="card">
             <h3>Portfolio</h3>
             <div className="row">
