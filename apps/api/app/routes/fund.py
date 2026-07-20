@@ -17,6 +17,8 @@ from ..deps import (
 from ..models.fund import (
     CapitalCall,
     Deal,
+    DealActivity,
+    DealContact,
     DealStage,
     Distribution,
     DrawdownNotice,
@@ -35,6 +37,8 @@ from ..schemas import (
     CapitalCallIn,
     CapitalCallOut,
     ComplianceGenerateIn,
+    DealActivityIn,
+    DealContactIn,
     DealIn,
     DealInvestIn,
     DealOut,
@@ -462,6 +466,61 @@ def invest_deal(
     db.commit()
     db.refresh(deal)
     return deal
+
+
+# --- deal CRM: contacts + activity timeline ---
+def _deal_crm(db: Session, deal_id: str) -> dict:
+    contacts = db.query(DealContact).filter_by(deal_id=deal_id).order_by(DealContact.created_at).all()
+    acts = (
+        db.query(DealActivity)
+        .filter_by(deal_id=deal_id)
+        .order_by(DealActivity.occurred_on.desc(), DealActivity.created_at.desc())
+        .all()
+    )
+    return {
+        "contacts": [
+            {"id": c.id, "name": c.name, "role": c.role, "email": c.email, "note": c.note}
+            for c in contacts
+        ],
+        "activities": [
+            {"id": a.id, "kind": a.kind, "body": a.body, "occurred_on": a.occurred_on}
+            for a in acts
+        ],
+    }
+
+
+@router.get("/deals/{deal_id}/crm")
+def deal_crm(ctx: DealCtx = Depends(deal_ctx), db: Session = Depends(get_db)):
+    return _deal_crm(db, ctx.deal.id)
+
+
+@router.post("/deals/{deal_id}/contacts", status_code=201)
+def add_deal_contact(
+    body: DealContactIn, ctx: DealCtx = Depends(deal_ctx), db: Session = Depends(get_db)
+):
+    require_write(ctx.role)
+    db.add(DealContact(deal_id=ctx.deal.id, **body.model_dump()))
+    db.commit()
+    return _deal_crm(db, ctx.deal.id)
+
+
+@router.post("/deals/{deal_id}/activities", status_code=201)
+def add_deal_activity(
+    body: DealActivityIn,
+    ctx: DealCtx = Depends(deal_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    db.add(DealActivity(
+        deal_id=ctx.deal.id,
+        kind=body.kind,
+        body=body.body,
+        occurred_on=body.occurred_on or today_ist(),
+        created_by=user.id,
+    ))
+    db.commit()
+    return _deal_crm(db, ctx.deal.id)
 
 
 # --- management fees: charge accrual into capital accounts ---

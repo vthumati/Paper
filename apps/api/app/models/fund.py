@@ -179,6 +179,34 @@ class Deal(Base, TimestampMixin):
     investment_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
+class DealContact(Base, TimestampMixin):
+    """A person associated with a deal (founder, adviser, co-investor) — the
+    relationship side of the GP deal CRM."""
+
+    __tablename__ = "deal_contacts"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    deal_id: Mapped[str] = mapped_column(ForeignKey("fund_deals.id"), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+
+class DealActivity(Base, TimestampMixin):
+    """A dated touchpoint on a deal (note / meeting / call / email) — the deal's
+    activity timeline. Append-only."""
+
+    __tablename__ = "deal_activities"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    deal_id: Mapped[str] = mapped_column(ForeignKey("fund_deals.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(24), default="note")  # note/meeting/call/email/other
+    body: Mapped[str] = mapped_column(String(2000))
+    occurred_on: Mapped[datetime.date] = mapped_column(Date)
+    created_by: Mapped[str] = mapped_column(String(32))
+
+
 class FeeCharge(Base, TimestampMixin):
     """A management fee actually charged to an LP (the accrual crystallised).
     Append-only; 'fees charged' in capital accounts is the sum of these."""

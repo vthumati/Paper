@@ -641,6 +641,19 @@ class DealInvestIn(BaseModel):
     invested_on: datetime.date | None = None
 
 
+class DealContactIn(BaseModel):
+    name: str
+    role: str | None = None
+    email: EmailStr | None = None
+    note: str | None = None
+
+
+class DealActivityIn(BaseModel):
+    kind: Literal["note", "meeting", "call", "email", "other"] = "note"
+    body: str
+    occurred_on: datetime.date | None = None
+
+
 class ScenarioIn(BaseModel):
     new_money: Decimal = Field(gt=0)
     pre_money: Decimal | None = Field(default=None, gt=0)
