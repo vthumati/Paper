@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { uiPrompt } from "../components/Prompt";
 import { useGuard } from "../hooks";
+import { fmtMoney } from "../lib/format";
 import { api, type Deal, type DealCrm } from "../api";
 
 const STAGES = ["sourced", "screening", "diligence", "ic", "term_sheet", "invested", "passed"];
@@ -83,7 +84,7 @@ export default function DealPipeline({
                 <tr>
                   <td>{d.company_name}</td>
                   <td>{d.sector ?? "—"}</td>
-                  <td>₹{d.amount}</td>
+                  <td>{fmtMoney(d.amount)}</td>
                   <td>
                     {d.stage === "invested" ? (
                       <span className="badge complete">invested</span>
