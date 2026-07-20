@@ -926,6 +926,38 @@ export interface FundPlanInput {
   avg_entry_valuation: string;
   projected_gross_moic: string;
 }
+export interface PortfolioValuation {
+  id: string;
+  as_of: string;
+  value: string;
+  methodology: string;
+  methodology_label: string;
+  valuer: string | null;
+  is_independent: boolean;
+  note: string | null;
+}
+export interface PortfolioValuationInput {
+  as_of: string;
+  value: string;
+  methodology: string;
+  valuer?: string | null;
+  is_independent: boolean;
+  note?: string | null;
+}
+export interface ValuationSummary {
+  fund_id: string;
+  policy: { valuer_name: string | null; frequency_months: number };
+  methodologies: Record<string, string>;
+  totals: { holdings: number; valued: number; stale: number; independent: number };
+  holdings: {
+    investment_id: string;
+    company_name: string;
+    cost: string;
+    valuations: number;
+    latest: PortfolioValuation | null;
+    stale: boolean;
+  }[];
+}
 export interface PortfolioKPI {
   id: string;
   period_label: string;
@@ -1552,6 +1584,14 @@ export const api = {
   fundPerformance: (fid: string) => get<FundPerformance>(`/funds/${fid}/performance`),
   fundFinancials: (fid: string) => get<FundFinancials>(`/funds/${fid}/financials`),
   fundFinancialsReport: (fid: string) => post<Document>(`/funds/${fid}/financials/report`),
+  valuationSummary: (fid: string) => get<ValuationSummary>(`/funds/${fid}/valuations`),
+  setValuationPolicy: (fid: string, b: { valuer_name: string | null; valuation_frequency_months: number }) =>
+    put<Fund>(`/funds/${fid}/valuation-policy`, b),
+  recordValuation: (fid: string, iid: string, b: PortfolioValuationInput) =>
+    post<PortfolioValuation[]>(`/funds/${fid}/portfolio/${iid}/valuations`, b),
+  listPortfolioValuations: (fid: string, iid: string) =>
+    get<PortfolioValuation[]>(`/funds/${fid}/portfolio/${iid}/valuations`),
+  valuationReport: (fid: string) => post<Document>(`/funds/${fid}/valuations/report`),
   lpStatement: (fid: string, lpId: string) =>
     post<Document>(`/funds/${fid}/lps/${lpId}/statement`),
   requestConsents: (rid: string) =>

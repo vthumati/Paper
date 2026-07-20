@@ -4,6 +4,7 @@ import { uiPrompt } from "../components/Prompt";
 import DealPipeline from "./DealPipeline";
 import FundForecast from "./FundForecast";
 import FundFinancials from "./FundFinancials";
+import FundValuations from "./FundValuations";
 import PortfolioMonitoring from "./PortfolioMonitoring";
 import { useGuard } from "../hooks";
 import {
@@ -459,6 +460,8 @@ export default function Fund({ entityId }: { entityId: string }) {
           </table>
         </div>
       )}
+
+      <FundValuations fundId={fund.id} onChanged={() => refresh(fund.id)} />
 
       <PortfolioMonitoring fundId={fund.id} />
 
