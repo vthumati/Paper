@@ -3,6 +3,7 @@ import EmptyState from "../components/EmptyState";
 import { uiPrompt } from "../components/Prompt";
 import DealPipeline from "./DealPipeline";
 import FundForecast from "./FundForecast";
+import FundRaise from "./FundRaise";
 import FundFinancials from "./FundFinancials";
 import FundValuations from "./FundValuations";
 import PortfolioMonitoring from "./PortfolioMonitoring";
@@ -460,6 +461,8 @@ export default function Fund({ entityId }: { entityId: string }) {
           </table>
         </div>
       )}
+
+      <FundRaise fundId={fund.id} onChanged={() => refresh(fund.id)} />
 
       <FundValuations fundId={fund.id} onChanged={() => refresh(fund.id)} />
 

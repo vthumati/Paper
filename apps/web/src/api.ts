@@ -926,6 +926,27 @@ export interface FundPlanInput {
   avg_entry_valuation: string;
   projected_gross_moic: string;
 }
+export interface LPProspect {
+  id: string;
+  name: string;
+  firm: string | null;
+  kind: string;
+  email: string | null;
+  stage: string;
+  target_commitment: string;
+  notes: string | null;
+  lp_id: string | null;
+}
+export interface FundraiseSummary {
+  fund_id: string;
+  target_corpus: string;
+  committed: string;
+  soft_circled: string;
+  pipeline: string;
+  progress_pct: number | null;
+  by_stage: Record<string, { count: number; target: string }>;
+  prospects: LPProspect[];
+}
 export interface PortfolioValuation {
   id: string;
   as_of: string;
@@ -1592,6 +1613,13 @@ export const api = {
   listPortfolioValuations: (fid: string, iid: string) =>
     get<PortfolioValuation[]>(`/funds/${fid}/portfolio/${iid}/valuations`),
   valuationReport: (fid: string) => post<Document>(`/funds/${fid}/valuations/report`),
+  fundraiseSummary: (fid: string) => get<FundraiseSummary>(`/funds/${fid}/fundraise`),
+  addLpProspect: (fid: string, b: Partial<LPProspect>) =>
+    post<FundraiseSummary>(`/funds/${fid}/prospects`, b),
+  setLpProspectStage: (fid: string, pid: string, stage: string) =>
+    post<FundraiseSummary>(`/funds/${fid}/prospects/${pid}/stage`, { stage }),
+  convertLpProspect: (fid: string, pid: string, commitment: string | null) =>
+    post<LP>(`/funds/${fid}/prospects/${pid}/convert`, { commitment }),
   lpStatement: (fid: string, lpId: string) =>
     post<Document>(`/funds/${fid}/lps/${lpId}/statement`),
   requestConsents: (rid: string) =>
