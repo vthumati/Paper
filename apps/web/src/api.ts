@@ -860,6 +860,23 @@ export interface Deal {
   notes: string | null;
   investment_id: string | null;
 }
+export interface DealContact {
+  id: string;
+  name: string;
+  role: string | null;
+  email: string | null;
+  note: string | null;
+}
+export interface DealActivity {
+  id: string;
+  kind: string;
+  body: string;
+  occurred_on: string;
+}
+export interface DealCrm {
+  contacts: DealContact[];
+  activities: DealActivity[];
+}
 export interface FundPerformance {
   fund_id: string;
   as_of: string;
@@ -1648,6 +1665,11 @@ export const api = {
   createDeal: (fid: string, b: unknown) => post<Deal>(`/funds/${fid}/deals`, b),
   setDealStage: (did: string, stage: string) => post<Deal>(`/deals/${did}/stage`, { stage }),
   investDeal: (did: string, b: unknown) => post<Deal>(`/deals/${did}/invest`, b),
+  dealCrm: (did: string) => get<DealCrm>(`/deals/${did}/crm`),
+  addDealContact: (did: string, b: { name: string; role?: string | null; email?: string | null; note?: string | null }) =>
+    post<DealCrm>(`/deals/${did}/contacts`, b),
+  addDealActivity: (did: string, b: { kind: string; body: string; occurred_on?: string | null }) =>
+    post<DealCrm>(`/deals/${did}/activities`, b),
   generateAifCompliance: (eid: string, b: { financial_year_end: string }) =>
     post<Obligation[]>(`/entities/${eid}/compliance/generate-aif`, b),
 
