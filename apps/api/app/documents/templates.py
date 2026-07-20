@@ -424,6 +424,42 @@ register(
 )
 register(
     DocumentTemplate(
+        "fund_financials",
+        "Fund Financial Statements",
+        "fund_financials",
+        "FUND FINANCIAL STATEMENTS (since inception)\n"
+        "Fund: $fund\nAs of: $date\n\n"
+        "STATEMENT OF OPERATIONS\n"
+        "  Unrealised appreciation on investments: ₹$unrealized\n"
+        "  Management fees: (₹$fees)\n"
+        "  Net increase from operations: ₹$net_ops\n\n"
+        "STATEMENT OF CASH FLOWS\n"
+        "  Capital contributions: ₹$contributions\n"
+        "  Investments made: (₹$invested)\n"
+        "  Distributions to LPs: (₹$dist_lps)\n"
+        "  Carry paid to GP: (₹$carry)\n"
+        "  Management fees paid: (₹$fees)\n"
+        "  Ending cash: ₹$cash\n\n"
+        "STATEMENT OF ASSETS & LIABILITIES\n"
+        "  Investments at fair value: ₹$investments_fv\n"
+        "  Cash: ₹$cash\n"
+        "  Total assets: ₹$total_assets\n"
+        "  Liabilities: ₹$liabilities\n"
+        "  Net assets: ₹$net_assets\n\n"
+        "PARTNERS' CAPITAL\n"
+        "  Beginning: ₹0\n"
+        "  Contributions: ₹$contributions\n"
+        "  Net increase from operations: ₹$net_ops\n"
+        "  Distributions to LPs: (₹$dist_lps)\n"
+        "  Carry to GP: (₹$carry)\n"
+        "  Ending net assets: ₹$net_assets\n\n"
+        "Committed ₹$committed · Uncalled ₹$uncalled. Cash is a derived figure "
+        "(no bank ledger); realised gains are not tracked separately from marks; "
+        "figures are a management view, not audited statements.\n",
+    )
+)
+register(
+    DocumentTemplate(
         "valuation_estimate",
         "Indicative Valuation Workpaper",
         "valuation_estimate",

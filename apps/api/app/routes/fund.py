@@ -44,9 +44,11 @@ from ..schemas import (
     DrawdownNoticeOut,
     FundIn,
     FundOut,
+    FundPlanIn,
     LPIn,
     LPOut,
     PortfolioIn,
+    PortfolioKPIIn,
     PortfolioMarkIn,
     PortfolioOut,
 )
@@ -84,6 +86,21 @@ def get_fund(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)
     if f is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No fund for this entity")
     return f
+
+
+# --- fund construction / forecast ---
+@router.get("/funds/{fund_id}/plan")
+def get_plan(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    return svc.compute_plan(db, ctx.fund)
+
+
+@router.put("/funds/{fund_id}/plan")
+def save_plan(
+    body: FundPlanIn, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+):
+    require_write(ctx.role)
+    svc.upsert_plan(db, ctx.fund, body.model_dump())
+    return svc.compute_plan(db, ctx.fund)
 
 
 # --- LPs ---
@@ -210,6 +227,40 @@ def soi_report(
         subject_id=ctx.fund.id,
     )
     return docsvc.document_view(db, doc)
+
+
+# --- portfolio-company monitoring (KPIs) ---
+def _get_investment(db: Session, fund_id: str, investment_id: str) -> PortfolioInvestment:
+    inv = db.get(PortfolioInvestment, investment_id)
+    if inv is None or inv.fund_id != fund_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Investment not found")
+    return inv
+
+
+@router.get("/funds/{fund_id}/portfolio-monitoring")
+def portfolio_monitoring(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    return svc.portfolio_monitoring(db, ctx.fund)
+
+
+@router.post("/funds/{fund_id}/portfolio/{investment_id}/kpis", status_code=201)
+def add_kpi(
+    investment_id: str,
+    body: PortfolioKPIIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    inv = _get_investment(db, ctx.fund.id, investment_id)
+    svc.add_kpi(db, inv, body.model_dump())
+    return svc.kpi_history(db, inv)
+
+
+@router.get("/funds/{fund_id}/portfolio/{investment_id}/kpis")
+def list_kpis(
+    investment_id: str, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+):
+    inv = _get_investment(db, ctx.fund.id, investment_id)
+    return svc.kpi_history(db, inv)
 
 
 @router.put("/funds/{fund_id}/portfolio/{investment_id}/mark", response_model=PortfolioOut)
@@ -371,6 +422,52 @@ def tax_statements(
         subject_id=ctx.fund.id,
     )
     return {"form_64c": generated, "form_64d": 1, "total_distributed": str(q(total))}
+
+
+# --- fund financial statements ---
+@router.get("/funds/{fund_id}/financials")
+def financials(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    return svc.fund_financials(db, ctx.fund)
+
+
+@router.post("/funds/{fund_id}/financials/report", response_model=DocumentOut, status_code=201)
+def financials_report(
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    fin = svc.fund_financials(db, ctx.fund)
+    entity = db.get(LegalEntity, ctx.fund.entity_id)
+    op, cf, bs, disc = fin["operations"], fin["cash_flow"], fin["balance_sheet"], fin["disclosures"]
+    doc = docsvc.create_document(
+        db,
+        entity_id=ctx.fund.entity_id,
+        template_key="fund_financials",
+        data={
+            "fund": entity.name if entity else "",
+            "date": str(fin["as_of"]),
+            "unrealized": op["unrealized_appreciation"],
+            "fees": op["management_fees"],
+            "net_ops": op["net_increase_from_operations"],
+            "contributions": cf["contributions"],
+            "invested": disc["invested_at_cost"],
+            "dist_lps": cf["distributions_to_lps"].lstrip("-"),
+            "carry": cf["carry_paid"].lstrip("-"),
+            "cash": bs["cash"],
+            "investments_fv": bs["investments_at_fair_value"],
+            "total_assets": bs["total_assets"],
+            "liabilities": bs["liabilities"],
+            "net_assets": bs["net_assets"],
+            "committed": disc["committed"],
+            "uncalled": disc["uncalled"],
+        },
+        user_id=user.id,
+        title=f"Fund Financial Statements — {fin['as_of']}",
+        subject_type="fund_financials",
+        subject_id=ctx.fund.id,
+    )
+    return docsvc.document_view(db, doc)
 
 
 # --- performance (DPI / RVPI / TVPI / XIRR, fees) ---

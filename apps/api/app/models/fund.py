@@ -159,6 +159,47 @@ class FeeCharge(Base, TimestampMixin):
     charged_on: Mapped[datetime.date] = mapped_column(Date)
 
 
+class FundPlan(Base, TimestampMixin):
+    """Fund construction / forecast model (one per fund). Inputs for the
+    portfolio-construction plan; fee % and carry % are read from the Fund so
+    they stay a single source of truth. Everything derived (investable capital,
+    reserves, #deals, projected returns, pacing) is computed, never stored."""
+
+    __tablename__ = "fund_plans"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), unique=True, index=True)
+    fund_size: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
+    fund_life_years: Mapped[int] = mapped_column(Integer, default=10)
+    investment_period_years: Mapped[int] = mapped_column(Integer, default=4)
+    est_expenses: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
+    reserve_pct: Mapped[Decimal] = mapped_column(Numeric(6, 4), default=Decimal("0.40"))
+    avg_initial_cheque: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
+    avg_entry_valuation: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
+    projected_gross_moic: Mapped[Decimal] = mapped_column(Numeric(6, 2), default=Decimal("3"))
+
+
+class PortfolioKPI(Base, TimestampMixin):
+    """A period of operating KPIs reported by a portfolio company (Carta-style
+    portfolio monitoring). Append-only; the latest period (by as_of) drives the
+    dashboard, and runway / growth are derived, never stored."""
+
+    __tablename__ = "portfolio_kpis"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    investment_id: Mapped[str] = mapped_column(
+        ForeignKey("portfolio_investments.id"), index=True
+    )
+    fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), index=True)
+    period_label: Mapped[str] = mapped_column(String(64))  # e.g. "FY26 Q1", "Jun 2026"
+    as_of: Mapped[datetime.date] = mapped_column(Date)  # orders periods
+    revenue: Mapped[Decimal | None] = mapped_column(Numeric(20, 2), nullable=True)
+    cash: Mapped[Decimal | None] = mapped_column(Numeric(20, 2), nullable=True)
+    monthly_burn: Mapped[Decimal | None] = mapped_column(Numeric(20, 2), nullable=True)
+    headcount: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+
 class PortfolioInvestment(Base, TimestampMixin):
     __tablename__ = "portfolio_investments"
 

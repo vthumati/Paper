@@ -494,6 +494,17 @@ class FundOut(ORMModel):
     fee_basis: str
 
 
+class FundPlanIn(BaseModel):
+    fund_size: Decimal = Field(default=Decimal("0"), ge=0)
+    fund_life_years: int = Field(default=10, ge=1, le=30)
+    investment_period_years: int = Field(default=4, ge=1, le=20)
+    est_expenses: Decimal = Field(default=Decimal("0"), ge=0)
+    reserve_pct: Decimal = Field(default=Decimal("0.40"), ge=0, le=Decimal("0.95"))
+    avg_initial_cheque: Decimal = Field(default=Decimal("0"), ge=0)
+    avg_entry_valuation: Decimal = Field(default=Decimal("0"), ge=0)
+    projected_gross_moic: Decimal = Field(default=Decimal("3"), ge=0, le=100)
+
+
 class LPIn(BaseModel):
     name: str
     email: EmailStr | None = None
@@ -569,6 +580,16 @@ class PortfolioOut(ORMModel):
 class PortfolioMarkIn(BaseModel):
     current_value: Decimal = Field(ge=0)
     marked_on: datetime.date | None = None
+
+
+class PortfolioKPIIn(BaseModel):
+    period_label: str
+    as_of: datetime.date
+    revenue: Decimal | None = Field(default=None, ge=0)
+    cash: Decimal | None = Field(default=None, ge=0)
+    monthly_burn: Decimal | None = Field(default=None, ge=0)
+    headcount: int | None = Field(default=None, ge=0)
+    note: str | None = None
 
 
 class DealIn(BaseModel):
