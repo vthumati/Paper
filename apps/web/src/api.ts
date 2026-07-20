@@ -405,6 +405,7 @@ export interface PortfolioInvestment {
   invested_on: string | null;
   current_value: string | null;
   marked_on: string | null;
+  contact_email: string | null;
 }
 export interface EsopScheme {
   id: string;
@@ -997,6 +998,34 @@ export interface ValuationSummary {
     stale: boolean;
   }[];
 }
+export interface KPIRequest {
+  id: string;
+  investment_id: string;
+  company_name: string | null;
+  period_label: string;
+  as_of: string;
+  due_date: string | null;
+  contact_email: string;
+  status: string;
+  overdue: boolean;
+  revenue: string | null;
+  cash: string | null;
+  monthly_burn: string | null;
+  headcount: number | null;
+  note: string | null;
+  submitted_at: string | null;
+  kpi_id: string | null;
+}
+export interface PortalKPIRequest {
+  id: string;
+  fund_name: string | null;
+  company_name: string | null;
+  period_label: string;
+  as_of: string;
+  due_date: string | null;
+  status: string;
+  overdue: boolean;
+}
 export interface PortfolioKPI {
   id: string;
   period_label: string;
@@ -1029,6 +1058,7 @@ export interface PortfolioMonitoring {
   companies: {
     investment_id: string;
     company_name: string;
+    contact_email: string | null;
     ownership_pct: string;
     periods: number;
     latest: PortfolioKPI | null;
@@ -1371,6 +1401,7 @@ export interface PortalDashboard {
   spvs: PortalSPVDeal[];
   equity_grants: EquityGrant[];
   liquidity_events: PortalLiquidityEvent[];
+  kpi_requests: PortalKPIRequest[];
 }
 export interface Prospect {
   id: string;
@@ -1630,6 +1661,15 @@ export const api = {
   listPortfolio: (fid: string) => get<PortfolioInvestment[]>(`/funds/${fid}/portfolio`),
   portfolioMonitoring: (fid: string) =>
     get<PortfolioMonitoring>(`/funds/${fid}/portfolio-monitoring`),
+  listKpiRequests: (fid: string) => get<KPIRequest[]>(`/funds/${fid}/kpi-requests`),
+  createKpiRequest: (fid: string, iid: string, b: { period_label: string; as_of: string; due_date?: string | null; contact_email: string }) =>
+    post<KPIRequest[]>(`/funds/${fid}/portfolio/${iid}/kpi-requests`, b),
+  acceptKpiRequest: (fid: string, rid: string) =>
+    post<KPIRequest[]>(`/funds/${fid}/kpi-requests/${rid}/accept`),
+  reopenKpiRequest: (fid: string, rid: string) =>
+    post<KPIRequest[]>(`/funds/${fid}/kpi-requests/${rid}/reopen`),
+  submitKpiRequest: (rid: string, b: { revenue?: string | null; cash?: string | null; monthly_burn?: string | null; headcount?: number | null; note?: string | null }) =>
+    post<{ id: string; status: string }>(`/portal/kpi-requests/${rid}/submit`, b),
   addPortfolioKpi: (fid: string, iid: string, b: PortfolioKPIInput) =>
     post<PortfolioKPI[]>(`/funds/${fid}/portfolio/${iid}/kpis`, b),
   listPortfolioKpis: (fid: string, iid: string) =>

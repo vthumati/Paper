@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type PortfolioMonitoring as Monitoring } from "../api";
+import { api, type KPIRequest, type PortfolioMonitoring as Monitoring } from "../api";
 import { useGuard } from "../hooks";
 import { fmtMoney } from "../lib/format";
 import EmptyState from "../components/EmptyState";
@@ -27,7 +27,20 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
   const [burn, setBurn] = useState("");
   const [headcount, setHeadcount] = useState("");
 
-  const load = () => api.portfolioMonitoring(fundId).then(setMon);
+  // KPI requests (investee self-service)
+  const [reqs, setReqs] = useState<KPIRequest[]>([]);
+  const [reqOpen, setReqOpen] = useState(false);
+  const [rInvId, setRInvId] = useState("");
+  const [rPeriod, setRPeriod] = useState("");
+  const [rAsOf, setRAsOf] = useState(todayIso());
+  const [rDue, setRDue] = useState("");
+  const [rEmail, setREmail] = useState("");
+
+  const load = () =>
+    Promise.all([
+      api.portfolioMonitoring(fundId).then(setMon),
+      api.listKpiRequests(fundId).then(setReqs),
+    ]);
   useEffect(() => {
     load();
   }, [fundId]);
@@ -42,6 +55,17 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
         <button
           className="secondary"
           style={{ marginLeft: "auto" }}
+          disabled={mon.companies.length === 0}
+          onClick={() => {
+            setReqOpen((v) => !v);
+            if (!rInvId && mon.companies[0]) setRInvId(mon.companies[0].investment_id);
+          }}
+          title="Ask the company's reporting contact to submit KPIs from their portal"
+        >
+          {reqOpen ? "Close request" : "Request KPIs"}
+        </button>
+        <button
+          className="secondary"
           disabled={mon.companies.length === 0}
           onClick={() => {
             setOpen((v) => !v);
@@ -67,6 +91,46 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
             <Stat label="Cash on hand (sum)" value={fmtMoney(t.cash)} />
             <Stat label="Low on runway" value={t.low_runway} alert={t.low_runway > 0} hint="Companies with under 6 months of runway" />
           </div>
+
+          {reqOpen && (
+            <div className="row" style={{ alignItems: "flex-end", marginTop: 12 }}>
+              <div>
+                <label>Company</label>
+                <select
+                  value={rInvId}
+                  onChange={(e) => {
+                    setRInvId(e.target.value);
+                    const c = mon.companies.find((x) => x.investment_id === e.target.value);
+                    if (c?.contact_email) setREmail(c.contact_email);
+                  }}
+                >
+                  {mon.companies.map((c) => (
+                    <option key={c.investment_id} value={c.investment_id}>{c.company_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div><label>Period</label><input placeholder="FY27 Q1" value={rPeriod} onChange={(e) => setRPeriod(e.target.value)} /></div>
+              <div><label>Period end</label><input type="date" value={rAsOf} onChange={(e) => setRAsOf(e.target.value)} /></div>
+              <div><label>Due date</label><input type="date" value={rDue} onChange={(e) => setRDue(e.target.value)} /></div>
+              <div><label>Contact email</label><input placeholder="founder@company.in" value={rEmail} onChange={(e) => setREmail(e.target.value)} /></div>
+              <button
+                style={{ flex: "0 0 auto" }}
+                disabled={!rInvId || !rPeriod || !rEmail}
+                onClick={guard(async () => {
+                  const r = await api.createKpiRequest(fundId, rInvId, {
+                    period_label: rPeriod,
+                    as_of: rAsOf,
+                    due_date: rDue || null,
+                    contact_email: rEmail,
+                  });
+                  setReqs(r);
+                  setRPeriod("");
+                }, "KPI request sent — the contact will see it in their portal")}
+              >
+                Send request
+              </button>
+            </div>
+          )}
 
           {open && (
             <div className="row" style={{ alignItems: "flex-end", marginTop: 12 }}>
@@ -102,6 +166,69 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
                 Save period
               </button>
             </div>
+          )}
+
+          {reqs.length > 0 && (
+            <>
+              <div className="muted" style={{ fontSize: 12, margin: "14px 0 4px" }}>
+                KPI requests — companies report from their own portal; accept to add the period
+              </div>
+              <table>
+                <thead>
+                  <tr><th>Company</th><th>Period</th><th>Due</th><th>Contact</th><th>Status</th><th>Submitted</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {reqs.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.company_name}</td>
+                      <td>{r.period_label}</td>
+                      <td>{r.due_date ?? <span className="muted">—</span>}</td>
+                      <td className="muted">{r.contact_email}</td>
+                      <td>
+                        {r.status === "accepted" ? (
+                          <span className="badge complete">accepted</span>
+                        ) : r.status === "submitted" ? (
+                          <span className="badge active">submitted</span>
+                        ) : r.overdue ? (
+                          <span className="badge danger">overdue</span>
+                        ) : (
+                          <span className="badge">pending</span>
+                        )}
+                      </td>
+                      <td className="muted" style={{ fontSize: 12 }}>
+                        {r.status === "submitted" || r.status === "accepted" ? (
+                          <>
+                            rev {r.revenue ? fmtMoney(r.revenue) : "—"} · cash {r.cash ? fmtMoney(r.cash) : "—"} ·
+                            burn {r.monthly_burn ? fmtMoney(r.monthly_burn) : "—"} · HC {r.headcount ?? "—"}
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td>
+                        {r.status === "submitted" && (
+                          <>
+                            <button
+                              className="secondary"
+                              onClick={guard(async () => setReqs(await api.acceptKpiRequest(fundId, r.id)), "KPIs accepted into monitoring")}
+                            >
+                              Accept
+                            </button>{" "}
+                            <button
+                              className="secondary"
+                              title="Send back for resubmission"
+                              onClick={guard(async () => setReqs(await api.reopenKpiRequest(fundId, r.id)), "Request reopened")}
+                            >
+                              Reopen
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
           )}
 
           <table style={{ marginTop: 12 }}>

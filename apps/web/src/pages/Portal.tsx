@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import EmptyState from "../components/EmptyState";
 import { uiPrompt } from "../components/Prompt";
 import { useNavigate } from "react-router-dom";
-import { api, type PortalDashboard, type ValueHistory } from "../api";
+import { api, type PortalDashboard, type PortalKPIRequest, type ValueHistory } from "../api";
 import LineChart from "../components/LineChart";
 import SecChip from "../components/SecChip";
 import Stat from "../components/Stat";
@@ -118,6 +118,19 @@ export default function Portal() {
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {d && d.kpi_requests.length > 0 && (
+        <div className="card">
+          <h3>KPI requests from your investors</h3>
+          <p className="muted" style={{ marginTop: 0 }}>
+            A fund that invested in your company has asked for a reporting period. Submit the
+            figures below — they go to the fund for review.
+          </p>
+          {d.kpi_requests.map((r) => (
+            <KpiRequestRow key={r.id} req={r} onDone={load} />
+          ))}
         </div>
       )}
 
@@ -669,3 +682,51 @@ export default function Portal() {
   );
 }
 
+
+/** One KPI request addressed to this user as a portfolio-company contact:
+ * period context + a submit form (values go to the fund for review). */
+function KpiRequestRow({ req, onDone }: { req: PortalKPIRequest; onDone: () => void }) {
+  const { error, guard } = useGuard(async () => onDone());
+  const [revenue, setRevenue] = useState("");
+  const [cash, setCash] = useState("");
+  const [burn, setBurn] = useState("");
+  const [headcount, setHeadcount] = useState("");
+
+  return (
+    <div style={{ borderTop: "1px solid var(--border)", padding: "10px 0" }}>
+      <div style={{ fontSize: 14 }}>
+        <strong>{req.company_name}</strong> — {req.period_label}
+        <span className="muted"> · requested by {req.fund_name}</span>{" "}
+        {req.status === "submitted" ? (
+          <span className="badge active">submitted — awaiting fund review</span>
+        ) : req.overdue ? (
+          <span className="badge danger">overdue{req.due_date ? ` (was due ${req.due_date})` : ""}</span>
+        ) : (
+          req.due_date && <span className="badge">due {req.due_date}</span>
+        )}
+      </div>
+      {error && <p className="error">{error}</p>}
+      {req.status === "pending" && (
+        <div className="row" style={{ alignItems: "flex-end", marginTop: 8 }}>
+          <div><label>Revenue (₹)</label><input value={revenue} onChange={(e) => setRevenue(e.target.value)} /></div>
+          <div><label>Cash (₹)</label><input value={cash} onChange={(e) => setCash(e.target.value)} /></div>
+          <div><label>Monthly burn (₹)</label><input value={burn} onChange={(e) => setBurn(e.target.value)} /></div>
+          <div><label>Headcount</label><input value={headcount} onChange={(e) => setHeadcount(e.target.value)} /></div>
+          <button
+            style={{ flex: "0 0 auto" }}
+            onClick={guard(async () => {
+              await api.submitKpiRequest(req.id, {
+                revenue: revenue || null,
+                cash: cash || null,
+                monthly_burn: burn || null,
+                headcount: headcount ? Number(headcount) : null,
+              });
+            }, "KPIs submitted to the fund")}
+          >
+            Submit
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
