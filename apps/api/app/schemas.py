@@ -576,6 +576,7 @@ class PortfolioOut(ORMModel):
     invested_on: datetime.date | None
     current_value: Decimal | None
     marked_on: datetime.date | None
+    contact_email: str | None = None
 
 
 class PortfolioMarkIn(BaseModel):
@@ -618,6 +619,21 @@ class PortfolioValuationIn(BaseModel):
 class PortfolioKPIIn(BaseModel):
     period_label: str
     as_of: datetime.date
+    revenue: Decimal | None = Field(default=None, ge=0)
+    cash: Decimal | None = Field(default=None, ge=0)
+    monthly_burn: Decimal | None = Field(default=None, ge=0)
+    headcount: int | None = Field(default=None, ge=0)
+    note: str | None = None
+
+
+class KPIRequestIn(BaseModel):
+    period_label: str
+    as_of: datetime.date
+    due_date: datetime.date | None = None
+    contact_email: EmailStr
+
+
+class KPIRequestSubmitIn(BaseModel):
     revenue: Decimal | None = Field(default=None, ge=0)
     cash: Decimal | None = Field(default=None, ge=0)
     monthly_burn: Decimal | None = Field(default=None, ge=0)

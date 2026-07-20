@@ -297,3 +297,41 @@ class PortfolioInvestment(Base, TimestampMixin):
     # mark-to-market: latest fair value of the position (NAV input); null = unmarked
     current_value: Mapped[Decimal | None] = mapped_column(Numeric(20, 2), nullable=True)
     marked_on: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    # reporting contact at the company — receives KPI requests in their portal
+    contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
+class KPIRequestStatus(str, enum.Enum):
+    PENDING = "pending"
+    SUBMITTED = "submitted"
+    ACCEPTED = "accepted"
+
+
+class KPIRequest(Base, TimestampMixin):
+    """A request for one period of KPIs from a portfolio company (Vestberry-style
+    investee self-reporting). The contact submits values from their portal; the GP
+    accepts them into a PortfolioKPI (or reopens for resubmission)."""
+
+    __tablename__ = "kpi_requests"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    investment_id: Mapped[str] = mapped_column(
+        ForeignKey("portfolio_investments.id"), index=True
+    )
+    fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), index=True)
+    period_label: Mapped[str] = mapped_column(String(64))
+    as_of: Mapped[datetime.date] = mapped_column(Date)
+    due_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    contact_email: Mapped[str] = mapped_column(String(255))
+    status: Mapped[KPIRequestStatus] = mapped_column(
+        Enum(KPIRequestStatus), default=KPIRequestStatus.PENDING
+    )
+    # values as submitted by the company (accepted into a PortfolioKPI by the GP)
+    revenue: Mapped[Decimal | None] = mapped_column(Numeric(20, 2), nullable=True)
+    cash: Mapped[Decimal | None] = mapped_column(Numeric(20, 2), nullable=True)
+    monthly_burn: Mapped[Decimal | None] = mapped_column(Numeric(20, 2), nullable=True)
+    headcount: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    submitted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    kpi_id: Mapped[str | None] = mapped_column(String(32), nullable=True)  # set on accept
+    created_by: Mapped[str] = mapped_column(String(32))

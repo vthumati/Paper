@@ -483,6 +483,8 @@ def portal_for_user(db: Session, user: User) -> dict:
         "spvs": spvs,
         "equity_grants": grants,
         "liquidity_events": _liquidity_for_user(db, user, today),
+        # KPI requests addressed to this user as a portfolio-company contact
+        "kpi_requests": kpi_requests_for_user(db, user),
     }
 
 
@@ -498,3 +500,54 @@ def acknowledge_notice(db: Session, user: User, notice_id: str) -> dict:
         notice.acknowledged_at = now_ist()
         db.commit()
     return {"notice_id": notice.id, "acknowledged_at": notice.acknowledged_at}
+
+
+def kpi_requests_for_user(db: Session, user: User) -> list[dict]:
+    """Open KPI requests addressed to this user's email (investee self-service)."""
+    from ..models.fund import KPIRequest, KPIRequestStatus, PortfolioInvestment
+
+    out = []
+    for r in (
+        db.query(KPIRequest)
+        .filter_by(contact_email=user.email)
+        .filter(KPIRequest.status != KPIRequestStatus.ACCEPTED)
+        .order_by(KPIRequest.created_at.desc())
+    ):
+        inv = db.get(PortfolioInvestment, r.investment_id)
+        fund = db.get(Fund, r.fund_id)
+        entity = db.get(LegalEntity, fund.entity_id) if fund else None
+        out.append(
+            {
+                "id": r.id,
+                "fund_name": entity.name if entity else None,
+                "company_name": inv.company_name if inv else None,
+                "period_label": r.period_label,
+                "as_of": r.as_of,
+                "due_date": r.due_date,
+                "status": r.status.value,
+                "overdue": bool(
+                    r.status == KPIRequestStatus.PENDING
+                    and r.due_date
+                    and r.due_date < today_ist()
+                ),
+            }
+        )
+    return out
+
+
+def submit_kpi_request(db: Session, user: User, request_id: str, payload: dict) -> dict:
+    """The company's reporting contact submits KPI values from their portal.
+    Email-scoped; only a pending request can be submitted."""
+    from ..models.fund import KPIRequest, KPIRequestStatus
+
+    req = db.get(KPIRequest, request_id)
+    if req is None or req.contact_email != user.email:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "KPI request not found")
+    if req.status != KPIRequestStatus.PENDING:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Request already submitted")
+    for k, v in payload.items():
+        setattr(req, k, v)
+    req.status = KPIRequestStatus.SUBMITTED
+    req.submitted_at = now_ist()
+    db.commit()
+    return {"id": req.id, "status": req.status.value, "submitted_at": req.submitted_at}

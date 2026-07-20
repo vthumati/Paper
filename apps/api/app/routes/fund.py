@@ -51,6 +51,7 @@ from ..schemas import (
     FundOut,
     FundPlanIn,
     FundValuationPolicyIn,
+    KPIRequestIn,
     LPIn,
     LPOut,
     LPProspectConvertIn,
@@ -363,6 +364,55 @@ def valuation_report(
         subject_id=ctx.fund.id,
     )
     return docsvc.document_view(db, doc)
+
+
+# --- KPI reporting requests (investee self-service) ---
+@router.get("/funds/{fund_id}/kpi-requests")
+def list_kpi_requests(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    return svc.list_kpi_requests(db, ctx.fund)
+
+
+@router.post("/funds/{fund_id}/portfolio/{investment_id}/kpi-requests", status_code=201)
+def create_kpi_request(
+    investment_id: str,
+    body: KPIRequestIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    inv = _get_investment(db, ctx.fund.id, investment_id)
+    svc.create_kpi_request(db, inv, body.model_dump(), user.id)
+    return svc.list_kpi_requests(db, ctx.fund)
+
+
+def _get_kpi_request(db: Session, fund_id: str, request_id: str):
+    from ..models.fund import KPIRequest
+
+    req = db.get(KPIRequest, request_id)
+    if req is None or req.fund_id != fund_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "KPI request not found")
+    return req
+
+
+@router.post("/funds/{fund_id}/kpi-requests/{request_id}/accept")
+def accept_kpi_request(
+    request_id: str, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+):
+    require_write(ctx.role)
+    req = _get_kpi_request(db, ctx.fund.id, request_id)
+    svc.accept_kpi_request(db, req)
+    return svc.list_kpi_requests(db, ctx.fund)
+
+
+@router.post("/funds/{fund_id}/kpi-requests/{request_id}/reopen")
+def reopen_kpi_request(
+    request_id: str, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+):
+    require_write(ctx.role)
+    req = _get_kpi_request(db, ctx.fund.id, request_id)
+    svc.reopen_kpi_request(db, req)
+    return svc.list_kpi_requests(db, ctx.fund)
 
 
 # --- portfolio-company monitoring (KPIs) ---

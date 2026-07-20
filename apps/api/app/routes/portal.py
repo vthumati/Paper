@@ -27,6 +27,7 @@ from ..models.portal import (
 from ..schemas import (
     ConsentDecisionIn,
     ExerciseRequestIn,
+    KPIRequestSubmitIn,
     InvestorAccessIn,
     InvestorAccessOut,
     InvestorUpdateIn,
@@ -111,6 +112,17 @@ def my_portal_value_history(
     user: User = Depends(require_verified_email), db: Session = Depends(get_db)
 ):
     return svc.portfolio_value_history(db, user)
+
+
+@router.post("/portal/kpi-requests/{request_id}/submit")
+def submit_kpi_request(
+    request_id: str,
+    body: KPIRequestSubmitIn,
+    user: User = Depends(require_verified_email),
+    db: Session = Depends(get_db),
+):
+    """A portfolio-company contact submits KPI values for a requested period."""
+    return svc.submit_kpi_request(db, user, request_id, body.model_dump())
 
 
 @router.post("/portal/notices/{notice_id}/ack")

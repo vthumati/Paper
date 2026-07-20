@@ -27,6 +27,8 @@ from ..models.fund import (
     FeeCharge,
     Fund,
     FundPlan,
+    KPIRequest,
+    KPIRequestStatus,
     LP,
     LPDistribution,
     LPProspect,
@@ -580,6 +582,7 @@ def portfolio_monitoring(db: Session, fund: Fund) -> dict:
         companies.append({
             "investment_id": inv.id,
             "company_name": inv.company_name,
+            "contact_email": inv.contact_email,
             "ownership_pct": str(inv.ownership_pct),
             "periods": len(rows),
             "latest": _kpi_view(latest) if latest else None,
@@ -896,3 +899,106 @@ def fundraise_summary(db: Session, fund: Fund) -> dict:
         "by_stage": {k: {"count": v["count"], "target": str(q(v["target"]))} for k, v in by_stage.items()},
         "prospects": [_prospect_view(p) for p in prospects],
     }
+
+
+# --- KPI reporting requests (investee self-service, Vestberry-style) ----------
+def create_kpi_request(
+    db: Session, investment: PortfolioInvestment, data: dict, user_id: str
+) -> KPIRequest:
+    """Ask the company's reporting contact for one period of KPIs. Keeps the
+    investment's contact_email in sync and notifies the contact if they have a
+    Paper account (the request also appears in their portal either way)."""
+    from ..models.identity import User
+    from .notification import notify
+
+    investment.contact_email = data["contact_email"]
+    req = KPIRequest(
+        investment_id=investment.id,
+        fund_id=investment.fund_id,
+        created_by=user_id,
+        **data,
+    )
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+    contact = db.query(User).filter_by(email=req.contact_email).first()
+    if contact:
+        notify(
+            db,
+            contact.id,
+            "kpi_request",
+            f"KPI request: {investment.company_name} — {req.period_label}",
+            f"Report revenue, cash, burn and headcount{f' by {req.due_date}' if req.due_date else ''} from your portal.",
+        )
+    return req
+
+
+def _kpi_request_view(r: KPIRequest, company_name: str | None = None) -> dict:
+    return {
+        "id": r.id,
+        "investment_id": r.investment_id,
+        "company_name": company_name,
+        "period_label": r.period_label,
+        "as_of": r.as_of,
+        "due_date": r.due_date,
+        "contact_email": r.contact_email,
+        "status": r.status.value,
+        "overdue": bool(
+            r.status == KPIRequestStatus.PENDING and r.due_date and r.due_date < today_ist()
+        ),
+        "revenue": str(q(r.revenue)) if r.revenue is not None else None,
+        "cash": str(q(r.cash)) if r.cash is not None else None,
+        "monthly_burn": str(q(r.monthly_burn)) if r.monthly_burn is not None else None,
+        "headcount": r.headcount,
+        "note": r.note,
+        "submitted_at": r.submitted_at,
+        "kpi_id": r.kpi_id,
+    }
+
+
+def list_kpi_requests(db: Session, fund: Fund) -> list[dict]:
+    names = {
+        i.id: i.company_name
+        for i in db.query(PortfolioInvestment).filter_by(fund_id=fund.id)
+    }
+    return [
+        _kpi_request_view(r, names.get(r.investment_id))
+        for r in db.query(KPIRequest)
+        .filter_by(fund_id=fund.id)
+        .order_by(KPIRequest.created_at.desc())
+    ]
+
+
+def accept_kpi_request(db: Session, req: KPIRequest) -> PortfolioKPI:
+    """GP accepts a submitted request — the values become a PortfolioKPI period."""
+    if req.status != KPIRequestStatus.SUBMITTED:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Request has not been submitted")
+    inv = db.get(PortfolioInvestment, req.investment_id)
+    kpi = add_kpi(
+        db,
+        inv,
+        {
+            "period_label": req.period_label,
+            "as_of": req.as_of,
+            "revenue": req.revenue,
+            "cash": req.cash,
+            "monthly_burn": req.monthly_burn,
+            "headcount": req.headcount,
+            "note": req.note,
+        },
+    )
+    req.kpi_id = kpi.id
+    req.status = KPIRequestStatus.ACCEPTED
+    db.commit()
+    return kpi
+
+
+def reopen_kpi_request(db: Session, req: KPIRequest) -> KPIRequest:
+    """Send a submitted request back for resubmission (values look wrong)."""
+    if req.status != KPIRequestStatus.SUBMITTED:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Only a submitted request can be reopened")
+    req.status = KPIRequestStatus.PENDING
+    req.submitted_at = None
+    db.commit()
+    db.refresh(req)
+    return req
