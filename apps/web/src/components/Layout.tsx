@@ -101,6 +101,9 @@ export default function Layout() {
         <Link to="/activity" style={{ fontSize: 14 }}>
           Activity
         </Link>
+        <Link to="/guide" style={{ fontSize: 14 }}>
+          Guide
+        </Link>
         <div style={{ position: "relative" }}>
           <button
             className="secondary"

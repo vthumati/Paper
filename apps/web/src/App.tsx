@@ -9,6 +9,7 @@ import Activity from "./pages/Activity";
 import Portal from "./pages/Portal";
 import Advisor from "./pages/Advisor";
 import Invest from "./pages/Invest";
+import GettingStarted from "./pages/GettingStarted";
 import type { ReactElement } from "react";
 
 function Protected({ children }: { children: ReactElement }) {
@@ -36,6 +37,9 @@ export default function App() {
         <Route path="/activity" element={<Activity />} />
         <Route path="/portal" element={<Portal />} />
         <Route path="/advisor" element={<Advisor />} />
+        <Route path="/guide" element={<GettingStarted />} />
+        <Route path="/guide/:audience" element={<GettingStarted />} />
+        <Route path="/guide/:audience/:topicId" element={<GettingStarted />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

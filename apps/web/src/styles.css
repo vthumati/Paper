@@ -388,10 +388,14 @@ mark.ok { background: #d1fae5; color: #115e45; border-radius: 3px; padding: 0 2p
 @keyframes skeleton-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 /* motion on interactive surfaces */
-.list-item, .doc-card, .qa-row button, .pkg-card {
+.list-item, .doc-card, .qa-row button, .pkg-card, .guide-card {
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease, background 0.15s ease;
 }
 .doc-card:hover, .qa-row button:hover { box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+
+/* getting-started guide cards */
+.guide-card { text-decoration: none; }
+.guide-card:hover { border-color: var(--blue); box-shadow: var(--shadow-md); transform: translateY(-1px); text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
