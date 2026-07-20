@@ -1002,3 +1002,117 @@ def reopen_kpi_request(db: Session, req: KPIRequest) -> KPIRequest:
     db.commit()
     db.refresh(req)
     return req
+
+
+# --- portfolio signals (Vestberry-style risk early-warning) -------------------
+REVENUE_DECLINE_HIGH_PCT = 20   # QoQ drop beyond this is high severity
+SILENT_REPORTING_DAYS = 183     # ~6 months without a reported period
+FOLLOW_ON_RUNWAY_MONTHS = 12    # healthy runway threshold for follow-on
+
+
+def _inr(value) -> str:
+    """₹ with Indian lakh/crore digit grouping (12,34,56,789) for signal text."""
+    n = int(Decimal(value))
+    sign = "-" if n < 0 else ""
+    s = str(abs(n))
+    if len(s) > 3:
+        head, tail = s[:-3], s[-3:]
+        groups = []
+        while len(head) > 2:
+            groups.insert(0, head[-2:])
+            head = head[:-2]
+        if head:
+            groups.insert(0, head)
+        s = ",".join(groups + [tail])
+    return f"₹{sign}{s}"
+
+
+def portfolio_signals(db: Session, fund: Fund) -> dict:
+    """Rules-based signals over the KPI history and marks — which companies
+    need attention (declining revenue, short runway, impaired marks, gone
+    silent) and which look ready for follow-on capital. Pure derivation."""
+    today = today_ist()
+    companies = []
+    totals = {"high": 0, "warn": 0, "info": 0, "positive": 0}
+
+    for inv in db.query(PortfolioInvestment).filter_by(fund_id=fund.id):
+        rows = (
+            db.query(PortfolioKPI)
+            .filter_by(investment_id=inv.id)
+            .order_by(PortfolioKPI.as_of.desc())
+            .all()
+        )
+        latest = rows[0] if rows else None
+        prev = rows[1] if len(rows) > 1 else None
+        signals: list[dict] = []
+
+        def add(kind: str, severity: str, message: str) -> None:
+            signals.append({"kind": kind, "severity": severity, "message": message})
+            totals[severity] += 1
+
+        # revenue decline, period over period
+        growth = None
+        if latest and prev and latest.revenue is not None and prev.revenue:
+            change = Decimal(latest.revenue) - Decimal(prev.revenue)
+            growth = float(change / Decimal(prev.revenue) * 100)
+            if change < 0:
+                drop = abs(round(growth, 1))
+                add(
+                    "revenue_decline",
+                    "high" if drop > REVENUE_DECLINE_HIGH_PCT else "warn",
+                    f"Revenue down {drop}% vs {prev.period_label} "
+                    f"({_inr(prev.revenue)} → {_inr(latest.revenue)})",
+                )
+
+        # runway from the latest period
+        runway = _runway_months(latest.cash, latest.monthly_burn) if latest else None
+        if runway is not None and runway < LOW_RUNWAY_MONTHS:
+            add("low_runway", "high", f"Runway {runway} months — under {LOW_RUNWAY_MONTHS}")
+
+        # mark below cost (impairment)
+        if inv.current_value is not None and Decimal(inv.current_value) < Decimal(inv.amount):
+            pct = round(
+                float((Decimal(inv.amount) - Decimal(inv.current_value)) / Decimal(inv.amount) * 100), 1
+            )
+            add(
+                "mark_below_cost",
+                "warn",
+                f"Marked {pct}% below cost ({_inr(inv.amount)} → {_inr(inv.current_value)})",
+            )
+
+        # reporting cadence
+        if latest is None:
+            add("never_reported", "info", "No KPI periods reported yet — request KPIs")
+        elif (today - latest.as_of).days > SILENT_REPORTING_DAYS:
+            add(
+                "reporting_silent",
+                "warn",
+                f"No report since {latest.period_label} ({latest.as_of}) — over 6 months",
+            )
+
+        # the positive signal: growing and well-funded
+        if (
+            growth is not None
+            and growth > 0
+            and runway is not None
+            and runway >= FOLLOW_ON_RUNWAY_MONTHS
+        ):
+            add(
+                "follow_on_candidate",
+                "positive",
+                f"Growing {round(growth, 1)}% with {runway} months runway — follow-on candidate",
+            )
+
+        if signals:
+            companies.append({
+                "investment_id": inv.id,
+                "company_name": inv.company_name,
+                "signals": signals,
+            })
+
+    total_companies = db.query(PortfolioInvestment).filter_by(fund_id=fund.id).count()
+    return {
+        "fund_id": fund.id,
+        "totals": {**totals, "clear": total_companies - len(companies)},
+        "companies": companies,
+    }

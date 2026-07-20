@@ -366,6 +366,12 @@ def valuation_report(
     return docsvc.document_view(db, doc)
 
 
+# --- portfolio signals (risk early-warning) ---
+@router.get("/funds/{fund_id}/signals")
+def portfolio_signals(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    return svc.portfolio_signals(db, ctx.fund)
+
+
 # --- KPI reporting requests (investee self-service) ---
 @router.get("/funds/{fund_id}/kpi-requests")
 def list_kpi_requests(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
