@@ -6,15 +6,16 @@
 plus a portfolio summary aggregating across everything."""
 from decimal import ROUND_HALF_UP, Decimal
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..clock import today_ist
+from ..clock import now_ist, today_ist
 from ..models.captable import Stakeholder
 from ..models.dataroom import DataRoom, DataRoomAccessGrant, DataRoomItem
 from ..models.document import Document
 from ..models.entity import LegalEntity
 from ..models.esop import ExerciseRequest, Grant
-from ..models.fund import LP, Fund
+from ..models.fund import LP, CapitalCall, DrawdownNotice, Fund
 from ..models.governance import Resolution
 from ..models.identity import User
 from ..models.instruments import ConvertibleInstrument, InstrumentStatus
@@ -302,6 +303,9 @@ def portal_for_user(db: Session, user: User) -> dict:
 
     funds = []
     total_committed = Decimal("0")
+    # consolidated cross-fund LP position (FR-J-18)
+    lp_tot = {k: Decimal("0") for k in ("committed", "drawn", "remaining", "distributed", "nav_value")}
+    lp_pending_calls = 0
     for lp in db.query(LP).filter_by(email=user.email):
         fund = db.get(Fund, lp.fund_id)
         if fund is None:
@@ -309,16 +313,49 @@ def portal_for_user(db: Session, user: User) -> dict:
         entity = db.get(LegalEntity, fund.entity_id)
         acc = capital_accounts(db, fund)
         mine = next((x for x in acc["accounts"] if x["lp_id"] == lp.id), None)
+        perf = fund_performance(db, fund)
         if mine:
             total_committed += Decimal(mine["committed"])
+            for k in ("committed", "drawn", "remaining", "distributed"):
+                lp_tot[k] += Decimal(mine[k])
+            # LP's slice of fund NAV in the platform's unitised model
+            if perf["nav_per_unit"] is not None:
+                lp_tot["nav_value"] += Decimal(mine["units"]) * Decimal(perf["nav_per_unit"])
+
+        # online capital-call notices: this LP's drawdowns with call context
+        calls = {c.id: c for c in db.query(CapitalCall).filter_by(fund_id=fund.id)}
+        notices = []
+        for n in (
+            db.query(DrawdownNotice)
+            .filter_by(fund_id=fund.id, lp_id=lp.id)
+            .order_by(DrawdownNotice.created_at.desc())
+        ):
+            call = calls.get(n.call_id)
+            if not n.paid:
+                lp_pending_calls += 1
+            notices.append(
+                {
+                    "notice_id": n.id,
+                    "call_no": call.call_no if call else None,
+                    "purpose": call.purpose if call else None,
+                    "due_date": call.due_date if call else None,
+                    "amount": str(n.amount),
+                    "paid": n.paid,
+                    "acknowledged_at": n.acknowledged_at,
+                    "overdue": bool(
+                        not n.paid and call and call.due_date and call.due_date < today
+                    ),
+                }
+            )
         funds.append(
             {
                 "fund_id": fund.id,
                 "fund_name": entity.name if entity else None,
                 "sebi_category": fund.sebi_category.value,
                 "account": mine,
+                "capital_calls": notices,
                 "look_through": lp_look_through(db, fund, lp),
-                "performance": fund_performance(db, fund),
+                "performance": perf,
                 # statements + tax forms generated for this LP surface here automatically
                 "statements": [
                     {"id": d.id, "title": d.title, "created_at": d.created_at}
@@ -431,9 +468,33 @@ def portal_for_user(db: Session, user: User) -> dict:
             "options_vested": total_vested,
             "options_exercisable": total_exercisable,
         },
+        # consolidated LP position across every fund (FR-J-18); zeros if not an LP
+        "lp_summary": {
+            "funds": len(funds),
+            "committed": str(lp_tot["committed"].quantize(CENTS, ROUND_HALF_UP)),
+            "drawn": str(lp_tot["drawn"].quantize(CENTS, ROUND_HALF_UP)),
+            "remaining": str(lp_tot["remaining"].quantize(CENTS, ROUND_HALF_UP)),
+            "distributed": str(lp_tot["distributed"].quantize(CENTS, ROUND_HALF_UP)),
+            "nav_value": str(lp_tot["nav_value"].quantize(CENTS, ROUND_HALF_UP)),
+            "pending_calls": lp_pending_calls,
+        },
         "companies": companies,
         "funds": funds,
         "spvs": spvs,
         "equity_grants": grants,
         "liquidity_events": _liquidity_for_user(db, user, today),
     }
+
+
+def acknowledge_notice(db: Session, user: User, notice_id: str) -> dict:
+    """LP self-service: acknowledge a capital-call notice from the portal.
+    Scoped by LP email match; idempotent (re-acknowledging keeps the first
+    timestamp)."""
+    notice = db.get(DrawdownNotice, notice_id)
+    lp = db.get(LP, notice.lp_id) if notice else None
+    if notice is None or lp is None or lp.email != user.email:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Notice not found")
+    if notice.acknowledged_at is None:
+        notice.acknowledged_at = now_ist()
+        db.commit()
+    return {"notice_id": notice.id, "acknowledged_at": notice.acknowledged_at}

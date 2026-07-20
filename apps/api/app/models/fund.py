@@ -123,6 +123,8 @@ class DrawdownNotice(Base, TimestampMixin):
     amount: Mapped[Decimal] = mapped_column(Numeric(20, 2))
     paid: Mapped[bool] = mapped_column(Boolean, default=False)
     paid_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    # LP self-service: the LP saw the notice in their portal and confirmed it
+    acknowledged_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class Distribution(Base, TimestampMixin):

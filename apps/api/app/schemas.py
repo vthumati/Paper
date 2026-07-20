@@ -529,6 +529,7 @@ class DrawdownNoticeOut(ORMModel):
     lp_id: str
     amount: Decimal
     paid: bool
+    acknowledged_at: datetime.datetime | None = None
 
 
 class CapitalCallOut(ORMModel):

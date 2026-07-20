@@ -113,6 +113,16 @@ def my_portal_value_history(
     return svc.portfolio_value_history(db, user)
 
 
+@router.post("/portal/notices/{notice_id}/ack")
+def acknowledge_notice(
+    notice_id: str,
+    user: User = Depends(require_verified_email),
+    db: Session = Depends(get_db),
+):
+    """LP acknowledges a capital-call notice they can see in their portal."""
+    return svc.acknowledge_notice(db, user, notice_id)
+
+
 @router.get("/portal/grants/{grant_id}/detail")
 def my_grant_detail(
     grant_id: str,
