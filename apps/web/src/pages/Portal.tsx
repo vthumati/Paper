@@ -121,6 +121,25 @@ export default function Portal() {
         </div>
       )}
 
+      {d && d.lp_summary && d.lp_summary.funds > 0 && (
+        <div className="card">
+          <h3>Your LP position — all funds</h3>
+          <div className="row" style={{ gap: 10 }}>
+            <Stat label="Committed" value={fmtMoney(d.lp_summary.committed)} />
+            <Stat label="Drawn" value={fmtMoney(d.lp_summary.drawn)} />
+            <Stat label="Uncalled" value={fmtMoney(d.lp_summary.remaining)} hint="Committed capital not yet called." />
+            <Stat label="Distributed" value={fmtMoney(d.lp_summary.distributed)} />
+            <Stat label="NAV of your units" value={fmtMoney(d.lp_summary.nav_value)} big hint="Your units × each fund's NAV per unit, summed across funds." />
+            <Stat
+              label="Pending capital calls"
+              value={d.lp_summary.pending_calls}
+              alert={d.lp_summary.pending_calls > 0}
+              hint="Drawdown notices issued to you and not yet paid."
+            />
+          </div>
+        </div>
+      )}
+
       {d && d.equity_grants.length > 0 && (() => {
         const granted = d.equity_grants.reduce((s, g) => s + g.granted, 0);
         const vested = d.equity_grants.reduce((s, g) => s + g.vested, 0);
@@ -530,6 +549,48 @@ export default function Portal() {
                   </li>
                 ))}
               </ul>
+            </>
+          )}
+          {f.capital_calls.length > 0 && (
+            <>
+              <h3>Capital-call notices</h3>
+              <table>
+                <thead>
+                  <tr><th>Call</th><th>Purpose</th><th>Due</th><th>Amount</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {f.capital_calls.map((n) => (
+                    <tr key={n.notice_id}>
+                      <td>#{n.call_no ?? "—"}</td>
+                      <td>{n.purpose || <span className="muted">—</span>}</td>
+                      <td>{n.due_date ?? <span className="muted">—</span>}</td>
+                      <td>{fmtMoney(n.amount)}</td>
+                      <td>
+                        {n.paid ? (
+                          <span className="badge complete">paid</span>
+                        ) : n.overdue ? (
+                          <span className="badge danger">overdue</span>
+                        ) : (
+                          <span className="badge active">pending</span>
+                        )}
+                      </td>
+                      <td>
+                        {n.acknowledged_at ? (
+                          <span className="muted">✓ acknowledged {String(n.acknowledged_at).slice(0, 10)}</span>
+                        ) : (
+                          <button
+                            className="secondary"
+                            title="Confirm you've received this drawdown notice"
+                            onClick={guard(() => api.ackNotice(n.notice_id), "Notice acknowledged")}
+                          >
+                            Acknowledge
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </>
           )}
           <h3>Your capital account</h3>

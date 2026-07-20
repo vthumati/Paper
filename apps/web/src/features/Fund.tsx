@@ -273,6 +273,13 @@ export default function Fund({ entityId }: { entityId: string }) {
                     <td>{lps.find((l) => l.id === n.lp_id)?.name ?? n.lp_id}</td>
                     <td>₹{n.amount}</td>
                     <td>
+                      {n.acknowledged_at ? (
+                        <span className="badge">acknowledged</span>
+                      ) : (
+                        <span className="muted">not acknowledged</span>
+                      )}
+                    </td>
+                    <td>
                       {n.paid ? (
                         <span className="badge complete">paid</span>
                       ) : (

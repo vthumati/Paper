@@ -360,6 +360,7 @@ export interface DrawdownNotice {
   lp_id: string;
   amount: string;
   paid: boolean;
+  acknowledged_at: string | null;
 }
 export interface CapitalCall {
   id: string;
@@ -1117,15 +1118,35 @@ export interface ScheduleOfInvestments {
     count: number;
   };
 }
+export interface PortalCallNotice {
+  notice_id: string;
+  call_no: number | null;
+  purpose: string | null;
+  due_date: string | null;
+  amount: string;
+  paid: boolean;
+  acknowledged_at: string | null;
+  overdue: boolean;
+}
 export interface PortalFundEntry {
   fund_id: string;
   fund_name: string | null;
   sebi_category: string;
   account: { committed: string; drawn: string; remaining: string; distributed: string } | null;
+  capital_calls: PortalCallNotice[];
   look_through: LookThrough;
   performance: FundPerformance;
   statements: { id: string; title: string; created_at: string }[];
   updates: InvestorUpdate[];
+}
+export interface LPSummary {
+  funds: number;
+  committed: string;
+  drawn: string;
+  remaining: string;
+  distributed: string;
+  nav_value: string;
+  pending_calls: number;
 }
 export interface EquityGrant {
   grant_id: string;
@@ -1344,6 +1365,7 @@ export interface PortalDashboard {
     options_vested: number;
     options_exercisable: number;
   };
+  lp_summary: LPSummary;
   companies: PortalCompany[];
   funds: PortalFundEntry[];
   spvs: PortalSPVDeal[];
@@ -1834,6 +1856,8 @@ export const api = {
   captableTimeline: (eid: string) =>
     get<{ events: TimelineEvent[] }>(`/entities/${eid}/timeline`),
   portalValueHistory: () => get<ValueHistory>("/portal/value-history"),
+  ackNotice: (nid: string) =>
+    post<{ notice_id: string; acknowledged_at: string }>(`/portal/notices/${nid}/ack`),
   grantDetail: (grantId: string) => get<GrantDetail>(`/portal/grants/${grantId}/detail`),
   files: (eid: string, q?: string) =>
     get<FileItem[]>(`/entities/${eid}/files${q ? `?q=${encodeURIComponent(q)}` : ""}`),
