@@ -582,6 +582,20 @@ class PortfolioMarkIn(BaseModel):
     marked_on: datetime.date | None = None
 
 
+class FundValuationPolicyIn(BaseModel):
+    valuer_name: str | None = None
+    valuation_frequency_months: int = Field(default=12, ge=1, le=60)
+
+
+class PortfolioValuationIn(BaseModel):
+    as_of: datetime.date
+    value: Decimal = Field(ge=0)
+    methodology: str = "ipev_market"
+    valuer: str | None = None
+    is_independent: bool = True
+    note: str | None = None
+
+
 class PortfolioKPIIn(BaseModel):
     period_label: str
     as_of: datetime.date

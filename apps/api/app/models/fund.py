@@ -45,6 +45,10 @@ class Fund(Base, TimestampMixin):
     # ("committed" from each LP's admission; "drawn" from each paid drawdown)
     mgmt_fee_pct: Mapped[Decimal] = mapped_column(Numeric(6, 4), default=Decimal("0.02"))
     fee_basis: Mapped[str] = mapped_column(String(16), default="committed")
+    # SEBI independent-valuation policy (FR-J-15): the appointed independent
+    # valuer and how often portfolio holdings must be revalued.
+    valuer_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    valuation_frequency_months: Mapped[int] = mapped_column(Integer, default=12)
     created_by: Mapped[str] = mapped_column(String(32))
 
     lps: Mapped[list["LP"]] = relationship(back_populates="fund", cascade="all, delete-orphan")
@@ -197,6 +201,26 @@ class PortfolioKPI(Base, TimestampMixin):
     cash: Mapped[Decimal | None] = mapped_column(Numeric(20, 2), nullable=True)
     monthly_burn: Mapped[Decimal | None] = mapped_column(Numeric(20, 2), nullable=True)
     headcount: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+
+class PortfolioValuation(Base, TimestampMixin):
+    """An independent valuation of a portfolio holding (SEBI AIF requirement).
+    Append-only history; the latest by as_of becomes the holding's mark
+    (PortfolioInvestment.current_value) so NAV / SoI / performance stay in sync."""
+
+    __tablename__ = "portfolio_valuations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    investment_id: Mapped[str] = mapped_column(
+        ForeignKey("portfolio_investments.id"), index=True
+    )
+    fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), index=True)
+    as_of: Mapped[datetime.date] = mapped_column(Date)
+    value: Mapped[Decimal] = mapped_column(Numeric(20, 2))
+    methodology: Mapped[str] = mapped_column(String(64), default="ipev_market")
+    valuer: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_independent: Mapped[bool] = mapped_column(Boolean, default=True)
     note: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 

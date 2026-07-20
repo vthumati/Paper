@@ -45,8 +45,10 @@ from ..schemas import (
     FundIn,
     FundOut,
     FundPlanIn,
+    FundValuationPolicyIn,
     LPIn,
     LPOut,
+    PortfolioValuationIn,
     PortfolioIn,
     PortfolioKPIIn,
     PortfolioMarkIn,
@@ -224,6 +226,85 @@ def soi_report(
         user_id=user.id,
         title=f"Schedule of Investments — {today_ist().isoformat()}",
         subject_type="soi",
+        subject_id=ctx.fund.id,
+    )
+    return docsvc.document_view(db, doc)
+
+
+# --- SEBI independent portfolio valuation ---
+@router.put("/funds/{fund_id}/valuation-policy", response_model=FundOut)
+def set_valuation_policy(
+    body: FundValuationPolicyIn, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+):
+    require_write(ctx.role)
+    return svc.set_valuation_policy(db, ctx.fund, body.valuer_name, body.valuation_frequency_months)
+
+
+@router.get("/funds/{fund_id}/valuations")
+def valuation_summary(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    return svc.valuation_summary(db, ctx.fund)
+
+
+@router.post("/funds/{fund_id}/portfolio/{investment_id}/valuations", status_code=201)
+def record_valuation(
+    investment_id: str,
+    body: PortfolioValuationIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    inv = _get_investment(db, ctx.fund.id, investment_id)
+    svc.record_valuation(db, inv, body.model_dump())
+    return svc.valuation_history(db, inv)
+
+
+@router.get("/funds/{fund_id}/portfolio/{investment_id}/valuations")
+def list_valuations(
+    investment_id: str, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+):
+    inv = _get_investment(db, ctx.fund.id, investment_id)
+    return svc.valuation_history(db, inv)
+
+
+@router.post("/funds/{fund_id}/valuations/report", response_model=DocumentOut, status_code=201)
+def valuation_report(
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    summary = svc.valuation_summary(db, ctx.fund)
+    entity = db.get(LegalEntity, ctx.fund.entity_id)
+    lines = []
+    for h in summary["holdings"]:
+        lat = h["latest"]
+        if lat:
+            lines.append(
+                f"  {h['company_name']}: ₹{lat['value']} ({lat['methodology_label']}) "
+                f"by {lat['valuer'] or 'n/a'} as of {lat['as_of']}"
+                f"{' [STALE]' if h['stale'] else ''}"
+            )
+        else:
+            lines.append(f"  {h['company_name']}: not yet valued")
+    t = summary["totals"]
+    doc = docsvc.create_document(
+        db,
+        entity_id=ctx.fund.entity_id,
+        template_key="fund_valuation",
+        data={
+            "fund": entity.name if entity else "",
+            "date": today_ist().isoformat(),
+            "valuer": ctx.fund.valuer_name or "(not appointed)",
+            "frequency": str(ctx.fund.valuation_frequency_months),
+            "holdings": "\n".join(lines) or "  No portfolio holdings.",
+            "valued": t["valued"],
+            "total": t["holdings"],
+            "independent": t["independent"],
+            "stale": t["stale"],
+        },
+        user_id=user.id,
+        title=f"Portfolio Valuation Report — {today_ist().isoformat()}",
+        subject_type="fund_valuation",
         subject_id=ctx.fund.id,
     )
     return docsvc.document_view(db, doc)

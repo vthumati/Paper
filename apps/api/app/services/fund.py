@@ -31,6 +31,7 @@ from ..models.fund import (
     LPDistribution,
     PortfolioInvestment,
     PortfolioKPI,
+    PortfolioValuation,
 )
 from .fund_perf import management_fee_by_lp, units_for
 
@@ -692,4 +693,114 @@ def fund_financials(db: Session, fund: Fund) -> dict:
         },
         # ties out by construction; surfaced so the UI can show a check
         "balances": q(net_assets) == q(ending_capital),
+    }
+
+
+# --- SEBI independent portfolio valuation (FR-J-15) --------------------------
+VALUATION_METHODOLOGIES = {
+    "ipev_market": "IPEV — market multiples",
+    "ipev_recent_txn": "IPEV — recent transaction price",
+    "dcf": "Discounted cash flow",
+    "nav": "Net assets / book value",
+    "cost": "Cost (no observable change)",
+}
+
+
+def set_valuation_policy(db: Session, fund: Fund, valuer_name, frequency_months) -> Fund:
+    fund.valuer_name = valuer_name
+    fund.valuation_frequency_months = frequency_months
+    db.commit()
+    db.refresh(fund)
+    return fund
+
+
+def record_valuation(db: Session, investment: PortfolioInvestment, data: dict) -> PortfolioValuation:
+    """Append a valuation and roll it into the holding's mark (latest by as_of)."""
+    val = PortfolioValuation(investment_id=investment.id, fund_id=investment.fund_id, **data)
+    db.add(val)
+    db.flush()
+    # keep the holding's mark = latest valuation by as_of
+    latest = (
+        db.query(PortfolioValuation)
+        .filter_by(investment_id=investment.id)
+        .order_by(PortfolioValuation.as_of.desc(), PortfolioValuation.created_at.desc())
+        .first()
+    )
+    investment.current_value = latest.value
+    investment.marked_on = latest.as_of
+    db.commit()
+    db.refresh(val)
+    return val
+
+
+def _valuation_view(v: PortfolioValuation) -> dict:
+    return {
+        "id": v.id,
+        "as_of": v.as_of,
+        "value": str(q(v.value)),
+        "methodology": v.methodology,
+        "methodology_label": VALUATION_METHODOLOGIES.get(v.methodology, v.methodology),
+        "valuer": v.valuer,
+        "is_independent": v.is_independent,
+        "note": v.note,
+    }
+
+
+def valuation_history(db: Session, investment: PortfolioInvestment) -> list[dict]:
+    rows = (
+        db.query(PortfolioValuation)
+        .filter_by(investment_id=investment.id)
+        .order_by(PortfolioValuation.as_of.desc())
+        .all()
+    )
+    return [_valuation_view(v) for v in rows]
+
+
+def valuation_summary(db: Session, fund: Fund) -> dict:
+    """Per-holding latest valuation + staleness vs the fund's valuation policy,
+    with SEBI-oriented roll-ups (valued / stale / independent counts)."""
+    freq = fund.valuation_frequency_months or 12
+    today = today_ist()
+    stale_before = today - datetime.timedelta(days=int(freq * 30.4))
+
+    holdings = []
+    valued = stale = independent = 0
+    for inv in db.query(PortfolioInvestment).filter_by(fund_id=fund.id):
+        latest = (
+            db.query(PortfolioValuation)
+            .filter_by(investment_id=inv.id)
+            .order_by(PortfolioValuation.as_of.desc(), PortfolioValuation.created_at.desc())
+            .first()
+        )
+        count = db.query(PortfolioValuation).filter_by(investment_id=inv.id).count()
+        is_stale = latest is None or latest.as_of < stale_before
+        if latest is not None:
+            valued += 1
+            if latest.is_independent:
+                independent += 1
+        if is_stale:
+            stale += 1
+        holdings.append({
+            "investment_id": inv.id,
+            "company_name": inv.company_name,
+            "cost": str(q(inv.amount)),
+            "valuations": count,
+            "latest": _valuation_view(latest) if latest else None,
+            "stale": is_stale,
+        })
+
+    return {
+        "fund_id": fund.id,
+        "policy": {
+            "valuer_name": fund.valuer_name,
+            "frequency_months": freq,
+        },
+        "methodologies": VALUATION_METHODOLOGIES,
+        "totals": {
+            "holdings": len(holdings),
+            "valued": valued,
+            "stale": stale,
+            "independent": independent,
+        },
+        "holdings": holdings,
     }

@@ -460,6 +460,21 @@ register(
 )
 register(
     DocumentTemplate(
+        "fund_valuation",
+        "Portfolio Valuation Report",
+        "fund_valuation",
+        "PORTFOLIO VALUATION REPORT\n"
+        "Fund: $fund\nAs of: $date\n\n"
+        "Independent valuer: $valuer\n"
+        "Valuation frequency: every $frequency month(s)\n\n"
+        "Holdings ($valued of $total valued; $independent independently; $stale stale):\n"
+        "$holdings\n\n"
+        "Fair values are determined per the fund's valuation policy; independent "
+        "valuation is required for SEBI AIF reporting.\n",
+    )
+)
+register(
+    DocumentTemplate(
         "valuation_estimate",
         "Indicative Valuation Workpaper",
         "valuation_estimate",
