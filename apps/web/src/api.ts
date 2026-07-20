@@ -878,6 +878,137 @@ export interface FundPerformance {
   units_outstanding: string;
   nav_per_unit: string | null;
 }
+export interface FundPlan {
+  has_plan: boolean;
+  inputs: {
+    fund_size: string;
+    fund_life_years: number;
+    investment_period_years: number;
+    est_expenses: string;
+    reserve_pct: string;
+    avg_initial_cheque: string;
+    avg_entry_valuation: string;
+    projected_gross_moic: string;
+    mgmt_fee_pct: string;
+    carry_pct: string;
+  };
+  derived: {
+    lifetime_fees: string;
+    investable: string;
+    initial_capital: string;
+    reserve_capital: string;
+    num_initial_deals: number;
+    avg_entry_ownership_pct: string;
+    gross_proceeds: string;
+    gp_carry: string;
+    net_to_lps: string;
+    gross_tvpi: string | null;
+    net_tvpi: string | null;
+    net_irr_pct: number | null;
+  };
+  pacing: { year: number; initial: string; reserve: string; deployed: string; cumulative: string }[];
+  actual: {
+    committed: string;
+    deployed: string;
+    deals: number;
+    committed_vs_target_pct: number | null;
+    deployed_vs_initial_pct: number | null;
+    deals_vs_plan_pct: number | null;
+  };
+}
+export interface FundPlanInput {
+  fund_size: string;
+  fund_life_years: number;
+  investment_period_years: number;
+  est_expenses: string;
+  reserve_pct: string;
+  avg_initial_cheque: string;
+  avg_entry_valuation: string;
+  projected_gross_moic: string;
+}
+export interface PortfolioKPI {
+  id: string;
+  period_label: string;
+  as_of: string;
+  revenue: string | null;
+  cash: string | null;
+  monthly_burn: string | null;
+  headcount: number | null;
+  runway_months: number | null;
+  note: string | null;
+}
+export interface PortfolioKPIInput {
+  period_label: string;
+  as_of: string;
+  revenue?: string | null;
+  cash?: string | null;
+  monthly_burn?: string | null;
+  headcount?: number | null;
+  note?: string | null;
+}
+export interface PortfolioMonitoring {
+  fund_id: string;
+  totals: {
+    companies: number;
+    reporting: number;
+    latest_revenue: string;
+    cash: string;
+    low_runway: number;
+  };
+  companies: {
+    investment_id: string;
+    company_name: string;
+    ownership_pct: string;
+    periods: number;
+    latest: PortfolioKPI | null;
+    revenue_growth_pct: number | null;
+    runway_months: number | null;
+    low_runway: boolean;
+    revenue_series: { x: string; y: number }[];
+  }[];
+}
+export interface FundFinancials {
+  fund_id: string;
+  as_of: string;
+  operations: {
+    realized_gains: string;
+    unrealized_appreciation: string;
+    total_investment_income: string;
+    management_fees: string;
+    net_increase_from_operations: string;
+  };
+  cash_flow: {
+    contributions: string;
+    investments_made: string;
+    distributions_to_lps: string;
+    carry_paid: string;
+    management_fees_paid: string;
+    net_change_in_cash: string;
+    ending_cash: string;
+  };
+  balance_sheet: {
+    investments_at_fair_value: string;
+    cash: string;
+    total_assets: string;
+    liabilities: string;
+    net_assets: string;
+  };
+  capital_roll_forward: {
+    beginning: string;
+    contributions: string;
+    net_increase_from_operations: string;
+    distributions_to_lps: string;
+    carry_to_gp: string;
+    ending_net_assets: string;
+  };
+  disclosures: {
+    committed: string;
+    uncalled: string;
+    invested_at_cost: string;
+    positions_at_cost: number;
+  };
+  balances: boolean;
+}
 export interface LookThrough {
   fund_id: string;
   share_pct: number;
@@ -1402,7 +1533,15 @@ export const api = {
   listDistributions: (fid: string) => get<Distribution[]>(`/funds/${fid}/distributions`),
   distribute: (fid: string, b: unknown) => post<Distribution>(`/funds/${fid}/distributions`, b),
   capitalAccounts: (fid: string) => get<CapitalAccounts>(`/funds/${fid}/capital-accounts`),
+  fundPlan: (fid: string) => get<FundPlan>(`/funds/${fid}/plan`),
+  saveFundPlan: (fid: string, b: FundPlanInput) => put<FundPlan>(`/funds/${fid}/plan`, b),
   listPortfolio: (fid: string) => get<PortfolioInvestment[]>(`/funds/${fid}/portfolio`),
+  portfolioMonitoring: (fid: string) =>
+    get<PortfolioMonitoring>(`/funds/${fid}/portfolio-monitoring`),
+  addPortfolioKpi: (fid: string, iid: string, b: PortfolioKPIInput) =>
+    post<PortfolioKPI[]>(`/funds/${fid}/portfolio/${iid}/kpis`, b),
+  listPortfolioKpis: (fid: string, iid: string) =>
+    get<PortfolioKPI[]>(`/funds/${fid}/portfolio/${iid}/kpis`),
   addInvestment: (fid: string, b: unknown) =>
     post<PortfolioInvestment>(`/funds/${fid}/portfolio`, b),
   markInvestment: (fid: string, iid: string, b: unknown) =>
@@ -1411,6 +1550,8 @@ export const api = {
     get<ScheduleOfInvestments>(`/funds/${fid}/soi`),
   soiReport: (fid: string) => post<Document>(`/funds/${fid}/soi/report`),
   fundPerformance: (fid: string) => get<FundPerformance>(`/funds/${fid}/performance`),
+  fundFinancials: (fid: string) => get<FundFinancials>(`/funds/${fid}/financials`),
+  fundFinancialsReport: (fid: string) => post<Document>(`/funds/${fid}/financials/report`),
   lpStatement: (fid: string, lpId: string) =>
     post<Document>(`/funds/${fid}/lps/${lpId}/statement`),
   requestConsents: (rid: string) =>

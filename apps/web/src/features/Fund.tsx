@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import EmptyState from "../components/EmptyState";
 import { uiPrompt } from "../components/Prompt";
 import DealPipeline from "./DealPipeline";
+import FundForecast from "./FundForecast";
+import FundFinancials from "./FundFinancials";
+import PortfolioMonitoring from "./PortfolioMonitoring";
 import { useGuard } from "../hooks";
 import {
   api,
@@ -140,6 +143,10 @@ export default function Fund({ entityId }: { entityId: string }) {
           </button>
         )}
       </div>
+
+      <FundForecast fundId={fund.id} feePct={String(fund.mgmt_fee_pct)} carryPct={String(fund.carry_pct)} />
+
+      <FundFinancials fundId={fund.id} />
 
       <div className="row">
         <div className="card" style={{ flex: 1 }}>
@@ -452,6 +459,8 @@ export default function Fund({ entityId }: { entityId: string }) {
           </table>
         </div>
       )}
+
+      <PortfolioMonitoring fundId={fund.id} />
 
       <DealPipeline fundId={fund.id} onInvested={() => refresh(fund.id)} />
     </div>
