@@ -348,6 +348,13 @@ export default function Fund({
                 })}
               >
                 {reportView ? "Close report view" : "Report view"}
+              </button>{" "}
+              <button
+                className="secondary"
+                title="Download the LP capital accounts as CSV"
+                onClick={guard(() => api.exportCapitalAccountsCsv(fund.id))}
+              >
+                Export CSV
               </button>
             </h3>
             {reportView && (
@@ -616,6 +623,7 @@ export default function Fund({
                 inv={inv}
                 soiRow={soi?.holdings.find((h) => h.id === inv.id) ?? null}
                 onClose={() => setOpenTear(null)}
+                onChanged={() => refresh(fund.id)}
               />
             );
           })()}
@@ -633,6 +641,13 @@ export default function Fund({
                   }, "SoI statement generated")}
                 >
                   Generate statement
+                </button>{" "}
+                <button
+                  className="secondary"
+                  title="Download the holdings as CSV"
+                  onClick={guard(() => api.exportHoldingsCsv(fund.id))}
+                >
+                  Export CSV
                 </button>
               </h3>
               <p className="muted">

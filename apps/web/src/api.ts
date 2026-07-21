@@ -761,6 +761,7 @@ export interface InvestorUpdate {
   lowlights?: string | null;
   asks?: string | null;
   metrics?: Record<string, string | number | null> | null;
+  audience?: string[] | null;
   status?: string;
   published_at?: string | null;
   created_at: string;
@@ -773,6 +774,7 @@ export interface InvestorUpdateInput {
   highlights?: string | null;
   lowlights?: string | null;
   asks?: string | null;
+  audience?: string[] | null;
   publish?: boolean;
 }
 export interface PortalInstrument {
@@ -1176,6 +1178,37 @@ export interface MetricAlertRuleList {
   rules: MetricAlertRule[];
   metrics: { key: string; label: string; unit: string }[];
 }
+export interface InvestmentRoundEntry {
+  id: string;
+  round_label: string | null;
+  instrument: string;
+  amount: string;
+  invested_on: string | null;
+  note: string | null;
+}
+export interface InvestmentRounds {
+  initial: { amount: string; instrument: string; invested_on: string | null };
+  rounds: InvestmentRoundEntry[];
+  total_cost: string;
+}
+export interface FundExpense {
+  id: string;
+  date: string;
+  category: string;
+  amount: string;
+  note: string | null;
+}
+export interface FundExpenseList {
+  expenses: FundExpense[];
+  total: string;
+  categories: string[];
+}
+export interface CompanyNote {
+  id: string;
+  body: string;
+  author: string | null;
+  created_at: string;
+}
 export interface LpReportData {
   fund_id: string;
   fund_name: string;
@@ -1243,6 +1276,7 @@ export interface FundFinancials {
     unrealized_appreciation: string;
     total_investment_income: string;
     management_fees: string;
+    fund_expenses: string;
     net_increase_from_operations: string;
   };
   cash_flow: {
@@ -1251,6 +1285,7 @@ export interface FundFinancials {
     distributions_to_lps: string;
     carry_paid: string;
     management_fees_paid: string;
+    fund_expenses_paid: string;
     net_change_in_cash: string;
     ending_cash: string;
   };
@@ -1858,6 +1893,26 @@ export const api = {
     del<void>(`/funds/${fid}/kpi-definitions/${did}`),
   portfolioBenchmarks: (fid: string) =>
     get<PortfolioBenchmarks>(`/funds/${fid}/benchmarks`),
+  listInvestmentRounds: (fid: string, iid: string) =>
+    get<InvestmentRounds>(`/funds/${fid}/portfolio/${iid}/rounds`),
+  addInvestmentRound: (fid: string, iid: string, b: { amount: string; round_label?: string | null; instrument?: string | null; invested_on?: string | null; note?: string | null }) =>
+    post<InvestmentRounds>(`/funds/${fid}/portfolio/${iid}/rounds`, b),
+  listFundExpenses: (fid: string) => get<FundExpenseList>(`/funds/${fid}/expenses`),
+  addFundExpense: (fid: string, b: { date: string; amount: string; category?: string | null; note?: string | null }) =>
+    post<FundExpenseList>(`/funds/${fid}/expenses`, b),
+  deleteFundExpense: (fid: string, eid: string) => del<void>(`/funds/${fid}/expenses/${eid}`),
+  listCompanyNotes: (fid: string, iid: string) =>
+    get<CompanyNote[]>(`/funds/${fid}/portfolio/${iid}/notes`),
+  addCompanyNote: (fid: string, iid: string, body: string) =>
+    post<CompanyNote[]>(`/funds/${fid}/portfolio/${iid}/notes`, { body }),
+  deleteCompanyNote: (fid: string, iid: string, nid: string) =>
+    del<void>(`/funds/${fid}/portfolio/${iid}/notes/${nid}`),
+  exportHoldingsCsv: (fid: string) =>
+    downloadFile(`/funds/${fid}/export/holdings`, "fund-holdings.csv"),
+  exportCapitalAccountsCsv: (fid: string) =>
+    downloadFile(`/funds/${fid}/export/capital-accounts`, "capital-accounts.csv"),
+  exportKpisCsv: (fid: string) =>
+    downloadFile(`/funds/${fid}/export/kpis`, "portfolio-kpis.csv"),
   lpReportPreview: (fid: string) => get<LpReportData>(`/funds/${fid}/lp-report/preview`),
   portalLpReport: (fid: string) => get<LpReportData>(`/portal/funds/${fid}/lp-report`),
   listDdq: (fid: string) => get<DDQList>(`/funds/${fid}/ddq`),

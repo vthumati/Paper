@@ -120,6 +120,14 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
         <button
           className="secondary"
           disabled={mon.companies.length === 0}
+          title="Download every company's KPI history as CSV"
+          onClick={guard(() => api.exportKpisCsv(fundId))}
+        >
+          Export KPIs
+        </button>
+        <button
+          className="secondary"
+          disabled={mon.companies.length === 0}
           onClick={() => {
             setReqOpen((v) => !v);
             if (!rInvId && mon.companies[0]) setRInvId(mon.companies[0].investment_id);

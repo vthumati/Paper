@@ -26,6 +26,7 @@ export default function Investors({ entityId }: { entityId: string }) {
   const [updHighlights, setUpdHighlights] = useState("");
   const [updLowlights, setUpdLowlights] = useState("");
   const [updAsks, setUpdAsks] = useState("");
+  const [updAudience, setUpdAudience] = useState<string[]>([]); // empty = all investors
   const [editingId, setEditingId] = useState<string | null>(null);
   const [buyers, setBuyers] = useState<Record<string, string>>({});
   const [metrics, setMetrics] = useState<InvestorMetrics | null>(null);
@@ -117,6 +118,34 @@ export default function Investors({ entityId }: { entityId: string }) {
           </div>
           <label>Asks</label>
           <input placeholder="Intros, hiring, help…" value={updAsks} onChange={(e) => setUpdAsks(e.target.value)} />
+          {access.length > 0 && (
+            <>
+              <label>
+                Audience{" "}
+                <span className="muted" style={{ fontWeight: 400 }}>
+                  — leave empty for all invited investors; pick emails to restrict (Ctrl-click for several)
+                </span>
+              </label>
+              <select
+                multiple
+                size={Math.min(4, access.length)}
+                value={updAudience}
+                onChange={(e) =>
+                  setUpdAudience(Array.from(e.target.selectedOptions).map((o) => o.value))
+                }
+              >
+                {access.map((a) => (
+                  <option key={a.id} value={a.email}>{a.email}</option>
+                ))}
+              </select>
+              {updAudience.length > 0 && (
+                <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>
+                  Restricted to {updAudience.length} investor{updAudience.length === 1 ? "" : "s"} ·{" "}
+                  <a href="#" onClick={(e) => { e.preventDefault(); setUpdAudience([]); }}>send to everyone</a>
+                </p>
+              )}
+            </>
+          )}
           <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
             {(() => {
               const payload = {
@@ -126,10 +155,12 @@ export default function Investors({ entityId }: { entityId: string }) {
                 highlights: updHighlights || null,
                 lowlights: updLowlights || null,
                 asks: updAsks || null,
+                audience: updAudience.length ? updAudience : null,
               };
               const clear = () => {
                 setTitle(""); setBody(""); setUpdPeriod("");
                 setUpdHighlights(""); setUpdLowlights(""); setUpdAsks("");
+                setUpdAudience([]);
                 setEditingId(null);
               };
               return (
@@ -297,7 +328,7 @@ export default function Investors({ entityId }: { entityId: string }) {
         if (published.length === 0 || access.length === 0) return null;
         const rows = published.map((u) => {
           const opened = (u.viewers ?? []).length;
-          return { title: u.title, recipients: access.length, opened };
+          return { title: u.title, recipients: u.audience?.length ?? access.length, opened };
         });
         const totals = rows.reduce(
           (s, r) => ({ recipients: s.recipients + r.recipients, opened: s.opened + r.opened }),
@@ -351,6 +382,11 @@ export default function Investors({ entityId }: { entityId: string }) {
                   <strong>{u.title}</strong>
                   {u.period_label && <span className="badge">{u.period_label}</span>}
                   <span className={`badge ${u.status === "published" ? "complete" : ""}`}>{u.status}</span>
+                  {u.audience && (
+                    <span className="badge" title={u.audience.join("\n")}>
+                      → {u.audience.length} investor{u.audience.length === 1 ? "" : "s"}
+                    </span>
+                  )}
                   <span className="muted">{new Date(u.created_at).toLocaleDateString()}</span>
                   {u.status === "published" && (
                     <span
@@ -371,6 +407,7 @@ export default function Investors({ entityId }: { entityId: string }) {
                           setUpdHighlights(u.highlights ?? "");
                           setUpdLowlights(u.lowlights ?? "");
                           setUpdAsks(u.asks ?? "");
+                          setUpdAudience(u.audience ?? []);
                         }}
                       >
                         Edit

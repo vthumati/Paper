@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   api,
+  type CompanyNote,
+  type InvestmentRounds,
   type PortfolioInvestment,
   type PortfolioMonitoring,
   type PortfolioSignals,
@@ -12,6 +14,8 @@ import Avatar from "../components/Avatar";
 import ComboChart from "../components/ComboChart";
 import Stat from "../components/Stat";
 
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
 const SEVERITY_ICON: Record<string, string> = { high: "🔴", warn: "🟠", info: "🔵", positive: "🟢" };
 
 /** On-screen company tear sheet (Visible-style): investment info tiles, the
@@ -22,19 +26,30 @@ export default function TearSheet({
   inv,
   soiRow,
   onClose,
+  onChanged,
 }: {
   fundId: string;
   inv: PortfolioInvestment;
   soiRow: SOIHolding | null;
   onClose: () => void;
+  onChanged?: () => void;
 }) {
   const [mon, setMon] = useState<PortfolioMonitoring | null>(null);
   const [signals, setSignals] = useState<PortfolioSignals | null>(null);
+  const [rounds, setRounds] = useState<InvestmentRounds | null>(null);
+  const [notes, setNotes] = useState<CompanyNote[]>([]);
+  const [roundOpen, setRoundOpen] = useState(false);
+  const [rAmount, setRAmount] = useState("");
+  const [rLabel, setRLabel] = useState("");
+  const [rDate, setRDate] = useState(todayIso());
+  const [noteBody, setNoteBody] = useState("");
   const { error, guard } = useGuard();
 
   useEffect(() => {
     api.portfolioMonitoring(fundId).then(setMon);
     api.portfolioSignals(fundId).then(setSignals);
+    api.listInvestmentRounds(fundId, inv.id).then(setRounds);
+    api.listCompanyNotes(fundId, inv.id).then(setNotes);
   }, [fundId, inv.id]);
 
   const company = mon?.companies.find((c) => c.investment_id === inv.id) ?? null;
@@ -126,6 +141,94 @@ export default function TearSheet({
             </div>
           ))
         )}
+      </div>
+
+      {rounds && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <strong style={{ color: "var(--heading)" }}>Investment history</strong>
+            <span className="muted" style={{ fontSize: 12 }}>total cost {fmtMoney(rounds.total_cost)}</span>
+            <button className="secondary" style={{ marginLeft: "auto" }} onClick={() => setRoundOpen((v) => !v)}>
+              {roundOpen ? "Close" : "Add follow-on"}
+            </button>
+          </div>
+          <ul className="muted" style={{ margin: "6px 0 0", lineHeight: 1.7 }}>
+            <li>
+              Initial · {rounds.initial.instrument} · <strong>{fmtMoney(rounds.initial.amount)}</strong>
+              {rounds.initial.invested_on && <> · {rounds.initial.invested_on}</>}
+            </li>
+            {rounds.rounds.map((r) => (
+              <li key={r.id}>
+                {r.round_label || "Follow-on"} · {r.instrument} · <strong>{fmtMoney(r.amount)}</strong>
+                {r.invested_on && <> · {r.invested_on}</>}
+                {r.note && <> — {r.note}</>}
+              </li>
+            ))}
+          </ul>
+          {roundOpen && (
+            <div className="row" style={{ alignItems: "flex-end", marginTop: 8 }}>
+              <div><label>Amount (₹)</label><input value={rAmount} onChange={(e) => setRAmount(e.target.value)} /></div>
+              <div><label>Round</label><input placeholder="Series A" value={rLabel} onChange={(e) => setRLabel(e.target.value)} /></div>
+              <div><label>Date</label><input type="date" value={rDate} onChange={(e) => setRDate(e.target.value)} /></div>
+              <button
+                style={{ flex: "0 0 auto" }}
+                disabled={!rAmount || isNaN(Number(rAmount)) || Number(rAmount) <= 0}
+                onClick={guard(async () => {
+                  setRounds(await api.addInvestmentRound(fundId, inv.id, {
+                    amount: rAmount, round_label: rLabel || null, invested_on: rDate || null,
+                  }));
+                  setRAmount(""); setRLabel("");
+                  onChanged?.(); // parent refreshes portfolio totals
+                }, "Follow-on recorded — total cost updated")}
+              >
+                Record follow-on
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+        <strong style={{ color: "var(--heading)" }}>Team notes</strong>{" "}
+        <span className="muted" style={{ fontSize: 12 }}>internal only — never shown to LPs or the company</span>
+        {notes.map((n) => (
+          <div key={n.id} style={{ padding: "4px 0", display: "flex", gap: 8, alignItems: "baseline" }}>
+            <span style={{ flex: 1 }}>
+              {n.body}{" "}
+              <span className="muted" style={{ fontSize: 12 }}>
+                — {n.author ?? "someone"} · {new Date(n.created_at).toLocaleDateString()}
+              </span>
+            </span>
+            <button
+              className="secondary"
+              style={{ flex: "0 0 auto" }}
+              onClick={guard(async () => {
+                await api.deleteCompanyNote(fundId, inv.id, n.id);
+                setNotes(await api.listCompanyNotes(fundId, inv.id));
+              }, "Note removed")}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+          <input
+            style={{ flex: 1 }}
+            placeholder="Add a note for the team…"
+            value={noteBody}
+            onChange={(e) => setNoteBody(e.target.value)}
+          />
+          <button
+            style={{ flex: "0 0 auto" }}
+            disabled={!noteBody.trim()}
+            onClick={guard(async () => {
+              setNotes(await api.addCompanyNote(fundId, inv.id, noteBody));
+              setNoteBody("");
+            }, "Note added")}
+          >
+            Add note
+          </button>
+        </div>
       </div>
     </div>
   );
