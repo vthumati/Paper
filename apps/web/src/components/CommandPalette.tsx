@@ -20,7 +20,13 @@ const TAB_JUMPS: { key: string; label: string }[] = [
   { key: "documents", label: "Documents" },
   { key: "services", label: "Marketplace" },
   { key: "admin", label: "Managed Admin" },
-  { key: "fund", label: "Fund (AIF)" },
+  { key: "capital", label: "Fund · Capital & LPs" },
+  { key: "fundraise", label: "Fund · LP fundraise" },
+  { key: "portfolio", label: "Fund · Portfolio" },
+  { key: "monitoring", label: "Fund · Monitoring" },
+  { key: "deals", label: "Fund · Deal pipeline" },
+  { key: "plan", label: "Fund · Plan & forecast" },
+  { key: "reports", label: "Fund · Financials" },
   { key: "spv", label: "SPV" },
 ];
 

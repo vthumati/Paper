@@ -37,6 +37,7 @@ const SUBTABS = [
   { key: "capital", label: "Capital & LPs" },
   { key: "fundraise", label: "LP fundraise" },
   { key: "portfolio", label: "Portfolio" },
+  { key: "monitoring", label: "Monitoring" },
   { key: "deals", label: "Deal pipeline" },
   { key: "plan", label: "Plan & forecast" },
   { key: "reports", label: "Financials" },
@@ -46,10 +47,13 @@ type SubTab = (typeof SUBTABS)[number]["key"];
 export default function Fund({
   entityId,
   initialSub,
+  hideSubtabs,
 }: {
   entityId: string;
-  /** ?tab=fund&sub=<key> deep link (command palette, shared URLs) */
+  /** which sub-tab to show; also the deep-link key from the workspace nav */
   initialSub?: string | null;
+  /** hide the internal sub-tab row when the parent workspace nav drives it */
+  hideSubtabs?: boolean;
 }) {
   const [fund, setFund] = useState<FundT | null>(null);
   const [sub, setSub] = useState<SubTab>(
@@ -241,17 +245,19 @@ export default function Fund({
         )}
       </div>
 
-      <div className="tabs subtabs">
-        {SUBTABS.map((t) => (
-          <button
-            key={t.key}
-            className={sub === t.key ? "active" : ""}
-            onClick={() => setSub(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {!hideSubtabs && (
+        <div className="tabs subtabs">
+          {SUBTABS.map((t) => (
+            <button
+              key={t.key}
+              className={sub === t.key ? "active" : ""}
+              onClick={() => setSub(t.key)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {sub === "capital" && (
         <>
@@ -537,6 +543,8 @@ export default function Fund({
         </>
       )}
 
+      {sub === "monitoring" && <PortfolioMonitoring fundId={fund.id} />}
+
       {sub === "portfolio" && (
         <>
           <FundSignals fundId={fund.id} />
@@ -694,8 +702,6 @@ export default function Fund({
           )}
 
           <FundValuations fundId={fund.id} onChanged={() => refresh(fund.id)} />
-
-          <PortfolioMonitoring fundId={fund.id} />
         </>
       )}
 

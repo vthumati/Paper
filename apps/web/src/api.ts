@@ -713,7 +713,21 @@ export interface Dashboard {
   governance: { meetings: number; pending_resolutions: number };
   documents: number;
   data_rooms: number;
-  fund?: { committed: string; drawn: string; lps: number };
+  fund?: {
+    sebi_category: string;
+    carry_pct: string;
+    hurdle_pct: string;
+    mgmt_fee_pct: string;
+    committed: string;
+    drawn: string;
+    uncalled: string;
+    distributed: string;
+    lps: number;
+    nav: string;
+    tvpi: string;
+    dpi: string;
+    portfolio_count: number;
+  };
 }
 export interface FileItem {
   id: string;

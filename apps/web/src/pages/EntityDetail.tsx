@@ -15,6 +15,7 @@ import Admin from "../features/Admin";
 import Spv from "../features/Spv";
 import Governance from "../features/Governance";
 import Dashboard from "../features/Dashboard";
+import FundDashboard from "../features/FundDashboard";
 import TasksHub from "../features/TasksHub";
 import Team from "../features/Team";
 import Contracts from "../features/Contracts";
@@ -37,7 +38,6 @@ type Tab =
   | "documents"
   | "diligence"
   | "compliance"
-  | "fund"
   | "esop"
   | "valuations"
   | "services"
@@ -46,7 +46,15 @@ type Tab =
   | "spv"
   | "startup"
   | "finance"
-  | "registers";
+  | "registers"
+  // fund workspace tabs (promoted from the old single "Fund" tab's sub-tabs)
+  | "capital"
+  | "fundraise"
+  | "portfolio"
+  | "monitoring"
+  | "deals"
+  | "plan"
+  | "reports";
 
 // Two-level navigation: tabs live in groups; the group row is always visible
 // and the sub-tab row shows the active group's tabs.
@@ -67,13 +75,22 @@ const TAB_DEFS: {
   key: Tab;
   label: string;
   group: Group;
-  scope: "all" | "company" | "fundlike" | "spvonly";
+  scope: "all" | "company" | "fundlike" | "fundonly" | "spvonly";
 }[] = [
   { key: "dashboard", label: "Dashboard", group: "home", scope: "all" },
   { key: "tasks", label: "Tasks", group: "home", scope: "all" },
-  { key: "captable", label: "Cap Table", group: "ownership", scope: "all" },
+  // the fund workspace — promoted to primary tabs for a fund entity
+  { key: "capital", label: "Capital & LPs", group: "fundadmin", scope: "fundonly" },
+  { key: "fundraise", label: "LP fundraise", group: "fundadmin", scope: "fundonly" },
+  { key: "portfolio", label: "Portfolio", group: "fundadmin", scope: "fundonly" },
+  { key: "monitoring", label: "Monitoring", group: "fundadmin", scope: "fundonly" },
+  { key: "deals", label: "Deal pipeline", group: "fundadmin", scope: "fundonly" },
+  { key: "plan", label: "Plan & forecast", group: "fundadmin", scope: "fundonly" },
+  { key: "reports", label: "Financials", group: "fundadmin", scope: "fundonly" },
+  { key: "spv", label: "SPV", group: "fundadmin", scope: "spvonly" },
+  { key: "captable", label: "Cap Table", group: "ownership", scope: "company" },
   { key: "esop", label: "ESOP", group: "ownership", scope: "company" },
-  { key: "valuations", label: "Valuations", group: "ownership", scope: "all" },
+  { key: "valuations", label: "Valuations", group: "ownership", scope: "company" },
   { key: "fundraising", label: "Rounds & SAFEs", group: "raise", scope: "company" },
   { key: "diligence", label: "Diligence", group: "raise", scope: "company" },
   { key: "investors", label: "Investors", group: "raise", scope: "all" },
@@ -88,8 +105,6 @@ const TAB_DEFS: {
   { key: "services", label: "Marketplace", group: "partners", scope: "all" },
   { key: "advisors", label: "Advisors", group: "partners", scope: "all" },
   { key: "admin", label: "Managed Admin", group: "partners", scope: "all" },
-  { key: "fund", label: "Fund (AIF)", group: "fundadmin", scope: "fundlike" },
-  { key: "spv", label: "SPV", group: "fundadmin", scope: "spvonly" },
 ];
 
 export default function EntityDetail() {
@@ -101,14 +116,13 @@ export default function EntityDetail() {
   const [showAll, setShowAll] = useState(false);
   const [tab, setTab] = useState<Tab>("dashboard");
 
-  // ?tab= (+ optional ?sub= for tabs with sub-tabs, e.g. fund) deep links
-  // (command palette, shared URLs); cleared once applied
-  const [fundSub, setFundSub] = useState<string | null>(null);
+  // ?tab= deep links (command palette, shared URLs); cleared once applied.
+  // Legacy ?tab=fund[&sub=X] now maps to the promoted fund tab directly.
   useEffect(() => {
-    const wanted = searchParams.get("tab");
+    let wanted = searchParams.get("tab");
+    if (wanted === "fund") wanted = searchParams.get("sub") || "capital";
     if (wanted && TAB_DEFS.some((t) => t.key === wanted)) {
       setTab(wanted as Tab);
-      setFundSub(searchParams.get("sub"));
       setSearchParams({}, { replace: true });
     }
   }, [searchParams]);
@@ -149,6 +163,7 @@ export default function EntityDetail() {
     scope === "all" ||
     (scope === "company" && isCompany) ||
     (scope === "fundlike" && !isCompany) ||
+    (scope === "fundonly" && entity.type === "fund") ||
     (scope === "spvonly" && entity.type === "spv");
   const stageOk = (key: Tab) =>
     !isCompany || showAll || !guide || guide.tabs.includes(key);
@@ -286,7 +301,10 @@ export default function EntityDetail() {
         </div>
       )}
 
-      {tab === "dashboard" && (
+      {tab === "dashboard" && entity.type === "fund" && (
+        <FundDashboard entityId={entityId} onNavigate={goTab} />
+      )}
+      {tab === "dashboard" && entity.type !== "fund" && (
         <>
           {isCompany && guide && (
             <div className="card">
@@ -370,7 +388,9 @@ export default function EntityDetail() {
       {tab === "documents" && <Documents entityId={entityId} showDataRoom={feat("dataroom")} />}
       {tab === "diligence" && <Diligence entityId={entityId} onNavigate={goTab} />}
       {tab === "compliance" && <Compliance entityId={entityId} entityType={entity.type} />}
-      {tab === "fund" && <Fund entityId={entityId} initialSub={fundSub} />}
+      {["capital", "fundraise", "portfolio", "monitoring", "deals", "plan", "reports"].includes(tab) && (
+        <Fund entityId={entityId} initialSub={tab} hideSubtabs />
+      )}
       {tab === "esop" && (
         <>
           <ExerciseRequests entityId={entityId} />
