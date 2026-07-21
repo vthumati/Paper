@@ -1447,12 +1447,24 @@ class InvestorAccessOut(ORMModel):
 class InvestorUpdateIn(BaseModel):
     title: str
     body: str
+    period_label: str | None = None
+    highlights: str | None = None
+    lowlights: str | None = None
+    asks: str | None = None
+    publish: bool = True
 
 
 class InvestorUpdateOut(ORMModel):
     id: str
     title: str
     body: str
+    period_label: str | None
+    highlights: str | None
+    lowlights: str | None
+    asks: str | None
+    metrics: dict | None
+    status: str
+    published_at: datetime.datetime | None
     created_at: datetime.datetime
 
 

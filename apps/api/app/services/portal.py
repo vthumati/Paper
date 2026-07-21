@@ -113,9 +113,19 @@ def _liquidity_for_user(db: Session, user: User, today) -> list[dict]:
 
 def _updates(db: Session, entity_id: str) -> list[dict]:
     return [
-        {"id": u.id, "title": u.title, "body": u.body, "created_at": u.created_at}
+        {
+            "id": u.id,
+            "title": u.title,
+            "body": u.body,
+            "period_label": u.period_label,
+            "highlights": u.highlights,
+            "lowlights": u.lowlights,
+            "asks": u.asks,
+            "metrics": u.metrics,
+            "created_at": u.created_at,
+        }
         for u in db.query(InvestorUpdate)
-        .filter_by(entity_id=entity_id)
+        .filter_by(entity_id=entity_id, status="published")
         .order_by(InvestorUpdate.created_at.desc())
     ]
 

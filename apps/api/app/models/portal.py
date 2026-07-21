@@ -2,7 +2,7 @@ import datetime
 import enum
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin, gen_id
@@ -71,7 +71,9 @@ class SecondaryRequest(Base, TimestampMixin):
 
 
 class InvestorUpdate(Base, TimestampMixin):
-    """A periodic update published by the company/fund to its investors (FR-K-2)."""
+    """A periodic update published by the company/fund to its investors (FR-K-2).
+    Extended (Visible-style): structured sections, a metrics snapshot captured
+    at publish time, and a draft -> published lifecycle."""
 
     __tablename__ = "investor_updates"
 
@@ -79,4 +81,24 @@ class InvestorUpdate(Base, TimestampMixin):
     entity_id: Mapped[str] = mapped_column(ForeignKey("legal_entities.id"), index=True)
     title: Mapped[str] = mapped_column(String(255))
     body: Mapped[str] = mapped_column(Text)
+    period_label: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    highlights: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lowlights: Mapped[str | None] = mapped_column(Text, nullable=True)
+    asks: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metrics: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    status: Mapped[str] = mapped_column(String(12), default="published")
+    published_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
     created_by: Mapped[str] = mapped_column(String(32))
+
+
+class InvestorUpdateView(Base, TimestampMixin):
+    """A recipient's engagement with a published update: one row per
+    (update, viewer email), counting repeat opens (FR-K-2)."""
+
+    __tablename__ = "investor_update_views"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    update_id: Mapped[str] = mapped_column(ForeignKey("investor_updates.id"), index=True)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    view_count: Mapped[int] = mapped_column(Integer, default=1)
+    last_viewed_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)

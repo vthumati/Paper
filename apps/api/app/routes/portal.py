@@ -6,6 +6,7 @@ from ..db import get_db
 from ..deps import (
     EntityCtx,
     SecondaryCtx,
+    UpdateCtx,
     entity_ctx,
     get_current_user,
     get_owned,
@@ -13,6 +14,7 @@ from ..deps import (
     require_verified_email,
     require_write,
     secondary_ctx,
+    update_ctx,
 )
 from ..models.captable import SecurityClass, Stakeholder, TransferTransaction
 from ..models.identity import User
@@ -21,6 +23,7 @@ from ..models.portal import (
     InvestorAccess,
     InvestorConsent,
     InvestorUpdate,
+    InvestorUpdateView,
     SecondaryRequest,
     SecondaryStatus,
 )
@@ -74,6 +77,24 @@ def list_access(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_
     return db.query(InvestorAccess).filter_by(entity_id=ctx.entity.id).all()
 
 
+def _metrics_snapshot(db: Session, entity) -> dict:
+    """JSON-safe copy of the live metrics, frozen onto the update at publish."""
+    import datetime as _dt
+    from decimal import Decimal
+
+    from ..services.reporting import report_metrics
+
+    out = {}
+    for k, v in report_metrics(db, entity).items():
+        if isinstance(v, Decimal):
+            out[k] = str(v)
+        elif isinstance(v, (_dt.date, _dt.datetime)):
+            out[k] = v.isoformat()
+        else:
+            out[k] = v
+    return out
+
+
 @router.post("/entities/{entity_id}/investor-updates", response_model=InvestorUpdateOut, status_code=201)
 def publish_update(
     body: InvestorUpdateIn,
@@ -83,22 +104,100 @@ def publish_update(
 ):
     require_write(ctx.role)
     upd = InvestorUpdate(
-        entity_id=ctx.entity.id, title=body.title, body=body.body, created_by=user.id
+        entity_id=ctx.entity.id,
+        title=body.title,
+        body=body.body,
+        period_label=body.period_label,
+        highlights=body.highlights,
+        lowlights=body.lowlights,
+        asks=body.asks,
+        status="published" if body.publish else "draft",
+        created_by=user.id,
     )
+    if body.publish:
+        upd.metrics = _metrics_snapshot(db, ctx.entity)
+        upd.published_at = now_ist()
     db.add(upd)
     db.commit()
     db.refresh(upd)
     return upd
 
 
-@router.get("/entities/{entity_id}/investor-updates", response_model=list[InvestorUpdateOut])
+@router.put("/investor-updates/{update_id}", response_model=InvestorUpdateOut)
+def edit_update(
+    body: InvestorUpdateIn,
+    ctx: UpdateCtx = Depends(update_ctx),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    upd = ctx.update
+    if upd.status != "draft":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Only drafts can be edited")
+    upd.title = body.title
+    upd.body = body.body
+    upd.period_label = body.period_label
+    upd.highlights = body.highlights
+    upd.lowlights = body.lowlights
+    upd.asks = body.asks
+    db.commit()
+    db.refresh(upd)
+    return upd
+
+
+@router.post("/investor-updates/{update_id}/publish", response_model=InvestorUpdateOut)
+def publish_draft(ctx: UpdateCtx = Depends(update_ctx), db: Session = Depends(get_db)):
+    from ..models.entity import LegalEntity
+
+    require_write(ctx.role)
+    upd = ctx.update
+    if upd.status == "published":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Update is already published")
+    upd.status = "published"
+    upd.metrics = _metrics_snapshot(db, db.get(LegalEntity, upd.entity_id))
+    upd.published_at = now_ist()
+    db.commit()
+    db.refresh(upd)
+    return upd
+
+
+@router.get("/entities/{entity_id}/investor-updates")
 def list_updates(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)):
-    return (
+    updates = (
         db.query(InvestorUpdate)
         .filter_by(entity_id=ctx.entity.id)
         .order_by(InvestorUpdate.created_at.desc())
         .all()
     )
+    views = db.query(InvestorUpdateView).filter(
+        InvestorUpdateView.update_id.in_([u.id for u in updates])
+    ).all() if updates else []
+    by_update: dict[str, list] = {}
+    for v in views:
+        by_update.setdefault(v.update_id, []).append(v)
+    return [
+        {
+            "id": u.id,
+            "title": u.title,
+            "body": u.body,
+            "period_label": u.period_label,
+            "highlights": u.highlights,
+            "lowlights": u.lowlights,
+            "asks": u.asks,
+            "metrics": u.metrics,
+            "status": u.status,
+            "published_at": u.published_at,
+            "created_at": u.created_at,
+            "viewers": [
+                {
+                    "email": v.email,
+                    "view_count": v.view_count,
+                    "last_viewed_at": v.last_viewed_at,
+                }
+                for v in sorted(by_update.get(u.id, []), key=lambda v: v.email)
+            ],
+        }
+        for u in updates
+    ]
 
 
 # --- investor side: scoped read-only portal (any authenticated user) ---
@@ -123,6 +222,37 @@ def submit_kpi_request(
 ):
     """A portfolio-company contact submits KPI values for a requested period."""
     return svc.submit_kpi_request(db, user, request_id, body.model_dump())
+
+
+@router.post("/portal/updates/{update_id}/view")
+def view_update(
+    update_id: str,
+    user: User = Depends(require_verified_email),
+    db: Session = Depends(get_db),
+):
+    """Record that an invited investor opened a published update (engagement)."""
+    upd = db.get(InvestorUpdate, update_id)
+    access = (
+        db.query(InvestorAccess)
+        .filter_by(entity_id=upd.entity_id, email=user.email)
+        .first()
+        if upd is not None
+        else None
+    )
+    if upd is None or upd.status != "published" or access is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Update not found")
+    view = (
+        db.query(InvestorUpdateView)
+        .filter_by(update_id=upd.id, email=user.email)
+        .first()
+    )
+    if view is None:
+        view = InvestorUpdateView(update_id=upd.id, email=user.email, view_count=0)
+        db.add(view)
+    view.view_count += 1
+    view.last_viewed_at = now_ist()
+    db.commit()
+    return {"id": upd.id, "view_count": view.view_count}
 
 
 @router.post("/portal/notices/{notice_id}/ack")

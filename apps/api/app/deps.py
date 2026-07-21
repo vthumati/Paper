@@ -32,7 +32,7 @@ from .models.identity import WRITE_ROLES, AdvisorAccess, Membership, Role, Tenan
 from .models.instruments import ConvertibleInstrument
 from .models.managed import AdminSubscription
 from .models.marketplace import ServiceEngagement
-from .models.portal import SecondaryRequest
+from .models.portal import InvestorUpdate, SecondaryRequest
 from .models.registers import Charge
 from .models.round import Round
 from .models.spv import SPV
@@ -248,4 +248,7 @@ FounderVestingCtx, founder_vesting_ctx = _entity_scoped(
 QuestionCtx, question_ctx = _entity_scoped(
     "question", DataRoomQuestion, "question_id", "Question",
     owner=lambda q, db: db.get(DataRoom, q.data_room_id).entity_id,
+)
+UpdateCtx, update_ctx = _entity_scoped(
+    "update", InvestorUpdate, "update_id", "Investor update"
 )
