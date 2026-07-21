@@ -39,6 +39,7 @@ from ..schemas import (
     ComplianceGenerateIn,
     DealActivityIn,
     DealContactIn,
+    DealFollowupIn,
     DealIn,
     DealInvestIn,
     DealOut,
@@ -735,6 +736,17 @@ def invest_deal(
 
 
 # --- deal CRM: contacts + activity timeline ---
+def _rel_strength(acts: list[DealActivity], today: datetime.date) -> int:
+    """0-100 heuristic from logged touches (4Degrees-style, activity-driven):
+    frequency (15/touch up to 60) + recency (40 fading to 0 over 6 months)."""
+    if not acts:
+        return 0
+    freq = min(60, len(acts) * 15)
+    days = max(0, (today - max(a.occurred_on for a in acts)).days)
+    recency = max(0, round(40 * (1 - days / 183)))
+    return min(100, freq + recency)
+
+
 def _deal_crm(db: Session, deal_id: str) -> dict:
     contacts = db.query(DealContact).filter_by(deal_id=deal_id).order_by(DealContact.created_at).all()
     acts = (
@@ -743,13 +755,28 @@ def _deal_crm(db: Session, deal_id: str) -> dict:
         .order_by(DealActivity.occurred_on.desc(), DealActivity.created_at.desc())
         .all()
     )
+    today = today_ist()
     return {
+        "strength": _rel_strength(acts, today),
         "contacts": [
-            {"id": c.id, "name": c.name, "role": c.role, "email": c.email, "note": c.note}
+            {
+                "id": c.id,
+                "name": c.name,
+                "role": c.role,
+                "email": c.email,
+                "note": c.note,
+                "strength": _rel_strength([a for a in acts if a.contact_id == c.id], today),
+            }
             for c in contacts
         ],
         "activities": [
-            {"id": a.id, "kind": a.kind, "body": a.body, "occurred_on": a.occurred_on}
+            {
+                "id": a.id,
+                "kind": a.kind,
+                "body": a.body,
+                "occurred_on": a.occurred_on,
+                "contact_id": a.contact_id,
+            }
             for a in acts
         ],
     }
@@ -778,15 +805,33 @@ def add_deal_activity(
     db: Session = Depends(get_db),
 ):
     require_write(ctx.role)
+    if body.contact_id is not None:
+        contact = db.get(DealContact, body.contact_id)
+        if contact is None or contact.deal_id != ctx.deal.id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Contact not found on this deal")
     db.add(DealActivity(
         deal_id=ctx.deal.id,
         kind=body.kind,
         body=body.body,
         occurred_on=body.occurred_on or today_ist(),
         created_by=user.id,
+        contact_id=body.contact_id,
     ))
     db.commit()
     return _deal_crm(db, ctx.deal.id)
+
+
+@router.put("/deals/{deal_id}/followup", response_model=DealOut)
+def set_deal_followup(
+    body: DealFollowupIn, ctx: DealCtx = Depends(deal_ctx), db: Session = Depends(get_db)
+):
+    """Set (or clear with null) the deal's next follow-up date; overdue
+    follow-ups surface in the pipeline and the entity Tasks hub."""
+    require_write(ctx.role)
+    ctx.deal.next_followup_on = body.on
+    db.commit()
+    db.refresh(ctx.deal)
+    return ctx.deal
 
 
 # --- management fees: charge accrual into capital accounts ---

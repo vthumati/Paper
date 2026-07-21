@@ -660,6 +660,11 @@ class DealIn(BaseModel):
     stage: DealStage = DealStage.SOURCED
     amount: Decimal = Field(default=Decimal("0"), ge=0)
     notes: str | None = None
+    source: str | None = None
+
+
+class DealFollowupIn(BaseModel):
+    on: datetime.date | None = None  # null clears the follow-up
 
 
 class DealStageIn(BaseModel):
@@ -682,6 +687,7 @@ class DealActivityIn(BaseModel):
     kind: Literal["note", "meeting", "call", "email", "other"] = "note"
     body: str
     occurred_on: datetime.date | None = None
+    contact_id: str | None = None  # attribute the touch to a deal contact
 
 
 class ScenarioIn(BaseModel):
@@ -732,6 +738,8 @@ class DealOut(ORMModel):
     amount: Decimal
     notes: str | None
     investment_id: str | None
+    source: str | None
+    next_followup_on: datetime.date | None
 
 
 # --- ESOP ---

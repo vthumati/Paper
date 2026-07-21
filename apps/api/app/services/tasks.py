@@ -8,6 +8,7 @@ from ..clock import today_ist
 from ..models.compliance import ComplianceObligation, ObligationStatus
 from ..models.document import Document, SignatureRequest, SignatureStatus
 from ..models.esop import ExerciseRequest, ExerciseRequestStatus
+from ..models.fund import Deal, DealStage, Fund
 from ..models.governance import Resolution
 from ..models.portal import ConsentStatus, InvestorConsent
 
@@ -74,6 +75,25 @@ def entity_tasks(db: Session, entity_id: str) -> dict:
                 "detail": f"{c.email} has not yet responded.",
             }
         )
+
+    # overdue deal follow-ups (fund entities): promised touches that slipped
+    fund = db.query(Fund).filter_by(entity_id=entity_id).first()
+    if fund is not None:
+        for d in db.query(Deal).filter_by(fund_id=fund.id):
+            if (
+                d.next_followup_on is not None
+                and d.next_followup_on < today
+                and d.stage not in (DealStage.INVESTED, DealStage.PASSED)
+            ):
+                tasks.append(
+                    {
+                        "kind": "deal_followup",
+                        "tab": "fund",
+                        "severity": "red",
+                        "title": f"Follow up on {d.company_name}",
+                        "detail": f"Was due {d.next_followup_on.isoformat()} — deal pipeline.",
+                    }
+                )
 
     tasks.sort(key=lambda t: _RANK.get(t["severity"], 3))
     return {

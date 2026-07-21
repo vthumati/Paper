@@ -181,6 +181,10 @@ class Deal(Base, TimestampMixin):
     amount: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
     notes: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     investment_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # who referred the deal (person/firm) — feeds "top deal sources" (FR-J-17)
+    source: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # next follow-up date; overdue follow-ups surface in the pipeline + Tasks hub
+    next_followup_on: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
 
 
 class DealContact(Base, TimestampMixin):
@@ -209,6 +213,10 @@ class DealActivity(Base, TimestampMixin):
     body: Mapped[str] = mapped_column(String(2000))
     occurred_on: Mapped[datetime.date] = mapped_column(Date)
     created_by: Mapped[str] = mapped_column(String(32))
+    # optional attribution to a deal contact — drives relationship strength
+    contact_id: Mapped[str | None] = mapped_column(
+        ForeignKey("deal_contacts.id"), nullable=True
+    )
 
 
 class FeeCharge(Base, TimestampMixin):

@@ -18,7 +18,7 @@ def test_contacts_and_activities(client):
     _, did = _deal(client, h)
 
     crm = client.get(f"/deals/{did}/crm", headers=h).json()
-    assert crm == {"contacts": [], "activities": []}
+    assert crm == {"strength": 0, "contacts": [], "activities": []}
 
     crm = client.post(
         f"/deals/{did}/contacts",
