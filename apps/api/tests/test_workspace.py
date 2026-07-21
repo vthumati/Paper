@@ -90,3 +90,29 @@ def test_workspace_access_control(client):
     eid = _entity(client, owner)
     outsider = auth_headers(client, email="outsider@evil.in")
     assert client.get(f"/entities/{eid}/dashboard", headers=outsider).status_code == 403
+
+
+def test_delete_empty_workspace(client):
+    h = auth_headers(client)
+    tid = client.post("/tenants", json={"name": "Throwaway", "type": "company"}, headers=h).json()["id"]
+    assert client.delete(f"/tenants/{tid}", headers=h).status_code == 204
+    # gone from the owner's workspace list and no longer fetchable
+    assert tid not in [t["id"] for t in client.get("/tenants", headers=h).json()]
+    assert client.get(f"/tenants/{tid}", headers=h).status_code == 404
+
+
+def test_delete_workspace_with_entities_refused(client):
+    h = auth_headers(client)
+    tid = client.post("/tenants", json={"name": "Acme", "type": "company"}, headers=h).json()["id"]
+    client.post(f"/tenants/{tid}/entities", json={"name": "Acme Pvt Ltd", "type": "pvt_ltd"}, headers=h)
+    r = client.delete(f"/tenants/{tid}", headers=h)
+    assert r.status_code == 409
+    # still there
+    assert tid in [t["id"] for t in client.get("/tenants", headers=h).json()]
+
+
+def test_delete_workspace_requires_membership(client):
+    owner = auth_headers(client, email="owner2@acme.in")
+    tid = client.post("/tenants", json={"name": "Private", "type": "company"}, headers=owner).json()["id"]
+    outsider = auth_headers(client, email="stranger@evil.in")
+    assert client.delete(f"/tenants/{tid}", headers=outsider).status_code == 403
