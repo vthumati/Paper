@@ -1705,6 +1705,8 @@ export const api = {
   valuationReport: (fid: string) => post<Document>(`/funds/${fid}/valuations/report`),
   tearSheet: (fid: string, iid: string) =>
     post<Document>(`/funds/${fid}/portfolio/${iid}/tear-sheet`),
+  lpReport: (fid: string, b: { period_label: string; period_start: string; period_end: string }) =>
+    post<Document>(`/funds/${fid}/lp-report`, b),
   fundraiseSummary: (fid: string) => get<FundraiseSummary>(`/funds/${fid}/fundraise`),
   addLpProspect: (fid: string, b: Partial<LPProspect>) =>
     post<FundraiseSummary>(`/funds/${fid}/prospects`, b),

@@ -253,7 +253,30 @@ export default function Fund({
           </div>
 
           <div className="card">
-            <h3>Capital accounts</h3>
+            <h3>
+              Capital accounts{" "}
+              <button
+                className="secondary"
+                style={{ marginLeft: 8 }}
+                onClick={guard(async () => {
+                  const now = new Date();
+                  const qm = Math.floor(now.getMonth() / 3) * 3;
+                  const iso = (d: Date) =>
+                    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                  const start = await uiPrompt("Report period start (YYYY-MM-DD):", iso(new Date(now.getFullYear(), qm, 1)));
+                  if (!start) return;
+                  const end = await uiPrompt("Report period end (YYYY-MM-DD):", iso(new Date(now.getFullYear(), qm + 3, 0)));
+                  if (!end) return;
+                  const em = Number(end.slice(5, 7));
+                  const ey = Number(end.slice(0, 4));
+                  const label = `FY${(em >= 4 ? ey + 1 : ey) % 100} Q${em >= 4 ? Math.ceil((em - 3) / 3) : 4}`;
+                  await api.lpReport(fund.id, { period_label: label, period_start: start, period_end: end });
+                  setNote(`LP report ${label} generated — every LP sees it in their portal statements; it's also in Documents.`);
+                }, "LP report generated")}
+              >
+                Quarterly LP report
+              </button>
+            </h3>
             {accounts && accounts.accounts.length > 0 ? (
               <table>
                 <thead>
