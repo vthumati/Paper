@@ -353,6 +353,7 @@ class PortfolioInvestment(Base, TimestampMixin):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
     fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), index=True)
     company_name: Mapped[str] = mapped_column(String(255))
+    sector: Mapped[str | None] = mapped_column(String(64), nullable=True)  # segment tag
     instrument: Mapped[str] = mapped_column(String(32), default="equity")
     amount: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
     ownership_pct: Mapped[Decimal] = mapped_column(Numeric(6, 2), default=Decimal("0"))

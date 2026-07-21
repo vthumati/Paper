@@ -516,6 +516,61 @@ def compute_plan(db: Session, fund: Fund) -> dict:
     def pct_of(part: Decimal, whole: Decimal) -> float | None:
         return round(float(part / whole * 100), 1) if whole > 0 else None
 
+    # variance report: plan vs the live ledgers, row per comparable metric
+    from .fund_perf import fund_performance as _perf
+
+    investments = db.query(PortfolioInvestment).filter_by(fund_id=fund.id).all()
+    avg_cheque_actual = (
+        deployed_actual / len(investments) if investments else Decimal("0")
+    )
+    fv_total = sum(
+        (Decimal(p.current_value if p.current_value is not None else p.amount) for p in investments),
+        Decimal("0"),
+    )
+    moic_actual = (fv_total / deployed_actual) if deployed_actual > 0 else None
+    perf = _perf(db, fund)
+    tvpi_actual = Decimal(perf["tvpi"]) if perf["tvpi"] else None
+
+    # planned deployment to date: pacing years elapsed since the first investment
+    first_dates = [p.invested_on for p in investments if p.invested_on]
+    planned_to_date = None
+    if first_dates and inv_period:
+        elapsed_years = min(
+            inv_period, max(1, (today_ist() - min(first_dates)).days // 365 + 1)
+        )
+        planned_to_date = (investable / inv_period) * elapsed_years
+
+    def _variance(planned, actual) -> float | None:
+        if planned is None or actual is None or Decimal(str(planned)) == 0:
+            return None
+        return round(float((Decimal(str(actual)) - Decimal(str(planned))) / Decimal(str(planned)) * 100), 1)
+
+    variance = [
+        {"metric": "Committed capital", "unit": "inr",
+         "planned": str(q(size)), "actual": str(q(committed_actual)),
+         "variance_pct": _variance(size, committed_actual)},
+        {"metric": "Capital deployed to date", "unit": "inr",
+         "planned": str(q(planned_to_date)) if planned_to_date is not None else None,
+         "actual": str(q(deployed_actual)),
+         "variance_pct": _variance(planned_to_date, deployed_actual)},
+        {"metric": "Average initial cheque", "unit": "inr",
+         "planned": str(q(cheque)) if cheque > 0 else None,
+         "actual": str(q(avg_cheque_actual)) if investments else None,
+         "variance_pct": _variance(cheque if cheque > 0 else None,
+                                   avg_cheque_actual if investments else None)},
+        {"metric": "Portfolio companies", "unit": "number",
+         "planned": num_deals or None, "actual": deals_actual,
+         "variance_pct": _variance(num_deals or None, deals_actual)},
+        {"metric": "Gross MOIC", "unit": "x",
+         "planned": str(moic),
+         "actual": str(moic_actual.quantize(Decimal("0.01"), ROUND_HALF_UP)) if moic_actual is not None else None,
+         "variance_pct": _variance(moic, moic_actual)},
+        {"metric": "Net TVPI", "unit": "x",
+         "planned": str(net_tvpi.quantize(Decimal("0.01"), ROUND_HALF_UP)) if net_tvpi else None,
+         "actual": str(tvpi_actual) if tvpi_actual is not None else None,
+         "variance_pct": _variance(net_tvpi, tvpi_actual)},
+    ]
+
     return {
         "has_plan": has_plan,
         "inputs": {
@@ -553,6 +608,7 @@ def compute_plan(db: Session, fund: Fund) -> dict:
             "deployed_vs_initial_pct": pct_of(deployed_actual, initial_capital),
             "deals_vs_plan_pct": round(deals_actual / num_deals * 100, 1) if num_deals else None,
         },
+        "variance": variance,
     }
 
 
@@ -653,6 +709,7 @@ def portfolio_monitoring(db: Session, fund: Fund) -> dict:
         companies.append({
             "investment_id": inv.id,
             "company_name": inv.company_name,
+            "sector": inv.sector,
             "contact_email": inv.contact_email,
             "ownership_pct": str(inv.ownership_pct),
             "periods": len(rows),
@@ -787,15 +844,33 @@ def portfolio_benchmarks(db: Session, fund: Fund) -> dict:
             {
                 "investment_id": c["investment_id"],
                 "company_name": c["company_name"],
+                "sector": c["sector"],
                 "values": values,
             }
         )
 
-    medians = {}
-    for m in metrics:
-        xs = [r["values"][m["key"]] for r in rows if r["values"][m["key"]] is not None]
-        medians[m["key"]] = round(median(xs), 2) if xs else None
-    return {"fund_id": fund.id, "metrics": metrics, "rows": rows, "medians": medians}
+    def _medians(over: list[dict]) -> dict:
+        out = {}
+        for m in metrics:
+            xs = [r["values"][m["key"]] for r in over if r["values"][m["key"]] is not None]
+            out[m["key"]] = round(median(xs), 2) if xs else None
+        return out
+
+    # segment comparison: medians per sector tag (untagged companies grouped as "—")
+    by_segment: dict[str, list[dict]] = {}
+    for r in rows:
+        by_segment.setdefault(r["sector"] or "—", []).append(r)
+    segments = [
+        {"segment": seg, "companies": len(members), "medians": _medians(members)}
+        for seg, members in sorted(by_segment.items())
+    ]
+    return {
+        "fund_id": fund.id,
+        "metrics": metrics,
+        "rows": rows,
+        "medians": _medians(rows),
+        "segments": segments if len(segments) > 1 else [],
+    }
 
 
 # --- metric alert rules (Visible-style thresholds) -----------------------------

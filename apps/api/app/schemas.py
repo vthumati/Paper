@@ -561,6 +561,7 @@ class DistributionOut(ORMModel):
 
 class PortfolioIn(BaseModel):
     company_name: str
+    sector: str | None = None
     instrument: str = "equity"
     amount: Decimal = Decimal("0")
     ownership_pct: Decimal = Decimal("0")
@@ -570,6 +571,7 @@ class PortfolioIn(BaseModel):
 class PortfolioOut(ORMModel):
     id: str
     company_name: str
+    sector: str | None = None
     instrument: str
     amount: Decimal
     ownership_pct: Decimal
