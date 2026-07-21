@@ -1172,6 +1172,17 @@ export interface MetricAlertRuleList {
   rules: MetricAlertRule[];
   metrics: { key: string; label: string; unit: string }[];
 }
+export interface DDQEntry {
+  id: string;
+  category: string;
+  question: string;
+  answer: string | null;
+  answered: boolean;
+}
+export interface DDQList {
+  entries: DDQEntry[];
+  presets: { category: string; question: string }[];
+}
 export interface PortfolioMonitoring {
   fund_id: string;
   totals: {
@@ -1818,6 +1829,13 @@ export const api = {
     del<void>(`/funds/${fid}/kpi-definitions/${did}`),
   portfolioBenchmarks: (fid: string) =>
     get<PortfolioBenchmarks>(`/funds/${fid}/benchmarks`),
+  listDdq: (fid: string) => get<DDQList>(`/funds/${fid}/ddq`),
+  addDdqEntry: (fid: string, b: { question: string; category?: string | null; answer?: string | null }) =>
+    post<DDQEntry>(`/funds/${fid}/ddq`, b),
+  updateDdqEntry: (fid: string, id: string, b: { question?: string; category?: string; answer?: string | null }) =>
+    put<DDQEntry>(`/funds/${fid}/ddq/${id}`, b),
+  deleteDdqEntry: (fid: string, id: string) => del<void>(`/funds/${fid}/ddq/${id}`),
+  ddqReport: (fid: string) => post<Document>(`/funds/${fid}/ddq/report`),
   listAlertRules: (fid: string) => get<MetricAlertRuleList>(`/funds/${fid}/alert-rules`),
   addAlertRule: (fid: string, b: unknown) =>
     post<MetricAlertRule>(`/funds/${fid}/alert-rules`, b),
