@@ -15,7 +15,7 @@ capital distributions don't stop the clock)."""
 import datetime
 import secrets
 from decimal import ROUND_HALF_UP, Decimal
-from statistics import median
+from statistics import median, quantiles
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -865,12 +865,36 @@ def portfolio_benchmarks(db: Session, fund: Fund) -> dict:
         {"segment": seg, "companies": len(members), "medians": _medians(members)}
         for seg, members in sorted(by_segment.items())
     ]
+
+    # distribution stats per metric (Visible-style quartile view)
+    stats = {}
+    for m in metrics:
+        xs = sorted(r["values"][m["key"]] for r in rows if r["values"][m["key"]] is not None)
+        if not xs:
+            stats[m["key"]] = None
+            continue
+        q1, q2, q3 = (
+            [round(q, 2) for q in quantiles(xs, n=4, method="inclusive")]
+            if len(xs) >= 2
+            else [xs[0], xs[0], xs[0]]
+        )
+        stats[m["key"]] = {
+            "min": round(xs[0], 2),
+            "q1": q1,
+            "median": q2,
+            "q3": q3,
+            "max": round(xs[-1], 2),
+            "total": round(sum(xs), 2),
+            "reporters": len(xs),
+        }
+
     return {
         "fund_id": fund.id,
         "metrics": metrics,
         "rows": rows,
         "medians": _medians(rows),
         "segments": segments if len(segments) > 1 else [],
+        "stats": stats,
     }
 
 
