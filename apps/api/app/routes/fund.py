@@ -71,6 +71,7 @@ from ..services import document as docsvc
 from ..services import fund as svc
 from ..services import fy
 from ..services.fund_perf import fund_performance
+from ..services.fund_perf import performance_series as perf_series
 
 router = APIRouter(tags=["fund"])
 
@@ -934,6 +935,11 @@ def performance(
     db: Session = Depends(get_db),
 ):
     return fund_performance(db, ctx.fund, as_of)
+
+
+@router.get("/funds/{fund_id}/performance-series")
+def performance_series(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    return perf_series(db, ctx.fund)
 
 
 # --- LP capital-account statement (generated document, FR-J-7) ---

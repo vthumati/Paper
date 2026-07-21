@@ -23,6 +23,7 @@ from ..models.fund import (
     Fund,
     LPDistribution,
     PortfolioInvestment,
+    PortfolioValuation,
 )
 from .money import q
 
@@ -85,6 +86,71 @@ def _xirr(cashflows: list[tuple[datetime.date, Decimal]]) -> float | None:
         else:
             lo = mid
     return round((lo + hi) / 2 * 100, 2)
+
+
+def performance_series(db: Session, fund: Fund) -> list[dict]:
+    """NAV / DPI / RVPI / TVPI at each ledger-event date — the trend behind the
+    headline metrics. Same simplifications as fund_performance; each position
+    is valued at its latest valuation or mark dated on or before the point,
+    falling back to cost from its investment date."""
+    inflows = [
+        ((n.paid_at or n.created_at).date(), Decimal(n.amount))
+        for n in db.query(DrawdownNotice).filter_by(fund_id=fund.id, paid=True)
+    ]
+    if not inflows:
+        return []
+    dist_dates = {
+        d.id: d.date or d.created_at.date()
+        for d in db.query(Distribution).filter_by(fund_id=fund.id)
+    }
+    today = today_ist()
+    outflows = [
+        (dist_dates.get(r.distribution_id, today), Decimal(r.amount))
+        for r in db.query(LPDistribution).filter_by(fund_id=fund.id)
+    ]
+
+    invs = db.query(PortfolioInvestment).filter_by(fund_id=fund.id).all()
+    marks: dict[str, list[tuple[datetime.date, Decimal]]] = {}
+    for inv in invs:
+        pts = [
+            (v.as_of, Decimal(v.value))
+            for v in db.query(PortfolioValuation).filter_by(investment_id=inv.id)
+        ]
+        if inv.current_value is not None and inv.marked_on is not None:
+            pts.append((inv.marked_on, Decimal(inv.current_value)))
+        marks[inv.id] = sorted(pts)
+
+    dates = {d for d, _ in inflows} | {d for d, _ in outflows} | {today}
+    dates |= {inv.invested_on or inv.created_at.date() for inv in invs}
+    for pts in marks.values():
+        dates |= {d for d, _ in pts}
+
+    def ratio(x: Decimal, paid_in: Decimal) -> str:
+        return str((x / paid_in).quantize(Decimal("0.01"), ROUND_HALF_UP))
+
+    series = []
+    for t in sorted(dates):
+        paid_in = sum((a for d, a in inflows if d <= t), Decimal("0"))
+        if paid_in <= 0:
+            continue
+        distributed = sum((a for d, a in outflows if d <= t), Decimal("0"))
+        nav = Decimal("0")
+        for inv in invs:
+            if (inv.invested_on or inv.created_at.date()) > t:
+                continue
+            dated = [v for d, v in marks[inv.id] if d <= t]
+            nav += dated[-1] if dated else Decimal(inv.amount)
+        series.append(
+            {
+                "date": t.isoformat(),
+                "paid_in": str(q(paid_in)),
+                "nav": str(q(nav)),
+                "dpi": ratio(distributed, paid_in),
+                "rvpi": ratio(nav, paid_in),
+                "tvpi": ratio(distributed + nav, paid_in),
+            }
+        )
+    return series
 
 
 def fund_performance(db: Session, fund: Fund, as_of: datetime.date | None = None) -> dict:
