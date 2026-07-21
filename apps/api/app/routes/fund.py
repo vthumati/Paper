@@ -58,6 +58,7 @@ from ..schemas import (
     FundValuationPolicyIn,
     KPIDefinitionIn,
     KPIRequestIn,
+    MetricAlertRuleIn,
     LPIn,
     LPOut,
     LPProspectActivityIn,
@@ -705,6 +706,33 @@ def delete_kpi_definition(
 ):
     require_write(ctx.role)
     svc.delete_kpi_definition(db, ctx.fund, definition_id)
+
+
+# --- metric alert rules: fund-defined thresholds (FR-J-20 extended) ---
+@router.get("/funds/{fund_id}/alert-rules")
+def list_alert_rules(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    return svc.list_alert_rules(db, ctx.fund)
+
+
+@router.post("/funds/{fund_id}/alert-rules", status_code=201)
+def create_alert_rule(
+    body: MetricAlertRuleIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    return svc.create_alert_rule(db, ctx.fund, body.model_dump(), user.id)
+
+
+@router.delete("/funds/{fund_id}/alert-rules/{rule_id}", status_code=204)
+def delete_alert_rule(
+    rule_id: str,
+    ctx: FundCtx = Depends(fund_ctx),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    svc.delete_alert_rule(db, ctx.fund, rule_id)
 
 
 # --- internal benchmarking: portfolio medians (FR-J-24) ---

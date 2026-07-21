@@ -35,6 +35,7 @@ from ..models.fund import (
     LPDistribution,
     LPProspect,
     LPProspectStage,
+    MetricAlertRule,
     PortfolioInvestment,
     PortfolioKPI,
     PortfolioValuation,
@@ -743,19 +744,29 @@ def delete_kpi_definition(db: Session, fund: Fund, definition_id: str) -> None:
 
 
 # --- internal benchmarking: portfolio medians (FR-J-24) -----------------------
+CORE_METRICS = [
+    {"key": "revenue", "label": "Revenue", "unit": "inr"},
+    {"key": "revenue_growth_pct", "label": "Revenue growth %", "unit": "pct"},
+    {"key": "monthly_burn", "label": "Monthly burn", "unit": "inr"},
+    {"key": "runway_months", "label": "Runway (months)", "unit": "number"},
+    {"key": "headcount", "label": "Headcount", "unit": "number"},
+]
+
+
+def metric_options(db: Session, fund: Fund) -> list[dict]:
+    """The comparable metric catalog: core KPIs + the fund's custom
+    definitions (keyed `custom.<key>`). Shared by benchmarks and alerts."""
+    return CORE_METRICS + [
+        {"key": f"custom.{d['key']}", "label": d["label"], "unit": d["unit"]}
+        for d in list_kpi_definitions(db, fund)
+    ]
+
+
 def portfolio_benchmarks(db: Session, fund: Fund) -> dict:
     """Companies side-by-side on the core and custom metrics from each one's
     latest reported period, against the portfolio median. Pure derivation."""
     defs = list_kpi_definitions(db, fund)
-    metrics = [
-        {"key": "revenue", "label": "Revenue", "unit": "inr"},
-        {"key": "revenue_growth_pct", "label": "Revenue growth %", "unit": "pct"},
-        {"key": "monthly_burn", "label": "Monthly burn", "unit": "inr"},
-        {"key": "runway_months", "label": "Runway (months)", "unit": "number"},
-        {"key": "headcount", "label": "Headcount", "unit": "number"},
-    ] + [
-        {"key": f"custom.{d['key']}", "label": d["label"], "unit": d["unit"]} for d in defs
-    ]
+    metrics = metric_options(db, fund)
 
     rows = []
     for c in portfolio_monitoring(db, fund)["companies"]:
@@ -783,6 +794,69 @@ def portfolio_benchmarks(db: Session, fund: Fund) -> dict:
         xs = [r["values"][m["key"]] for r in rows if r["values"][m["key"]] is not None]
         medians[m["key"]] = round(median(xs), 2) if xs else None
     return {"fund_id": fund.id, "metrics": metrics, "rows": rows, "medians": medians}
+
+
+# --- metric alert rules (Visible-style thresholds) -----------------------------
+ALERT_COMPARATORS = ("lt", "gt")
+ALERT_SEVERITIES = ("high", "warn")
+
+
+def _rule_view(r: MetricAlertRule) -> dict:
+    return {
+        "id": r.id,
+        "metric": r.metric,
+        "comparator": r.comparator,
+        "threshold": str(r.threshold),
+        "severity": r.severity,
+    }
+
+
+def list_alert_rules(db: Session, fund: Fund) -> dict:
+    rows = (
+        db.query(MetricAlertRule)
+        .filter_by(fund_id=fund.id)
+        .order_by(MetricAlertRule.created_at)
+        .all()
+    )
+    return {"rules": [_rule_view(r) for r in rows], "metrics": metric_options(db, fund)}
+
+
+def create_alert_rule(db: Session, fund: Fund, data: dict, user_id: str) -> dict:
+    if data["comparator"] not in ALERT_COMPARATORS:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"comparator must be one of {ALERT_COMPARATORS}")
+    if data.get("severity", "warn") not in ALERT_SEVERITIES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"severity must be one of {ALERT_SEVERITIES}")
+    known = {m["key"] for m in metric_options(db, fund)}
+    if data["metric"] not in known:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"unknown metric '{data['metric']}'")
+    r = MetricAlertRule(
+        fund_id=fund.id,
+        metric=data["metric"],
+        comparator=data["comparator"],
+        threshold=Decimal(str(data["threshold"])),
+        severity=data.get("severity", "warn"),
+        created_by=user_id,
+    )
+    db.add(r)
+    db.commit()
+    db.refresh(r)
+    return _rule_view(r)
+
+
+def delete_alert_rule(db: Session, fund: Fund, rule_id: str) -> None:
+    r = db.get(MetricAlertRule, rule_id)
+    if r is None or r.fund_id != fund.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Alert rule not found")
+    db.delete(r)
+    db.commit()
+
+
+def _fmt_metric(value: float | Decimal, unit: str) -> str:
+    if unit == "inr":
+        return _inr(value)
+    if unit == "pct":
+        return f"{round(float(value), 1)}%"
+    return f"{round(float(value), 1):g}"
 
 
 # --- fund financial statements (Carta "fund accounting", no GL export) --------
@@ -1211,6 +1285,8 @@ def portfolio_signals(db: Session, fund: Fund) -> dict:
     today = today_ist()
     companies = []
     totals = {"high": 0, "warn": 0, "info": 0, "positive": 0}
+    alert_rules = db.query(MetricAlertRule).filter_by(fund_id=fund.id).all()
+    metric_meta = {m["key"]: m for m in metric_options(db, fund)} if alert_rules else {}
 
     for inv in db.query(PortfolioInvestment).filter_by(fund_id=fund.id):
         rows = (
@@ -1266,6 +1342,33 @@ def portfolio_signals(db: Session, fund: Fund) -> dict:
                 "warn",
                 f"No report since {latest.period_label} ({latest.as_of}) — over 6 months",
             )
+
+        # fund-defined metric alerts against the latest period
+        if alert_rules:
+            values: dict[str, float | None] = {
+                "revenue": float(latest.revenue) if latest and latest.revenue is not None else None,
+                "revenue_growth_pct": growth,
+                "monthly_burn": float(latest.monthly_burn) if latest and latest.monthly_burn is not None else None,
+                "runway_months": runway,
+                "headcount": latest.headcount if latest else None,
+            }
+            for k, v in ((latest.custom or {}).items() if latest else ()):
+                if v is not None:
+                    values[f"custom.{k}"] = float(v)
+            for r in alert_rules:
+                v = values.get(r.metric)
+                meta = metric_meta.get(r.metric)
+                if v is None or meta is None:
+                    continue
+                threshold = float(r.threshold)
+                if (r.comparator == "lt" and v < threshold) or (r.comparator == "gt" and v > threshold):
+                    word = "below" if r.comparator == "lt" else "above"
+                    add(
+                        "metric_alert",
+                        r.severity,
+                        f"{meta['label']} {_fmt_metric(v, meta['unit'])} — {word} the "
+                        f"{_fmt_metric(threshold, meta['unit'])} alert threshold",
+                    )
 
         # the positive signal: growing and well-funded
         if (

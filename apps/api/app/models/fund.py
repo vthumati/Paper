@@ -311,6 +311,22 @@ class KPIDefinition(Base, TimestampMixin):
     created_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
+class MetricAlertRule(Base, TimestampMixin):
+    """A fund-defined performance threshold on a tracked metric (Visible-style
+    metric alerts). Evaluated on read against each company's latest reported
+    period; breaches surface as portfolio signals."""
+
+    __tablename__ = "metric_alert_rules"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), index=True)
+    metric: Mapped[str] = mapped_column(String(72))  # core key or custom.<key>
+    comparator: Mapped[str] = mapped_column(String(2))  # lt | gt
+    threshold: Mapped[Decimal] = mapped_column(Numeric(20, 2))
+    severity: Mapped[str] = mapped_column(String(8), default="warn")  # high | warn
+    created_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
 class PortfolioValuation(Base, TimestampMixin):
     """An independent valuation of a portfolio holding (SEBI AIF requirement).
     Append-only history; the latest by as_of becomes the holding's mark

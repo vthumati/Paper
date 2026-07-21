@@ -633,6 +633,13 @@ class KPIDefinitionIn(BaseModel):
     key: str | None = None  # defaults to a slug of the label; presets pass theirs
 
 
+class MetricAlertRuleIn(BaseModel):
+    metric: str  # core key or custom.<key>
+    comparator: Literal["lt", "gt"]
+    threshold: Decimal
+    severity: Literal["high", "warn"] = "warn"
+
+
 class LPReportIn(BaseModel):
     period_label: str
     period_start: datetime.date
