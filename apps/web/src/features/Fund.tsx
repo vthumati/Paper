@@ -282,7 +282,7 @@ export default function Fund({
               <input value={callPct} onChange={(e) => setCallPct(e.target.value)} />
               <div style={{ marginTop: 10 }}>
                 <button
-                  disabled={lps.length === 0}
+                  disabled={lps.length === 0 || !(Number(callPct) > 0)}
                   onClick={guard(() =>
                     api.createCall(fund.id, { pct: String(Number(callPct) / 100) }),
                     "Capital call issued"
@@ -304,7 +304,7 @@ export default function Fund({
               </select>
               <div style={{ marginTop: 10 }}>
                 <button
-                  disabled={!distAmt}
+                  disabled={!(Number(distAmt) > 0)}
                   onClick={guard(async () => {
                     await api.distribute(fund.id, { gross_amount: distAmt, kind: distKind });
                     setDistAmt("");
@@ -549,7 +549,7 @@ export default function Fund({
               <input placeholder="Sector (segment)" value={coSector} onChange={(e) => setCoSector(e.target.value)} />
               <button
                 style={{ flex: "0 0 auto" }}
-                disabled={!coName}
+                disabled={!coName || (coAmt !== "" && !(Number(coAmt) >= 0))}
                 onClick={guard(async () => {
                   await api.addInvestment(fund.id, {
                     company_name: coName, amount: coAmt || "0", sector: coSector || null,

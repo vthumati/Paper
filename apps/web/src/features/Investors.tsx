@@ -315,8 +315,7 @@ export default function Investors({ entityId }: { entityId: string }) {
             onClick={guard(async () => {
               await api.createInvestorReport(entityId, { period_label: period, highlights });
               setPeriod(""); setHighlights("");
-              window.alert("Investor report generated — see the Documents tab.");
-            })}
+            }, "Investor report generated — see the Documents tab.")}
           >
             Generate report
           </button>
@@ -328,7 +327,7 @@ export default function Investors({ entityId }: { entityId: string }) {
         if (published.length === 0 || access.length === 0) return null;
         const rows = published.map((u) => {
           const opened = (u.viewers ?? []).length;
-          return { title: u.title, recipients: u.audience?.length ?? access.length, opened };
+          return { id: u.id, title: u.title, recipients: u.audience?.length ?? access.length, opened };
         });
         const totals = rows.reduce(
           (s, r) => ({ recipients: s.recipients + r.recipients, opened: s.opened + r.opened }),
@@ -354,7 +353,7 @@ export default function Investors({ entityId }: { entityId: string }) {
                   <td style={{ fontWeight: 600 }}>{rate(totals.opened, totals.recipients)}</td>
                 </tr>
                 {rows.map((r) => (
-                  <tr key={r.title + r.recipients}>
+                  <tr key={r.id}>
                     <td>{r.title}</td>
                     <td>{r.recipients}</td>
                     <td>{r.opened}</td>
