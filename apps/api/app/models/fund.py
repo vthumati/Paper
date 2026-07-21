@@ -397,4 +397,21 @@ class KPIRequest(Base, TimestampMixin):
     note: Mapped[str | None] = mapped_column(String(500), nullable=True)
     submitted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
     kpi_id: Mapped[str | None] = mapped_column(String(32), nullable=True)  # set on accept
+    # no-login submission: a secret link token the contact can use without an account
+    token: Mapped[str | None] = mapped_column(String(43), nullable=True, unique=True)
+    created_by: Mapped[str] = mapped_column(String(32))
+
+
+class KPIRequestSchedule(Base, TimestampMixin):
+    """A recurring KPI-request cadence per portfolio company (Visible-style
+    scheduled Requests). Materialised on read: opening the requests list
+    creates the request for the last completed period if it doesn't exist."""
+
+    __tablename__ = "kpi_request_schedules"
+    __table_args__ = (UniqueConstraint("investment_id"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    investment_id: Mapped[str] = mapped_column(ForeignKey("portfolio_investments.id"))
+    fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), index=True)
+    cadence: Mapped[str] = mapped_column(String(9))  # monthly | quarterly
     created_by: Mapped[str] = mapped_column(String(32))

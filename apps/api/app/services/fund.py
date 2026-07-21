@@ -13,6 +13,7 @@ any one distribution is the cumulative GP target minus GP already paid.
 Simplification: pref keeps accruing on all paid-in capital (earlier return-of-
 capital distributions don't stop the clock)."""
 import datetime
+import secrets
 from decimal import ROUND_HALF_UP, Decimal
 from statistics import median
 
@@ -30,6 +31,7 @@ from ..models.fund import (
     FundPlan,
     KPIDefinition,
     KPIRequest,
+    KPIRequestSchedule,
     KPIRequestStatus,
     LP,
     LPDistribution,
@@ -1167,6 +1169,7 @@ def create_kpi_request(
         investment_id=investment.id,
         fund_id=investment.fund_id,
         created_by=user_id,
+        token=secrets.token_urlsafe(16),
         **data,
     )
     db.add(req)
@@ -1204,7 +1207,121 @@ def _kpi_request_view(r: KPIRequest, company_name: str | None = None) -> dict:
         "note": r.note,
         "submitted_at": r.submitted_at,
         "kpi_id": r.kpi_id,
+        "token": r.token,
     }
+
+
+def submit_request_values(db: Session, req: KPIRequest, payload: dict) -> dict:
+    """Write submitted KPI values onto a pending request (shared by the portal
+    and the no-login token link)."""
+    if req.status != KPIRequestStatus.PENDING:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Request already submitted")
+    for k, v in payload.items():
+        setattr(req, k, v)
+    req.status = KPIRequestStatus.SUBMITTED
+    req.submitted_at = now_ist()
+    db.commit()
+    return {"id": req.id, "status": req.status.value, "submitted_at": req.submitted_at}
+
+
+# --- recurring request schedules (Visible-style scheduled Requests) ------------
+SCHEDULE_GRACE_DAYS = 14  # due date = period end + grace
+
+
+def _last_completed_period(today: datetime.date, cadence: str) -> tuple[str, datetime.date]:
+    """Label + end date of the last fully completed month / calendar quarter
+    (quarters labelled as Indian-FY quarters, e.g. Apr–Jun 2026 -> FY27 Q1)."""
+    if cadence == "monthly":
+        end = today.replace(day=1) - datetime.timedelta(days=1)
+        return end.strftime("%b %Y"), end
+    qstart_month = ((today.month - 1) // 3) * 3 + 1
+    end = datetime.date(today.year, qstart_month, 1) - datetime.timedelta(days=1)
+    fy = end.year + 1 if end.month >= 4 else end.year
+    qn = (end.month - 1) // 3 if end.month >= 4 else 4
+    return f"FY{fy % 100} Q{qn}", end
+
+
+def ensure_scheduled_requests(db: Session, fund: Fund) -> int:
+    """Materialise the KPI request for each schedule's last completed period
+    if it doesn't exist yet (on-read, idempotent). Returns how many were created."""
+    created = 0
+    today = today_ist()
+    for s in db.query(KPIRequestSchedule).filter_by(fund_id=fund.id).all():
+        inv = db.get(PortfolioInvestment, s.investment_id)
+        if inv is None or not inv.contact_email:
+            continue
+        label, end = _last_completed_period(today, s.cadence)
+        if db.query(KPIRequest).filter_by(investment_id=inv.id, period_label=label).first():
+            continue
+        create_kpi_request(
+            db,
+            inv,
+            {
+                "period_label": label,
+                "as_of": end,
+                "due_date": end + datetime.timedelta(days=SCHEDULE_GRACE_DAYS),
+                "contact_email": inv.contact_email,
+            },
+            s.created_by,
+        )
+        created += 1
+    return created
+
+
+def _schedule_view(s: KPIRequestSchedule, inv: PortfolioInvestment | None) -> dict:
+    return {
+        "id": s.id,
+        "investment_id": s.investment_id,
+        "company_name": inv.company_name if inv else None,
+        "contact_email": inv.contact_email if inv else None,
+        "cadence": s.cadence,
+    }
+
+
+def list_kpi_schedules(db: Session, fund: Fund) -> list[dict]:
+    return [
+        _schedule_view(s, db.get(PortfolioInvestment, s.investment_id))
+        for s in db.query(KPIRequestSchedule)
+        .filter_by(fund_id=fund.id)
+        .order_by(KPIRequestSchedule.created_at)
+    ]
+
+
+def upsert_kpi_schedule(
+    db: Session, investment: PortfolioInvestment, data: dict, user_id: str
+) -> dict:
+    if data.get("contact_email"):
+        investment.contact_email = data["contact_email"]
+    if not investment.contact_email:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Set a reporting contact for the company first"
+        )
+    s = db.query(KPIRequestSchedule).filter_by(investment_id=investment.id).first()
+    if s is None:
+        s = KPIRequestSchedule(
+            investment_id=investment.id,
+            fund_id=investment.fund_id,
+            cadence=data["cadence"],
+            created_by=user_id,
+        )
+        db.add(s)
+    else:
+        s.cadence = data["cadence"]
+    db.commit()
+    db.refresh(s)
+    return _schedule_view(s, investment)
+
+
+def delete_kpi_schedule(db: Session, fund: Fund, investment_id: str) -> None:
+    s = (
+        db.query(KPIRequestSchedule)
+        .filter_by(fund_id=fund.id, investment_id=investment_id)
+        .first()
+    )
+    if s is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Schedule not found")
+    db.delete(s)
+    db.commit()
 
 
 def list_kpi_requests(db: Session, fund: Fund) -> list[dict]:

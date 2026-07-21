@@ -58,6 +58,8 @@ from ..schemas import (
     FundValuationPolicyIn,
     KPIDefinitionIn,
     KPIRequestIn,
+    KPIRequestSubmitIn,
+    KPIScheduleIn,
     MetricAlertRuleIn,
     LPIn,
     LPOut,
@@ -618,7 +620,68 @@ def portfolio_signals(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(ge
 # --- KPI reporting requests (investee self-service) ---
 @router.get("/funds/{fund_id}/kpi-requests")
 def list_kpi_requests(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    svc.ensure_scheduled_requests(db, ctx.fund)  # materialise due scheduled requests
     return svc.list_kpi_requests(db, ctx.fund)
+
+
+# --- recurring request schedules ---
+@router.get("/funds/{fund_id}/kpi-schedules")
+def list_kpi_schedules(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    return svc.list_kpi_schedules(db, ctx.fund)
+
+
+@router.put("/funds/{fund_id}/portfolio/{investment_id}/kpi-schedule")
+def upsert_kpi_schedule(
+    investment_id: str,
+    body: KPIScheduleIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    inv = _get_investment(db, ctx.fund.id, investment_id)
+    return svc.upsert_kpi_schedule(db, inv, body.model_dump(), user.id)
+
+
+@router.delete("/funds/{fund_id}/portfolio/{investment_id}/kpi-schedule", status_code=204)
+def delete_kpi_schedule(
+    investment_id: str,
+    ctx: FundCtx = Depends(fund_ctx),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    svc.delete_kpi_schedule(db, ctx.fund, investment_id)
+
+
+# --- no-login KPI submission via secret link token (public, unauthenticated) ---
+def _request_by_token(db: Session, token: str):
+    from ..models.fund import KPIRequest
+
+    req = (
+        db.query(KPIRequest).filter(KPIRequest.token == token).first() if token else None
+    )
+    if req is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "KPI request not found")
+    return req
+
+
+@router.get("/public/kpi-requests/{token}")
+def public_kpi_request(token: str, db: Session = Depends(get_db)):
+    req = _request_by_token(db, token)
+    inv = db.get(PortfolioInvestment, req.investment_id)
+    return {
+        "company_name": inv.company_name if inv else None,
+        "period_label": req.period_label,
+        "as_of": req.as_of,
+        "due_date": req.due_date,
+        "status": req.status.value,
+    }
+
+
+@router.post("/public/kpi-requests/{token}/submit")
+def public_kpi_submit(token: str, body: KPIRequestSubmitIn, db: Session = Depends(get_db)):
+    req = _request_by_token(db, token)
+    return svc.submit_request_values(db, req, body.model_dump())
 
 
 @router.post("/funds/{fund_id}/portfolio/{investment_id}/kpi-requests", status_code=201)

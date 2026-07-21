@@ -661,6 +661,11 @@ class KPIRequestSubmitIn(BaseModel):
     note: str | None = None
 
 
+class KPIScheduleIn(BaseModel):
+    cadence: Literal["monthly", "quarterly"]
+    contact_email: EmailStr | None = None  # optionally (re)sets the reporting contact
+
+
 class DealIn(BaseModel):
     company_name: str
     sector: str | None = None

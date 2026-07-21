@@ -558,16 +558,10 @@ def kpi_requests_for_user(db: Session, user: User) -> list[dict]:
 def submit_kpi_request(db: Session, user: User, request_id: str, payload: dict) -> dict:
     """The company's reporting contact submits KPI values from their portal.
     Email-scoped; only a pending request can be submitted."""
-    from ..models.fund import KPIRequest, KPIRequestStatus
+    from ..models.fund import KPIRequest
+    from .fund import submit_request_values
 
     req = db.get(KPIRequest, request_id)
     if req is None or req.contact_email != user.email:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "KPI request not found")
-    if req.status != KPIRequestStatus.PENDING:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Request already submitted")
-    for k, v in payload.items():
-        setattr(req, k, v)
-    req.status = KPIRequestStatus.SUBMITTED
-    req.submitted_at = now_ist()
-    db.commit()
-    return {"id": req.id, "status": req.status.value, "submitted_at": req.submitted_at}
+    return submit_request_values(db, req, payload)
