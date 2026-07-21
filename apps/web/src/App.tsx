@@ -9,6 +9,7 @@ import Activity from "./pages/Activity";
 import Portal from "./pages/Portal";
 import Advisor from "./pages/Advisor";
 import Invest from "./pages/Invest";
+import SubmitKpis from "./pages/SubmitKpis";
 import GettingStarted from "./pages/GettingStarted";
 import type { ReactElement } from "react";
 
@@ -24,6 +25,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/invest/:token" element={<Invest />} />
+      <Route path="/submit-kpis/:token" element={<SubmitKpis />} />
       <Route
         element={
           <Protected>

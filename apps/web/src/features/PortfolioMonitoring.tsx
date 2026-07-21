@@ -3,6 +3,7 @@ import {
   api,
   type KPIDefinitionList,
   type KPIRequest,
+  type KPISchedule,
   type MetricAlertRuleList,
   type PortfolioBenchmarks,
   type PortfolioMonitoring as Monitoring,
@@ -54,6 +55,8 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
 
   // KPI requests (investee self-service)
   const [reqs, setReqs] = useState<KPIRequest[]>([]);
+  const [schedules, setSchedules] = useState<KPISchedule[]>([]);
+  const [cadence, setCadence] = useState<"monthly" | "quarterly">("quarterly");
   const [reqOpen, setReqOpen] = useState(false);
   const [rInvId, setRInvId] = useState("");
   const [rPeriod, setRPeriod] = useState("");
@@ -86,6 +89,7 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
       api.portfolioBenchmarks(fundId).then(setBench),
       api.portfolioSignals(fundId).then(setSignals),
       api.listAlertRules(fundId).then(setAlerts),
+      api.listKpiSchedules(fundId).then(setSchedules),
     ]);
   useEffect(() => {
     load();
@@ -329,6 +333,47 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
               >
                 Send request
               </button>
+              <div style={{ flex: "0 0 auto" }}>
+                <label>Or recurring</label>
+                <select value={cadence} onChange={(e) => setCadence(e.target.value as "monthly" | "quarterly")}>
+                  <option value="quarterly">every quarter</option>
+                  <option value="monthly">every month</option>
+                </select>
+              </div>
+              <button
+                className="secondary"
+                style={{ flex: "0 0 auto" }}
+                disabled={!rInvId || !rEmail}
+                title="Auto-create the request for each completed period — no need to remember the cadence"
+                onClick={guard(async () => {
+                  await api.upsertKpiSchedule(fundId, rInvId, { cadence, contact_email: rEmail });
+                }, "Recurring schedule set — requests appear as each period completes")}
+              >
+                Make recurring
+              </button>
+            </div>
+          )}
+
+          {reqOpen && schedules.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, alignItems: "center" }}>
+              <span className="muted" style={{ fontSize: 12 }}>Recurring:</span>
+              {schedules.map((s) => (
+                <span key={s.id} className="badge">
+                  {s.company_name} · {s.cadence}{" "}
+                  <a
+                    href="#"
+                    title="Stop the recurring schedule (existing requests stay)"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      guard(async () => {
+                        await api.deleteKpiSchedule(fundId, s.investment_id);
+                      }, "Schedule removed")();
+                    }}
+                  >
+                    ×
+                  </a>
+                </span>
+              ))}
             </div>
           )}
 
@@ -435,6 +480,22 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
                               Reopen
                             </button>
                           </>
+                        )}
+                        {r.status === "pending" && r.token && (
+                          <button
+                            className="secondary"
+                            title="Copy a no-login submission link — the contact can report without a Paper account"
+                            onClick={guard(async () => {
+                              const link = `${window.location.origin}/submit-kpis/${r.token}`;
+                              try {
+                                await navigator.clipboard.writeText(link);
+                              } catch {
+                                window.prompt("Copy the submission link:", link);
+                              }
+                            }, "Submission link copied")}
+                          >
+                            Copy link
+                          </button>
                         )}
                       </td>
                     </tr>

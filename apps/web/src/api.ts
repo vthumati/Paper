@@ -1088,6 +1088,21 @@ export interface KPIRequest {
   note: string | null;
   submitted_at: string | null;
   kpi_id: string | null;
+  token: string | null;
+}
+export interface KPISchedule {
+  id: string;
+  investment_id: string;
+  company_name: string | null;
+  contact_email: string | null;
+  cadence: "monthly" | "quarterly";
+}
+export interface PublicKPIRequest {
+  company_name: string | null;
+  period_label: string;
+  as_of: string;
+  due_date: string | null;
+  status: string;
 }
 export interface PortalKPIRequest {
   id: string;
@@ -1773,6 +1788,14 @@ export const api = {
     post<KPIRequest[]>(`/funds/${fid}/kpi-requests/${rid}/reopen`),
   submitKpiRequest: (rid: string, b: { revenue?: string | null; cash?: string | null; monthly_burn?: string | null; headcount?: number | null; note?: string | null }) =>
     post<{ id: string; status: string }>(`/portal/kpi-requests/${rid}/submit`, b),
+  listKpiSchedules: (fid: string) => get<KPISchedule[]>(`/funds/${fid}/kpi-schedules`),
+  upsertKpiSchedule: (fid: string, iid: string, b: { cadence: string; contact_email?: string | null }) =>
+    put<KPISchedule>(`/funds/${fid}/portfolio/${iid}/kpi-schedule`, b),
+  deleteKpiSchedule: (fid: string, iid: string) =>
+    del<void>(`/funds/${fid}/portfolio/${iid}/kpi-schedule`),
+  publicKpiRequest: (token: string) => get<PublicKPIRequest>(`/public/kpi-requests/${token}`),
+  publicKpiSubmit: (token: string, b: { revenue?: string | null; cash?: string | null; monthly_burn?: string | null; headcount?: number | null; note?: string | null }) =>
+    post<{ id: string; status: string }>(`/public/kpi-requests/${token}/submit`, b),
   addPortfolioKpi: (fid: string, iid: string, b: PortfolioKPIInput) =>
     post<PortfolioKPI[]>(`/funds/${fid}/portfolio/${iid}/kpis`, b),
   listPortfolioKpis: (fid: string, iid: string) =>
