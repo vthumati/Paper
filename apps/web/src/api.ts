@@ -1162,7 +1162,7 @@ export interface PortfolioBenchmarks {
   segments: { segment: string; companies: number; medians: Record<string, number | null> }[];
   stats: Record<
     string,
-    { min: number; q1: number; median: number; q3: number; max: number; total: number; reporters: number } | null
+    { min: number; q1: number; median: number; q3: number; max: number; total: number; avg: number; reporters: number } | null
   >;
 }
 export interface MetricAlertRule {
@@ -1175,6 +1175,31 @@ export interface MetricAlertRule {
 export interface MetricAlertRuleList {
   rules: MetricAlertRule[];
   metrics: { key: string; label: string; unit: string }[];
+}
+export interface LpReportData {
+  fund_id: string;
+  fund_name: string;
+  category: string;
+  period_label: string;
+  period_start: string;
+  period_end: string;
+  prepared_on: string;
+  snapshot: { committed: string; drawn: string; remaining: string; distributed: string };
+  performance: {
+    nav: string;
+    nav_per_unit: string | null;
+    dpi: string | null;
+    rvpi: string | null;
+    tvpi: string | null;
+    xirr_pct: number | null;
+  };
+  activity: {
+    capital_calls: { call_no: number; date: string | null; amount: string; purpose: string | null }[];
+    distributions: { dist_no: number; date: string | null; gross_amount: string; kind: string; carry_amount: string }[];
+  };
+  holdings: (SOIHolding & { gain_pct: number | null; holding_years: number | null })[];
+  totals: { cost: string; current_value: string; moic: string | null };
+  valuation_status: { holdings: number; valued: number; independent: number; stale: number };
 }
 export interface DDQEntry {
   id: string;
@@ -1833,6 +1858,8 @@ export const api = {
     del<void>(`/funds/${fid}/kpi-definitions/${did}`),
   portfolioBenchmarks: (fid: string) =>
     get<PortfolioBenchmarks>(`/funds/${fid}/benchmarks`),
+  lpReportPreview: (fid: string) => get<LpReportData>(`/funds/${fid}/lp-report/preview`),
+  portalLpReport: (fid: string) => get<LpReportData>(`/portal/funds/${fid}/lp-report`),
   listDdq: (fid: string) => get<DDQList>(`/funds/${fid}/ddq`),
   addDdqEntry: (fid: string, b: { question: string; category?: string | null; answer?: string | null }) =>
     post<DDQEntry>(`/funds/${fid}/ddq`, b),

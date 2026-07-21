@@ -292,6 +292,50 @@ export default function Investors({ entityId }: { entityId: string }) {
         </div>
       </div>
 
+      {(() => {
+        const published = updates.filter((u) => u.status !== "draft");
+        if (published.length === 0 || access.length === 0) return null;
+        const rows = published.map((u) => {
+          const opened = (u.viewers ?? []).length;
+          return { title: u.title, recipients: access.length, opened };
+        });
+        const totals = rows.reduce(
+          (s, r) => ({ recipients: s.recipients + r.recipients, opened: s.opened + r.opened }),
+          { recipients: 0, opened: 0 }
+        );
+        const rate = (o: number, r: number) => (r ? `${Math.round((o / r) * 1000) / 10}%` : "—");
+        return (
+          <div className="card">
+            <h3>Update engagement</h3>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Who's actually reading — recipients are your invited investors; opens are recorded
+              when they read an update in the portal.
+            </p>
+            <table>
+              <thead>
+                <tr><th>Update</th><th>Recipients</th><th>Opened</th><th>Opening rate</th></tr>
+              </thead>
+              <tbody>
+                <tr style={{ background: "var(--light)" }}>
+                  <td style={{ fontWeight: 700, color: "var(--heading)" }}>ALL UPDATES</td>
+                  <td style={{ fontWeight: 600 }}>{totals.recipients}</td>
+                  <td style={{ fontWeight: 600 }}>{totals.opened}</td>
+                  <td style={{ fontWeight: 600 }}>{rate(totals.opened, totals.recipients)}</td>
+                </tr>
+                {rows.map((r) => (
+                  <tr key={r.title + r.recipients}>
+                    <td>{r.title}</td>
+                    <td>{r.recipients}</td>
+                    <td>{r.opened}</td>
+                    <td>{rate(r.opened, r.recipients)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
+
       <div className="card">
         <h3>Updates</h3>
         {updates.length === 0 ? (

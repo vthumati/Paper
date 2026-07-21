@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import EmptyState from "../components/EmptyState";
 import { uiPrompt } from "../components/Prompt";
 import { useNavigate } from "react-router-dom";
-import { api, type PortalDashboard, type PortalKPIRequest, type ValueHistory } from "../api";
+import { api, type LpReportData, type PortalDashboard, type PortalKPIRequest, type ValueHistory } from "../api";
 import LineChart from "../components/LineChart";
+import LpReportView from "../components/LpReportView";
 import SecChip from "../components/SecChip";
 import Stat from "../components/Stat";
 import GrantDetail from "../features/GrantDetail";
@@ -25,6 +26,7 @@ export default function Portal() {
   const [range, setRange] = useState<string>("All");
   const [openGrant, setOpenGrant] = useState<string | null>(null);
   const [openUpdates, setOpenUpdates] = useState<Record<string, boolean>>({});
+  const [fundReport, setFundReport] = useState<LpReportData | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const load = () => {
@@ -567,7 +569,25 @@ export default function Portal() {
 
       {d?.funds.map((f) => (
         <div className="card" key={f.fund_id}>
-          <h2>{f.fund_name} <span className="badge">AIF Cat {f.sebi_category}</span></h2>
+          <h2>
+            {f.fund_name} <span className="badge">AIF Cat {f.sebi_category}</span>
+            <button
+              className="secondary"
+              style={{ marginLeft: 10 }}
+              title="The fund's quarterly report for the last completed quarter, as a web page"
+              onClick={guard(async () => {
+                if (fundReport?.fund_id === f.fund_id) setFundReport(null);
+                else setFundReport(await api.portalLpReport(f.fund_id));
+              })}
+            >
+              {fundReport?.fund_id === f.fund_id ? "Close report" : "Quarterly report"}
+            </button>
+          </h2>
+          {fundReport?.fund_id === f.fund_id && (
+            <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--light)", padding: 16, margin: "8px 0" }}>
+              <LpReportView data={fundReport} />
+            </div>
+          )}
           {f.performance && f.performance.paid_in !== "0.00" && (
             <p className="muted">
               Fund performance: DPI {f.performance.dpi ?? "—"} · <strong>TVPI {f.performance.tvpi ?? "—"}</strong> · XIRR{" "}

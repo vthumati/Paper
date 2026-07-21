@@ -309,6 +309,27 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
             <Stat label="Low on runway" value={t.low_runway} alert={t.low_runway > 0} hint="Companies with under 6 months of runway" />
           </div>
 
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10, alignItems: "center" }}>
+            <span className="muted" style={{ fontSize: 12 }}>Reporting status:</span>
+            {mon.companies.map((c) => {
+              const req = reqs.find(
+                (r) => r.investment_id === c.investment_id && r.status !== "accepted"
+              );
+              const chip = req?.overdue
+                ? { cls: "danger", text: `overdue (${req.period_label})` }
+                : req
+                ? { cls: "active", text: req.status === "submitted" ? `submitted (${req.period_label})` : `requested (${req.period_label})` }
+                : c.latest
+                ? { cls: "complete", text: `✓ ${c.latest.period_label}` }
+                : { cls: "", text: "never reported" };
+              return (
+                <span key={c.investment_id} className={`badge ${chip.cls}`} title={c.latest ? `Latest period as of ${c.latest.as_of}` : "No KPI periods yet"}>
+                  {c.company_name} · {chip.text}
+                </span>
+              );
+            })}
+          </div>
+
           {reqOpen && (
             <div className="row" style={{ alignItems: "flex-end", marginTop: 12 }}>
               <div>
@@ -641,6 +662,20 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
                   </tr>
                 </thead>
                 <tbody>
+                  {([
+                    ["TOTAL", (k: string, unit: string) => (unit === "inr" ? bench.stats[k]?.total ?? null : null)],
+                    ["AVERAGE", (k: string) => bench.stats[k]?.avg ?? null],
+                    ["MEDIAN", (k: string) => bench.stats[k]?.median ?? null],
+                  ] as const).map(([label, pick]) => (
+                    <tr key={label} style={{ background: "var(--light)" }}>
+                      <td style={{ fontWeight: 700, color: "var(--heading)" }}>{label}</td>
+                      {bench.metrics.map((m) => (
+                        <td key={m.key} style={{ fontWeight: 600 }}>
+                          {fmtMetric(pick(m.key, m.unit), m.unit) ?? <span className="muted">—</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
                   {bench.rows.map((r) => (
                     <tr key={r.investment_id}>
                       <td>{r.company_name}</td>
@@ -664,14 +699,6 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
                       })}
                     </tr>
                   ))}
-                  <tr>
-                    <td className="muted">Portfolio median</td>
-                    {bench.metrics.map((m) => (
-                      <td key={m.key} className="muted">
-                        {fmtMetric(bench.medians[m.key], m.unit) ?? "—"}
-                      </td>
-                    ))}
-                  </tr>
                 </tbody>
               </table>
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import EmptyState from "../components/EmptyState";
 import { uiPrompt } from "../components/Prompt";
 import ColumnChart from "../components/ColumnChart";
+import LpReportView from "../components/LpReportView";
 import Stat from "../components/Stat";
 import DealPipeline from "./DealPipeline";
 import FundForecast from "./FundForecast";
@@ -24,6 +25,7 @@ import {
   type Fund as FundT,
   type FundPerformance,
   type LP,
+  type LpReportData,
   type PerformancePoint,
   type PortfolioInvestment,
   type ScheduleOfInvestments,
@@ -84,6 +86,7 @@ export default function Fund({
   const [coAmt, setCoAmt] = useState("");
   const [coSector, setCoSector] = useState("");
   const [openTear, setOpenTear] = useState<string | null>(null);
+  const [reportView, setReportView] = useState<LpReportData | null>(null);
 
   async function loadFund() {
     try {
@@ -336,8 +339,22 @@ export default function Fund({
                 }, "LP report generated")}
               >
                 Quarterly LP report
+              </button>{" "}
+              <button
+                className="secondary"
+                title="On-screen magazine view of the quarterly report (last completed quarter)"
+                onClick={guard(async () => {
+                  setReportView(reportView ? null : await api.lpReportPreview(fund.id));
+                })}
+              >
+                {reportView ? "Close report view" : "Report view"}
               </button>
             </h3>
+            {reportView && (
+              <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--light)", padding: 16, marginBottom: 12 }}>
+                <LpReportView data={reportView} />
+              </div>
+            )}
             {accounts && accounts.accounts.length > 0 ? (
               <table>
                 <thead>
