@@ -863,6 +863,8 @@ export interface Deal {
   investment_id: string | null;
   source: string | null;
   next_followup_on: string | null;
+  stage_changed_at: string | null;
+  created_at: string;
 }
 export interface DealContact {
   id: string;
@@ -968,6 +970,32 @@ export interface LPProspect {
   target_commitment: string;
   notes: string | null;
   lp_id: string | null;
+  next_followup_on: string | null;
+}
+export interface ProspectCrm {
+  strength: number;
+  next_followup_on: string | null;
+  activities: { id: string; kind: string; body: string; occurred_on: string }[];
+}
+export interface NetworkPerson {
+  name: string;
+  role: string | null;
+  email: string | null;
+  links: string[];
+  strength: number;
+  last_touch: string | null;
+}
+export interface FirmNetwork {
+  fund_id: string;
+  count: number;
+  people: NetworkPerson[];
+}
+export interface DealsImportReport {
+  valid: boolean;
+  rows: number;
+  errors: string[];
+  applied?: boolean;
+  imported?: number;
 }
 export interface FundraiseSummary {
   fund_id: string;
@@ -1754,6 +1782,12 @@ export const api = {
     post<FundraiseSummary>(`/funds/${fid}/prospects/${pid}/stage`, { stage }),
   convertLpProspect: (fid: string, pid: string, commitment: string | null) =>
     post<LP>(`/funds/${fid}/prospects/${pid}/convert`, { commitment }),
+  prospectCrm: (fid: string, pid: string) =>
+    get<ProspectCrm>(`/funds/${fid}/prospects/${pid}/crm`),
+  addProspectActivity: (fid: string, pid: string, b: { kind: string; body: string; occurred_on?: string | null }) =>
+    post<ProspectCrm>(`/funds/${fid}/prospects/${pid}/activities`, b),
+  setProspectFollowup: (fid: string, pid: string, on: string | null) =>
+    put<FundraiseSummary>(`/funds/${fid}/prospects/${pid}/followup`, { on }),
   lpStatement: (fid: string, lpId: string) =>
     post<Document>(`/funds/${fid}/lps/${lpId}/statement`),
   requestConsents: (rid: string) =>
@@ -1789,6 +1823,11 @@ export const api = {
     post<DealCrm>(`/deals/${did}/activities`, b),
   setDealFollowup: (did: string, on: string | null) =>
     put<Deal>(`/deals/${did}/followup`, { on }),
+  fundNetwork: (fid: string) => get<FirmNetwork>(`/funds/${fid}/network`),
+  importDeals: (fid: string, csv: string, apply: boolean) =>
+    post<DealsImportReport>(`/funds/${fid}/deals/import`, { csv, apply }),
+  downloadDealsTemplate: (fid: string) =>
+    downloadFile(`/funds/${fid}/deals/import-template`, "deals-import.csv"),
   generateAifCompliance: (eid: string, b: { financial_year_end: string }) =>
     post<Obligation[]>(`/entities/${eid}/compliance/generate-aif`, b),
 

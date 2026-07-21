@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
-import { api, type FundraiseSummary } from "../api";
+import { Fragment, useEffect, useState } from "react";
+import { api, type FundraiseSummary, type ProspectCrm } from "../api";
+import { uiPrompt } from "../components/Prompt";
+import StrengthPie from "../components/StrengthPie";
 import { useGuard } from "../hooks";
 import { fmtMoney } from "../lib/format";
 import EmptyState from "../components/EmptyState";
@@ -13,6 +15,9 @@ const KINDS: Record<string, string> = {
 };
 // stages selectable in the pipeline; "committed" is reached by converting
 const STAGES = ["prospect", "contacted", "meeting", "diligence", "soft_circled", "passed"];
+const ACT_KINDS = ["note", "meeting", "call", "email", "other"];
+const ACT_ICONS: Record<string, string> = { note: "📝", meeting: "📅", call: "📞", email: "✉️", other: "🔹" };
+const todayIso = () => new Date().toISOString().slice(0, 10);
 
 /** LP-fundraising CRM (FR-J-16): the GP's pipeline for raising the fund from
  * prospective LPs — prospect → soft-circled → committed. Converting a won
@@ -29,6 +34,24 @@ export default function FundRaise({ fundId, onChanged }: { fundId: string; onCha
   const [firm, setFirm] = useState("");
   const [kind, setKind] = useState("institutional");
   const [target, setTarget] = useState("");
+
+  // expanded prospect CRM (mirrors the deal pipeline's relationship panel)
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [crm, setCrm] = useState<ProspectCrm | null>(null);
+  const [actKind, setActKind] = useState("note");
+  const [actBody, setActBody] = useState("");
+  const [actDate, setActDate] = useState(todayIso());
+
+  async function toggleCrm(pid: string) {
+    if (openId === pid) {
+      setOpenId(null);
+      setCrm(null);
+      return;
+    }
+    setOpenId(pid);
+    setCrm(null);
+    setCrm(await api.prospectCrm(fundId, pid));
+  }
 
   const load = () => api.fundraiseSummary(fundId).then(setSum);
   useEffect(() => {
@@ -106,39 +129,113 @@ export default function FundRaise({ fundId, onChanged }: { fundId: string; onCha
           </thead>
           <tbody>
             {sum.prospects.map((p) => (
-              <tr key={p.id}>
-                <td>{p.name}</td>
-                <td>{p.firm || <span className="muted">—</span>}</td>
-                <td>{KINDS[p.kind] ?? p.kind}</td>
-                <td>{fmtMoney(p.target_commitment)}</td>
-                <td>
-                  {p.lp_id ? (
-                    <span className="badge complete">committed</span>
-                  ) : (
-                    <select
-                      value={p.stage}
-                      onChange={(e) => guard(() => api.setLpProspectStage(fundId, p.id, e.target.value))()}
-                    >
-                      {STAGES.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
-                    </select>
-                  )}
-                </td>
-                <td>
-                  {p.lp_id ? (
-                    <span className="badge">LP</span>
-                  ) : (
-                    <button
-                      className="secondary"
-                      title="Create an LP from this prospect with their target cheque as the commitment"
-                      onClick={guard(async () => {
-                        await api.convertLpProspect(fundId, p.id, p.target_commitment);
-                      }, `${p.name} converted to an LP`)}
-                    >
-                      Convert to LP
-                    </button>
-                  )}
-                </td>
-              </tr>
+              <Fragment key={p.id}>
+                <tr>
+                  <td>
+                    {p.name}
+                    {p.next_followup_on && p.next_followup_on < todayIso() && !p.lp_id && p.stage !== "passed" && (
+                      <span className="badge danger" title={`Follow-up was due ${p.next_followup_on}`} style={{ marginLeft: 5 }}>
+                        🔔
+                      </span>
+                    )}
+                  </td>
+                  <td>{p.firm || <span className="muted">—</span>}</td>
+                  <td>{KINDS[p.kind] ?? p.kind}</td>
+                  <td>{fmtMoney(p.target_commitment)}</td>
+                  <td>
+                    {p.lp_id ? (
+                      <span className="badge complete">committed</span>
+                    ) : (
+                      <select
+                        value={p.stage}
+                        onChange={(e) => guard(() => api.setLpProspectStage(fundId, p.id, e.target.value))()}
+                      >
+                        {STAGES.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
+                      </select>
+                    )}
+                  </td>
+                  <td>
+                    <button className="secondary" onClick={() => toggleCrm(p.id)}>
+                      {openId === p.id ? "Hide" : "CRM"}
+                    </button>{" "}
+                    {p.lp_id ? (
+                      <span className="badge">LP</span>
+                    ) : (
+                      <button
+                        className="secondary"
+                        title="Create an LP from this prospect with their target cheque as the commitment"
+                        onClick={guard(async () => {
+                          await api.convertLpProspect(fundId, p.id, p.target_commitment);
+                        }, `${p.name} converted to an LP`)}
+                      >
+                        Convert to LP
+                      </button>
+                    )}
+                  </td>
+                </tr>
+                {openId === p.id && (
+                  <tr>
+                    <td colSpan={6} style={{ background: "var(--light)" }}>
+                      {!crm ? (
+                        <span className="muted">Loading…</span>
+                      ) : (
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, fontSize: 13 }}>
+                            <span>
+                              <StrengthPie value={crm.strength} /> Relationship strength{" "}
+                              <strong>{crm.strength}</strong>/100
+                            </span>
+                            <span className="muted">Follow-up: {p.next_followup_on ?? "none"}</span>
+                            <button
+                              className="secondary"
+                              style={{ flex: "0 0 auto" }}
+                              onClick={guard(async () => {
+                                const on = await uiPrompt(
+                                  `Next follow-up with ${p.name} (YYYY-MM-DD, blank clears):`,
+                                  p.next_followup_on ?? todayIso()
+                                );
+                                if (on === null) return;
+                                setSum(await api.setProspectFollowup(fundId, p.id, on || null));
+                              }, "Follow-up updated")}
+                            >
+                              Set follow-up
+                            </button>
+                          </div>
+                          {crm.activities.length === 0 && (
+                            <p className="muted" style={{ margin: "4px 0" }}>No touchpoints logged yet.</p>
+                          )}
+                          {crm.activities.map((a) => (
+                            <div key={a.id} style={{ fontSize: 13, margin: "4px 0", borderLeft: "2px solid var(--border)", paddingLeft: 8 }}>
+                              <span title={a.kind}>{ACT_ICONS[a.kind] ?? ACT_ICONS.other}</span>{" "}
+                              <span className="badge">{a.kind}</span> <span className="muted">{a.occurred_on}</span>
+                              <div>{a.body}</div>
+                            </div>
+                          ))}
+                          <div className="row" style={{ marginTop: 6, alignItems: "flex-end" }}>
+                            <select value={actKind} onChange={(e) => setActKind(e.target.value)} style={{ flex: "0 0 auto", width: "auto" }}>
+                              {ACT_KINDS.map((k) => <option key={k} value={k}>{ACT_ICONS[k]} {k}</option>)}
+                            </select>
+                            <input type="date" value={actDate} onChange={(e) => setActDate(e.target.value)} style={{ flex: "0 0 auto", width: "auto" }} />
+                            <input placeholder="What happened?" value={actBody} onChange={(e) => setActBody(e.target.value)} />
+                            <button
+                              style={{ flex: "0 0 auto" }}
+                              disabled={!actBody}
+                              onClick={guard(async () => {
+                                const r = await api.addProspectActivity(fundId, p.id, {
+                                  kind: actKind, body: actBody, occurred_on: actDate,
+                                });
+                                setCrm(r); setActBody("");
+                              }, "Touchpoint logged")}
+                            >
+                              Log
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>

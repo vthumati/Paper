@@ -5,6 +5,7 @@ import ColumnChart from "../components/ColumnChart";
 import Stat from "../components/Stat";
 import DealPipeline from "./DealPipeline";
 import FundForecast from "./FundForecast";
+import FundNetwork from "./FundNetwork";
 import FundRaise from "./FundRaise";
 import FundSignals from "./FundSignals";
 import FundFinancials from "./FundFinancials";
@@ -611,7 +612,12 @@ export default function Fund({
         </>
       )}
 
-      {sub === "deals" && <DealPipeline fundId={fund.id} onInvested={() => refresh(fund.id)} />}
+      {sub === "deals" && (
+        <>
+          <DealPipeline fundId={fund.id} onInvested={() => refresh(fund.id)} />
+          <FundNetwork fundId={fund.id} />
+        </>
+      )}
 
       {sub === "plan" && (
         <FundForecast fundId={fund.id} feePct={String(fund.mgmt_fee_pct)} carryPct={String(fund.carry_pct)} />

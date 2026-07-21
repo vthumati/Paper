@@ -4,30 +4,24 @@ import BarChart from "../components/BarChart";
 import ColumnChart from "../components/ColumnChart";
 import Donut from "../components/Donut";
 import { uiPrompt } from "../components/Prompt";
+import StrengthPie from "../components/StrengthPie";
 import { useGuard } from "../hooks";
 import { fmtMoney } from "../lib/format";
-import { api, type Deal, type DealCrm } from "../api";
+import { api, type Deal, type DealCrm, type DealsImportReport } from "../api";
 
 const STAGES = ["sourced", "screening", "diligence", "ic", "term_sheet", "invested", "passed"];
 const ACT_KINDS = ["note", "meeting", "call", "email", "other"];
 const ACT_ICONS: Record<string, string> = { note: "📝", meeting: "📅", call: "📞", email: "✉️", other: "🔹" };
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
-/** 4Degrees-style relationship-strength pie (0-100, from logged touches). */
-const StrengthPie = ({ value }: { value: number }) => (
-  <span
-    title={`Relationship strength ${value}/100 — frequency and recency of logged touches`}
-    style={{
-      display: "inline-block",
-      width: 14,
-      height: 14,
-      borderRadius: "50%",
-      background: `conic-gradient(var(--blue) ${value * 3.6}deg, var(--light) 0deg)`,
-      border: "1px solid var(--border)",
-      verticalAlign: "-2px",
-    }}
-  />
-);
+// mirrors the backend STALE_DEAL_DAYS trigger (services/tasks.py)
+const STALE_DEAL_DAYS = 45;
+const staleDays = (d: Deal): number | null => {
+  if (d.stage === "invested" || d.stage === "passed") return null;
+  const since = new Date(d.stage_changed_at ?? d.created_at).getTime();
+  const days = Math.floor((Date.now() - since) / 86400000);
+  return days > STALE_DEAL_DAYS ? days : null;
+};
 
 /** GP-side deal flow: sourced → screening → diligence → IC → term sheet → invested,
  * with per-deal relationship intelligence (contacts + a dated activity timeline). */
@@ -48,6 +42,12 @@ export default function DealPipeline({
   // board | table view; board cards show each deal's contacts as avatars
   const [view, setView] = useState<"board" | "table">("board");
   const [crms, setCrms] = useState<Record<string, DealCrm>>({});
+
+  // CSV import (onboarding an existing pipeline)
+  const [impOpen, setImpOpen] = useState(false);
+  const [impCsv, setImpCsv] = useState("");
+  const [impName, setImpName] = useState("");
+  const [impReport, setImpReport] = useState<DealsImportReport | null>(null);
 
   // expanded deal CRM
   const [openId, setOpenId] = useState<string | null>(null);
@@ -197,11 +197,73 @@ export default function DealPipeline({
       <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
         Deal pipeline
         <span style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+          <button className="secondary" onClick={() => setImpOpen((v) => !v)}>
+            {impOpen ? "Close import" : "Import CSV"}
+          </button>
           <button className={view === "board" ? "" : "secondary"} onClick={() => setView("board")}>Board</button>
           <button className={view === "table" ? "" : "secondary"} onClick={() => setView("table")}>Table</button>
         </span>
       </h3>
       {error && <p className="error">{error}</p>}
+
+      {impOpen && (
+        <div style={{ margin: "8px 0 12px" }}>
+          <p className="muted" style={{ margin: "0 0 6px" }}>
+            Onboard an existing pipeline from a spreadsheet — columns: company_name (required),
+            sector, stage, amount, source.{" "}
+            <a href="#" onClick={(e) => { e.preventDefault(); api.downloadDealsTemplate(fundId); }}>
+              Download the template
+            </a>
+            .
+          </p>
+          <div className="row" style={{ alignItems: "center" }}>
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                  setImpCsv(String(reader.result ?? ""));
+                  setImpName(f.name);
+                  setImpReport(null);
+                };
+                reader.readAsText(f);
+              }}
+            />
+            <button
+              style={{ flex: "0 0 auto" }}
+              disabled={!impCsv}
+              onClick={guard(async () => setImpReport(await api.importDeals(fundId, impCsv, false)))}
+            >
+              Validate
+            </button>
+            <button
+              style={{ flex: "0 0 auto" }}
+              disabled={!impCsv || !impReport?.valid || impReport?.applied}
+              onClick={guard(async () => {
+                setImpReport(await api.importDeals(fundId, impCsv, true));
+              }, "Deals imported")}
+            >
+              Apply import
+            </button>
+          </div>
+          {impName && <p className="muted" style={{ margin: "4px 0 0" }}>{impName}</p>}
+          {impReport && !impReport.valid && (
+            <ul className="muted" style={{ margin: "6px 0 0" }}>
+              {impReport.errors.map((e, i) => <li key={i} className="error">{e}</li>)}
+            </ul>
+          )}
+          {impReport?.valid && (
+            <p className={impReport.applied ? "" : "muted"} style={{ margin: "6px 0 0" }}>
+              {impReport.applied
+                ? `Imported ${impReport.imported} deal(s) ✓`
+                : `Ready to import ${impReport.rows} deal(s).`}
+            </p>
+          )}
+        </div>
+      )}
       <div className="row">
         <input placeholder="Company" value={name} onChange={(e) => setName(e.target.value)} />
         <input placeholder="Sector" value={sector} onChange={(e) => setSector(e.target.value)} />
@@ -240,6 +302,11 @@ export default function DealPipeline({
                       {d.next_followup_on && d.next_followup_on < todayIso() && d.stage !== "invested" && d.stage !== "passed" && (
                         <span className="badge danger" title={`Follow-up was due ${d.next_followup_on}`} style={{ marginLeft: 5 }}>
                           🔔 overdue
+                        </span>
+                      )}
+                      {staleDays(d) !== null && (
+                        <span className="badge active" title={`No stage movement for ${staleDays(d)} days (over ${STALE_DEAL_DAYS})`} style={{ marginLeft: 5 }}>
+                          stale {staleDays(d)}d
                         </span>
                       )}
                       {d.sector && (
@@ -315,6 +382,11 @@ export default function DealPipeline({
                     {d.next_followup_on && d.next_followup_on < todayIso() && d.stage !== "invested" && d.stage !== "passed" && (
                       <span className="badge danger" title={`Follow-up was due ${d.next_followup_on}`} style={{ marginLeft: 5 }}>
                         🔔
+                      </span>
+                    )}
+                    {staleDays(d) !== null && (
+                      <span className="badge active" title={`No stage movement for ${staleDays(d)} days (over ${STALE_DEAL_DAYS})`} style={{ marginLeft: 5 }}>
+                        stale
                       </span>
                     )}
                   </td>
