@@ -16,6 +16,13 @@ const SEVERITY_ICON: Record<string, string> = {
 };
 // render order: worst first, opportunities last
 const SEVERITY_ORDER = ["high", "warn", "info", "positive"];
+// Vestberry-style attention-list row tints (full-row wash by severity)
+const SEVERITY_ROW_BG: Record<string, string> = {
+  high: "rgba(200, 60, 60, 0.09)",
+  warn: "rgba(210, 140, 40, 0.10)",
+  info: "rgba(120, 120, 120, 0.07)",
+  positive: "rgba(60, 150, 90, 0.09)",
+};
 
 /** Portfolio signals (Vestberry-style early warning): rules over the KPI
  * history and marks — revenue decline, low runway, impaired marks, reporting
@@ -65,7 +72,7 @@ export default function FundSignals({ fundId }: { fundId: string }) {
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={i}>
+              <tr key={i} style={{ background: SEVERITY_ROW_BG[r.severity] }}>
                 <td style={{ width: 30 }}>{SEVERITY_ICON[r.severity]}</td>
                 <td>{r.company}</td>
                 <td><span className={`badge ${SEVERITY_BADGE[r.severity]}`}>{r.kind.replace(/_/g, " ")}</span></td>

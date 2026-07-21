@@ -897,6 +897,14 @@ export interface FundPerformance {
   units_outstanding: string;
   nav_per_unit: string | null;
 }
+export interface PerformancePoint {
+  date: string;
+  paid_in: string;
+  nav: string;
+  dpi: string;
+  rvpi: string;
+  tvpi: string;
+}
 export interface FundPlan {
   has_plan: boolean;
   inputs: {
@@ -1719,6 +1727,7 @@ export const api = {
     get<ScheduleOfInvestments>(`/funds/${fid}/soi`),
   soiReport: (fid: string) => post<Document>(`/funds/${fid}/soi/report`),
   fundPerformance: (fid: string) => get<FundPerformance>(`/funds/${fid}/performance`),
+  performanceSeries: (fid: string) => get<PerformancePoint[]>(`/funds/${fid}/performance-series`),
   fundFinancials: (fid: string) => get<FundFinancials>(`/funds/${fid}/financials`),
   fundFinancialsReport: (fid: string) => post<Document>(`/funds/${fid}/financials/report`),
   valuationSummary: (fid: string) => get<ValuationSummary>(`/funds/${fid}/valuations`),

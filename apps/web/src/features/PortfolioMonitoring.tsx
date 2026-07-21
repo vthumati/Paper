@@ -5,9 +5,12 @@ import {
   type KPIRequest,
   type PortfolioBenchmarks,
   type PortfolioMonitoring as Monitoring,
+  type PortfolioSignals,
 } from "../api";
 import { useGuard } from "../hooks";
 import { fmtMoney } from "../lib/format";
+import Avatar from "../components/Avatar";
+import { CHART_COLORS } from "../components/Donut";
 import EmptyState from "../components/EmptyState";
 import LineChart from "../components/LineChart";
 import Stat from "../components/Stat";
@@ -16,6 +19,18 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
 
 const fmtMetric = (v: number | null | undefined, unit: string) =>
   v === null || v === undefined ? null : unit === "inr" ? fmtMoney(v) : unit === "pct" ? `${v}%` : String(v);
+
+// Vestberry-style 0-10 risk score derived from the signals panel's severities
+const SEVERITY_WEIGHT: Record<string, number> = { high: 3, warn: 2, info: 1 };
+const riskScore = (signals: PortfolioSignals | null, invId: string) => {
+  const c = signals?.companies.find((x) => x.investment_id === invId);
+  if (!c) return 0;
+  return Math.min(10, c.signals.reduce((s, x) => s + (SEVERITY_WEIGHT[x.severity] ?? 0), 0));
+};
+
+const STALE_DAYS = 183;
+const isStale = (asOf: string) =>
+  (Date.now() - new Date(asOf).getTime()) / 86400000 > STALE_DAYS;
 
 /** Portfolio-company monitoring (Carta "portfolio monitoring"): collect operating
  * KPIs (revenue, cash, burn, headcount) per period per company, and roll them up
@@ -52,6 +67,7 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
   const [defUnit, setDefUnit] = useState("number");
   const [custom, setCustom] = useState<Record<string, string>>({});
   const [bench, setBench] = useState<PortfolioBenchmarks | null>(null);
+  const [signals, setSignals] = useState<PortfolioSignals | null>(null);
 
   const load = () =>
     Promise.all([
@@ -59,6 +75,7 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
       api.listKpiRequests(fundId).then(setReqs),
       api.listKpiDefinitions(fundId).then(setDefs),
       api.portfolioBenchmarks(fundId).then(setBench),
+      api.portfolioSignals(fundId).then(setSignals),
     ]);
   useEffect(() => {
     load();
@@ -340,14 +357,27 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
           <table style={{ marginTop: 12 }}>
             <thead>
               <tr>
-                <th>Company</th><th>Revenue</th><th>Growth</th><th>Monthly burn</th>
+                <th>Company</th><th>Risk</th><th>Revenue</th><th>Growth</th><th>Monthly burn</th>
                 <th>Runway</th><th>Headcount</th><th>Latest period</th><th></th>
               </tr>
             </thead>
             <tbody>
               {mon.companies.map((c) => (
                 <tr key={c.investment_id}>
-                  <td>{c.company_name}</td>
+                  <td><Avatar name={c.company_name} /> {c.company_name}</td>
+                  <td>
+                    {(() => {
+                      const score = riskScore(signals, c.investment_id);
+                      return (
+                        <span
+                          className={`badge ${score >= 6 ? "danger" : score >= 3 ? "active" : "complete"}`}
+                          title="Severity-weighted signal score (0 = all clear, 10 = worst) — see the Signals panel"
+                        >
+                          {score}
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td>{c.latest?.revenue ? fmtMoney(c.latest.revenue) : <span className="muted">—</span>}</td>
                   <td>
                     {c.revenue_growth_pct === null ? (
@@ -369,7 +399,19 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
                     )}
                   </td>
                   <td>{c.latest?.headcount ?? <span className="muted">—</span>}</td>
-                  <td>{c.latest ? <span className="muted">{c.latest.period_label}</span> : <span className="muted">no data</span>}</td>
+                  <td>
+                    {c.latest ? (
+                      isStale(c.latest.as_of) ? (
+                        <span className="badge danger" title={`Last reported ${c.latest.as_of} — over 6 months ago`}>
+                          {c.latest.period_label}
+                        </span>
+                      ) : (
+                        <span className="muted">{c.latest.period_label}</span>
+                      )
+                    ) : (
+                      <span className="muted">no data</span>
+                    )}
+                  </td>
                   <td>
                     {c.revenue_series.length > 1 && (
                       <button
@@ -394,6 +436,26 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
                   {c.company_name} — revenue trend
                 </div>
                 <LineChart series={[{ label: "Revenue", color: "var(--blue)", points: c.revenue_series }]} height={180} />
+              </div>
+            );
+          })()}
+
+          {(() => {
+            // portfolio-wide revenue overlay — every company with 2+ periods as a series
+            const overlay = mon.companies
+              .filter((c) => c.revenue_series.length > 1)
+              .map((c, i) => ({
+                label: c.company_name,
+                color: CHART_COLORS[i % CHART_COLORS.length],
+                points: c.revenue_series,
+              }));
+            if (overlay.length < 2) return null;
+            return (
+              <div style={{ marginTop: 14 }}>
+                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                  Portfolio revenue — all companies
+                </div>
+                <LineChart series={overlay} height={200} />
               </div>
             );
           })()}
@@ -445,6 +507,42 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
                   </tr>
                 </tbody>
               </table>
+
+              <div style={{ marginTop: 12, display: "grid", gap: 7 }}>
+                {bench.metrics.map((m) => {
+                  const vals = bench.rows
+                    .map((r) => ({ name: r.company_name, v: r.values[m.key] }))
+                    .filter((x): x is { name: string; v: number } => x.v !== null);
+                  if (vals.length < 2) return null;
+                  const min = Math.min(...vals.map((x) => x.v));
+                  const max = Math.max(...vals.map((x) => x.v));
+                  const span = max - min || 1;
+                  const med = bench.medians[m.key];
+                  return (
+                    <div key={m.key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span className="muted" style={{ fontSize: 12, flex: "0 0 160px" }}>{m.label}</span>
+                      <div style={{ position: "relative", flex: 1, height: 14, background: "rgba(120,120,120,0.12)", borderRadius: 7 }}>
+                        {med !== null && (
+                          <span
+                            title={`Median ${fmtMetric(med, m.unit)}`}
+                            style={{ position: "absolute", left: `${((med - min) / span) * 100}%`, top: -2, bottom: -2, width: 2, background: "var(--heading)", opacity: 0.55 }}
+                          />
+                        )}
+                        {vals.map((x) => (
+                          <span
+                            key={x.name}
+                            title={`${x.name}: ${fmtMetric(x.v, m.unit)}`}
+                            style={{ position: "absolute", left: `calc(${((x.v - min) / span) * 100}% - 5px)`, top: 2, width: 10, height: 10, borderRadius: "50%", background: "var(--blue)", opacity: 0.85 }}
+                          />
+                        ))}
+                      </div>
+                      <span className="muted" style={{ fontSize: 11, flex: "0 0 190px", textAlign: "right" }}>
+                        {fmtMetric(min, m.unit)} – {fmtMetric(max, m.unit)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </>
           )}
         </>

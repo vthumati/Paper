@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import EmptyState from "../components/EmptyState";
 import { uiPrompt } from "../components/Prompt";
+import ColumnChart from "../components/ColumnChart";
+import Stat from "../components/Stat";
 import DealPipeline from "./DealPipeline";
 import FundForecast from "./FundForecast";
 import FundRaise from "./FundRaise";
@@ -19,6 +21,7 @@ import {
   type Fund as FundT,
   type FundPerformance,
   type LP,
+  type PerformancePoint,
   type PortfolioInvestment,
   type ScheduleOfInvestments,
 } from "../api";
@@ -61,6 +64,7 @@ export default function Fund({
   const [portfolio, setPortfolio] = useState<PortfolioInvestment[]>([]);
   const [soi, setSoi] = useState<ScheduleOfInvestments | null>(null);
   const [perf, setPerf] = useState<FundPerformance | null>(null);
+  const [series, setSeries] = useState<PerformancePoint[]>([]);
   const [note, setNote] = useState("");
   const { error, setError, guard } = useGuard(async () => {
     if (fund) await refresh(fund.id);
@@ -87,7 +91,7 @@ export default function Fund({
     }
   }
   async function refresh(fid: string) {
-    const [l, c, d, a, p, pf, s] = await Promise.all([
+    const [l, c, d, a, p, pf, s, ps] = await Promise.all([
       api.listLPs(fid),
       api.listCalls(fid),
       api.listDistributions(fid),
@@ -95,6 +99,7 @@ export default function Fund({
       api.listPortfolio(fid),
       api.fundPerformance(fid),
       api.scheduleOfInvestments(fid),
+      api.performanceSeries(fid),
     ]);
     setLps(l);
     setCalls(c);
@@ -103,6 +108,7 @@ export default function Fund({
     setPortfolio(p);
     setPerf(pf);
     setSoi(s);
+    setSeries(ps);
   }
   useEffect(() => {
     loadFund();
@@ -145,23 +151,41 @@ export default function Fund({
           <span className="badge">fee {(Number(fund.mgmt_fee_pct) * 100).toFixed(1)}% on {fund.fee_basis}</span>
         </h2>
         {accounts && (
-          <p className="muted">
-            Committed {fmtMoney(accounts.totals.committed)} · Drawn {fmtMoney(accounts.totals.drawn)} ·
-            Remaining {fmtMoney(accounts.totals.remaining)} · Distributed {fmtMoney(accounts.totals.distributed)}
-          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
+            <Stat label="Committed" value={fmtMoney(accounts.totals.committed)} />
+            <Stat label="Drawn" value={fmtMoney(accounts.totals.drawn)} />
+            <Stat label="Uncalled" value={fmtMoney(accounts.totals.remaining)} />
+            <Stat label="Distributed" value={fmtMoney(accounts.totals.distributed)} />
+            {perf && perf.paid_in !== "0.00" && (
+              <>
+                <Stat
+                  label="NAV"
+                  value={fmtMoney(perf.nav)}
+                  spark={series.map((p) => Number(p.nav))}
+                  hint={
+                    perf.positions_at_cost > 0
+                      ? `${perf.positions_at_cost} position(s) held at cost — mark them under Portfolio`
+                      : "Portfolio at the fund's marks"
+                  }
+                />
+                <Stat label="TVPI" value={perf.tvpi ?? "—"} spark={series.map((p) => Number(p.tvpi))} hint="Total value to paid-in" />
+                <Stat label="DPI" value={perf.dpi ?? "—"} spark={series.map((p) => Number(p.dpi))} hint="Distributions to paid-in" />
+                <Stat label="RVPI" value={perf.rvpi ?? "—"} spark={series.map((p) => Number(p.rvpi))} hint="Residual value to paid-in" />
+                <Stat label="XIRR" value={perf.xirr_pct !== null ? `${perf.xirr_pct}%` : "—"} hint="Money-weighted annualised return" />
+                {perf.nav_per_unit && (
+                  <Stat
+                    label="NAV / unit"
+                    value={fmtMoney(perf.nav_per_unit)}
+                    hint={`${fmtInt(perf.units_outstanding)} units outstanding at ₹10 par`}
+                  />
+                )}
+              </>
+            )}
+          </div>
         )}
-        {perf && perf.paid_in !== "0.00" && (
-          <p>
-            <strong>Performance:</strong> DPI {perf.dpi ?? "—"} · RVPI {perf.rvpi ?? "—"} ·{" "}
-            <strong>TVPI {perf.tvpi ?? "—"}</strong> · XIRR{" "}
-            {perf.xirr_pct !== null ? `${perf.xirr_pct}%` : "—"} · NAV {fmtMoney(perf.nav)}
-            {perf.positions_at_cost > 0 && (
-              <span className="muted"> ({perf.positions_at_cost} position(s) held at cost — mark them under Portfolio)</span>
-            )}
-            <span className="muted"> · Management fee accrued {fmtMoney(perf.management_fee_accrued)}</span>
-            {perf.nav_per_unit && (
-              <span className="muted"> · {fmtInt(perf.units_outstanding)} units · NAV/unit {fmtMoney(perf.nav_per_unit)}</span>
-            )}
+        {perf && Number(perf.management_fee_accrued) > 0 && (
+          <p className="muted" style={{ margin: "8px 0 4px" }}>
+            Management fee accrued {fmtMoney(perf.management_fee_accrued)}
           </p>
         )}
         {perf && Number(perf.management_fee_accrued) > 0 && (
@@ -415,6 +439,31 @@ export default function Fund({
                   ))}
                 </tbody>
               </table>
+
+              <div style={{ marginTop: 14 }}>
+                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                  Waterfall by distribution — where each payout went
+                </div>
+                <ColumnChart
+                  height={160}
+                  format={(v) => fmtMoney(v)}
+                  columns={dists.map((d) => {
+                    const gross = Number(d.gross_amount);
+                    const roc = Number(d.roc_amount);
+                    const pref = Number(d.pref_amount);
+                    const carry = Number(d.carry_amount);
+                    return {
+                      label: `#${d.dist_no}`,
+                      segments: [
+                        { label: "Return of capital", value: roc, color: "#4caf87" },
+                        { label: "Preferred return", value: pref, color: "#c9a227" },
+                        { label: "LP profit share", value: Math.max(0, gross - roc - pref - carry), color: "#2f6b52" },
+                        { label: "GP carry (incl. catch-up)", value: carry, color: "#8a5a2b" },
+                      ],
+                    };
+                  })}
+                />
+              </div>
             </div>
           )}
         </>
