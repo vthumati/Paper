@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { api, type KPIRequest, type PortfolioMonitoring as Monitoring } from "../api";
+import {
+  api,
+  type KPIDefinitionList,
+  type KPIRequest,
+  type PortfolioBenchmarks,
+  type PortfolioMonitoring as Monitoring,
+} from "../api";
 import { useGuard } from "../hooks";
 import { fmtMoney } from "../lib/format";
 import EmptyState from "../components/EmptyState";
@@ -7,6 +13,9 @@ import LineChart from "../components/LineChart";
 import Stat from "../components/Stat";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
+
+const fmtMetric = (v: number | null | undefined, unit: string) =>
+  v === null || v === undefined ? null : unit === "inr" ? fmtMoney(v) : unit === "pct" ? `${v}%` : String(v);
 
 /** Portfolio-company monitoring (Carta "portfolio monitoring"): collect operating
  * KPIs (revenue, cash, burn, headcount) per period per company, and roll them up
@@ -36,10 +45,20 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
   const [rDue, setRDue] = useState("");
   const [rEmail, setREmail] = useState("");
 
+  // custom KPI definitions + benchmarking
+  const [defs, setDefs] = useState<KPIDefinitionList | null>(null);
+  const [defsOpen, setDefsOpen] = useState(false);
+  const [defLabel, setDefLabel] = useState("");
+  const [defUnit, setDefUnit] = useState("number");
+  const [custom, setCustom] = useState<Record<string, string>>({});
+  const [bench, setBench] = useState<PortfolioBenchmarks | null>(null);
+
   const load = () =>
     Promise.all([
       api.portfolioMonitoring(fundId).then(setMon),
       api.listKpiRequests(fundId).then(setReqs),
+      api.listKpiDefinitions(fundId).then(setDefs),
+      api.portfolioBenchmarks(fundId).then(setBench),
     ]);
   useEffect(() => {
     load();
@@ -55,6 +74,13 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
         <button
           className="secondary"
           style={{ marginLeft: "auto" }}
+          onClick={() => setDefsOpen((v) => !v)}
+          title="Define the fund's own metrics (incl. ESG presets) to collect alongside the core KPIs"
+        >
+          {defsOpen ? "Close metrics" : "Custom metrics"}
+        </button>
+        <button
+          className="secondary"
           disabled={mon.companies.length === 0}
           onClick={() => {
             setReqOpen((v) => !v);
@@ -80,6 +106,73 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
         companies under 6 months are flagged.
       </p>
       {error && <p className="error">{error}</p>}
+
+      {defsOpen && defs && (
+        <div style={{ margin: "10px 0" }}>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+            Custom metrics collected with each KPI period — define your own or add an ESG preset.
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+            {defs.definitions.length === 0 && <span className="muted">No custom metrics defined yet.</span>}
+            {defs.definitions.map((d) => (
+              <span key={d.id} className="badge">
+                {d.label} <span className="muted">({d.unit})</span>{" "}
+                <a
+                  href="#"
+                  title="Remove this metric (historical values are kept)"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    guard(async () => {
+                      await api.deleteKpiDefinition(fundId, d.id);
+                    }, "Metric removed")();
+                  }}
+                >
+                  ×
+                </a>
+              </span>
+            ))}
+          </div>
+          <div className="row" style={{ alignItems: "flex-end" }}>
+            <div><label>New metric</label><input placeholder="GMV (monthly)" value={defLabel} onChange={(e) => setDefLabel(e.target.value)} /></div>
+            <div>
+              <label>Unit</label>
+              <select value={defUnit} onChange={(e) => setDefUnit(e.target.value)}>
+                <option value="inr">₹ amount</option>
+                <option value="number">number</option>
+                <option value="pct">%</option>
+              </select>
+            </div>
+            <button
+              style={{ flex: "0 0 auto" }}
+              disabled={!defLabel.trim()}
+              onClick={guard(async () => {
+                await api.addKpiDefinition(fundId, { label: defLabel, unit: defUnit });
+                setDefLabel("");
+              }, "Metric defined")}
+            >
+              Add metric
+            </button>
+          </div>
+          {defs.presets.some((p) => !defs.definitions.find((d) => d.key === p.key)) && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, alignItems: "center" }}>
+              <span className="muted" style={{ fontSize: 12 }}>ESG presets:</span>
+              {defs.presets
+                .filter((p) => !defs.definitions.find((d) => d.key === p.key))
+                .map((p) => (
+                  <button
+                    key={p.key}
+                    className="secondary"
+                    onClick={guard(async () => {
+                      await api.addKpiDefinition(fundId, p);
+                    }, "ESG metric added")}
+                  >
+                    + {p.label}
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {mon.companies.length === 0 ? (
         <EmptyState icon="📈" title="No portfolio companies yet" hint="Add investments above, then report their KPIs here to monitor revenue, burn and runway." />
@@ -148,10 +241,22 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
               <div><label>Cash (₹)</label><input value={cash} onChange={(e) => setCash(e.target.value)} /></div>
               <div><label>Monthly burn (₹)</label><input value={burn} onChange={(e) => setBurn(e.target.value)} /></div>
               <div><label>Headcount</label><input value={headcount} onChange={(e) => setHeadcount(e.target.value)} /></div>
+              {(defs?.definitions ?? []).map((d) => (
+                <div key={d.key}>
+                  <label>{d.label}{d.unit === "inr" ? " (₹)" : d.unit === "pct" ? " (%)" : ""}</label>
+                  <input
+                    value={custom[d.key] ?? ""}
+                    onChange={(e) => setCustom({ ...custom, [d.key]: e.target.value })}
+                  />
+                </div>
+              ))}
               <button
                 style={{ flex: "0 0 auto" }}
                 disabled={!invId || !period}
                 onClick={guard(async () => {
+                  const customVals = Object.fromEntries(
+                    Object.entries(custom).filter(([, v]) => v !== "")
+                  );
                   await api.addPortfolioKpi(fundId, invId, {
                     period_label: period,
                     as_of: asOf,
@@ -159,8 +264,9 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
                     cash: cash || null,
                     monthly_burn: burn || null,
                     headcount: headcount ? Number(headcount) : null,
+                    custom: Object.keys(customVals).length ? customVals : undefined,
                   });
-                  setPeriod(""); setRevenue(""); setCash(""); setBurn(""); setHeadcount("");
+                  setPeriod(""); setRevenue(""); setCash(""); setBurn(""); setHeadcount(""); setCustom({});
                 }, "KPIs reported")}
               >
                 Save period
@@ -291,6 +397,56 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
               </div>
             );
           })()}
+
+          {bench && bench.rows.length > 1 && Object.values(bench.medians).some((v) => v !== null) && (
+            <>
+              <div className="muted" style={{ fontSize: 12, margin: "14px 0 4px" }}>
+                Internal benchmarking — each company's latest period vs the portfolio median
+                (▲ above · ▼ below)
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Company</th>
+                    {bench.metrics.map((m) => <th key={m.key}>{m.label}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {bench.rows.map((r) => (
+                    <tr key={r.investment_id}>
+                      <td>{r.company_name}</td>
+                      {bench.metrics.map((m) => {
+                        const v = r.values[m.key];
+                        const med = bench.medians[m.key];
+                        const txt = fmtMetric(v, m.unit);
+                        return (
+                          <td key={m.key}>
+                            {txt === null ? (
+                              <span className="muted">—</span>
+                            ) : v !== null && med !== null && v !== med ? (
+                              <span className={v > med ? "delta-up" : "delta-down"}>
+                                {v > med ? "▲" : "▼"} {txt}
+                              </span>
+                            ) : (
+                              txt
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                  <tr>
+                    <td className="muted">Portfolio median</td>
+                    {bench.metrics.map((m) => (
+                      <td key={m.key} className="muted">
+                        {fmtMetric(bench.medians[m.key], m.unit) ?? "—"}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </>
+          )}
         </>
       )}
     </div>

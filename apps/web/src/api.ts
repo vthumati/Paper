@@ -1046,6 +1046,7 @@ export interface PortfolioKPI {
   headcount: number | null;
   runway_months: number | null;
   note: string | null;
+  custom: Record<string, string>;
 }
 export interface PortfolioKPIInput {
   period_label: string;
@@ -1055,6 +1056,23 @@ export interface PortfolioKPIInput {
   monthly_burn?: string | null;
   headcount?: number | null;
   note?: string | null;
+  custom?: Record<string, string>;
+}
+export interface KPIDefinition {
+  id: string;
+  key: string;
+  label: string;
+  unit: "inr" | "number" | "pct";
+}
+export interface KPIDefinitionList {
+  definitions: KPIDefinition[];
+  presets: Omit<KPIDefinition, "id">[];
+}
+export interface PortfolioBenchmarks {
+  fund_id: string;
+  metrics: { key: string; label: string; unit: string }[];
+  rows: { investment_id: string; company_name: string; values: Record<string, number | null> }[];
+  medians: Record<string, number | null>;
 }
 export interface PortfolioMonitoring {
   fund_id: string;
@@ -1685,6 +1703,14 @@ export const api = {
     post<PortfolioKPI[]>(`/funds/${fid}/portfolio/${iid}/kpis`, b),
   listPortfolioKpis: (fid: string, iid: string) =>
     get<PortfolioKPI[]>(`/funds/${fid}/portfolio/${iid}/kpis`),
+  listKpiDefinitions: (fid: string) =>
+    get<KPIDefinitionList>(`/funds/${fid}/kpi-definitions`),
+  addKpiDefinition: (fid: string, b: { label: string; unit: string; key?: string }) =>
+    post<KPIDefinition>(`/funds/${fid}/kpi-definitions`, b),
+  deleteKpiDefinition: (fid: string, did: string) =>
+    del<void>(`/funds/${fid}/kpi-definitions/${did}`),
+  portfolioBenchmarks: (fid: string) =>
+    get<PortfolioBenchmarks>(`/funds/${fid}/benchmarks`),
   addInvestment: (fid: string, b: unknown) =>
     post<PortfolioInvestment>(`/funds/${fid}/portfolio`, b),
   markInvestment: (fid: string, iid: string, b: unknown) =>
