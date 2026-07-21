@@ -17,8 +17,10 @@ def test_new_company_starts_at_inception(client):
     g = client.get(f"/entities/{eid}/stage-guide", headers=h).json()
     assert g["stage"] == "inception"
     assert g["suggested_stage"] is None
-    # inception hides fundraising/data-room/valuations tabs
-    assert "fundraising" not in g["tabs"] and "dataroom" not in g["tabs"]
+    # a new company is on the Starter pack
+    assert g["pack"] == "starter" and g["suggested_pack"] is None
+    # Starter hides the raise tabs (fundraising is a Growth feature)
+    assert "fundraising" not in g["tabs"]
     assert "captable" in g["tabs"] and "compliance" in g["tabs"]
     # advanced features locked, founder vesting available
     assert g["features"]["founder_vesting"] is True
@@ -58,24 +60,37 @@ def test_checklist_items_flip_when_work_is_done(client):
 def test_stages_can_be_skipped(client):
     h = auth_headers(client)
     eid = _company(client, h)
-    # straight from inception to pre-IPO, and back again — no gating
+    # straight from inception to pre-IPO, and back again — no gating; stage no
+    # longer changes visible features (that's the pack's job)
     g = client.put(f"/entities/{eid}/stage", json={"stage": "ipo"}, headers=h).json()
-    assert g["stage"] == "ipo" and g["features"]["demat"] is True
+    assert g["stage"] == "ipo"
     g = client.put(f"/entities/{eid}/stage", json={"stage": "inception"}, headers=h).json()
     assert g["stage"] == "inception"
+    # invalid stage rejected by schema
+    assert client.put(f"/entities/{eid}/stage", json={"stage": "unicorn"}, headers=h).status_code == 422
 
 
-def test_stage_change_unlocks_tabs_and_features(client):
+def test_pack_unlocks_tabs_and_features(client):
     h = auth_headers(client)
     eid = _company(client, h)
-    g = client.put(f"/entities/{eid}/stage", json={"stage": "series"}, headers=h).json()
-    assert g["stage"] == "series"
+    # Starter: raise tabs hidden, advanced cap-table locked
+    g = client.get(f"/entities/{eid}/stage-guide", headers=h).json()
+    assert g["pack"] == "starter"
+    assert "fundraising" not in g["tabs"]
+    assert g["features"]["anti_dilution"] is False and g["features"]["dataroom"] is False
+    # Growth unlocks raising, contracts and the data room
+    g = client.put(f"/entities/{eid}/pack", json={"pack": "growth"}, headers=h).json()
+    assert g["pack"] == "growth"
     assert "fundraising" in g["tabs"] and "contracts" in g["tabs"]
+    assert g["features"]["dataroom"] is True
+    assert g["features"]["anti_dilution"] is False and g["features"]["demat"] is False  # scale only
+    # Scale unlocks advanced cap-table actions and managed admin
+    g = client.put(f"/entities/{eid}/pack", json={"pack": "scale"}, headers=h).json()
+    assert "admin" in g["tabs"]
     assert g["features"]["anti_dilution"] is True and g["features"]["waterfall"] is True
-    assert g["features"]["demat"] is False  # ipo only
-    # invalid stage rejected by schema
-    bad = client.put(f"/entities/{eid}/stage", json={"stage": "unicorn"}, headers=h)
-    assert bad.status_code == 422
+    assert g["features"]["demat"] is True
+    # invalid pack rejected by schema
+    assert client.put(f"/entities/{eid}/pack", json={"pack": "enterprise"}, headers=h).status_code == 422
 
 
 def test_stage_suggested_from_data(client):
@@ -114,4 +129,7 @@ def test_stages_do_not_apply_to_funds(client):
     assert client.get(f"/entities/{eid}/stage-guide", headers=h).status_code == 400
     assert (
         client.put(f"/entities/{eid}/stage", json={"stage": "seed"}, headers=h).status_code == 400
+    )
+    assert (
+        client.put(f"/entities/{eid}/pack", json={"pack": "growth"}, headers=h).status_code == 400
     )

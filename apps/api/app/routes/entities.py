@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..deps import EntityCtx, TenantCtx, entity_ctx, require_write, tenant_ctx
 from ..models.entity import EntityType, LegalEntity
-from ..schemas import EntityIn, EntityOut, StageIn
+from ..schemas import EntityIn, EntityOut, PackIn, StageIn
 from ..services.stage import stage_guide
 
 router = APIRouter(tags=["entities"])
@@ -59,5 +59,17 @@ def set_stage(
     if ctx.entity.type not in STAGED_TYPES:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Stages apply to companies only")
     ctx.entity.stage = body.stage
+    db.commit()
+    return stage_guide(db, ctx.entity)
+
+
+@router.put("/entities/{entity_id}/pack")
+def set_pack(
+    body: PackIn, ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)
+):
+    require_write(ctx.role)
+    if ctx.entity.type not in STAGED_TYPES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Feature packs apply to companies only")
+    ctx.entity.pack = body.pack
     db.commit()
     return stage_guide(db, ctx.entity)

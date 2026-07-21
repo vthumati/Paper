@@ -184,7 +184,7 @@ def _check_expired_grants(db: Session, entity_id: str, today) -> list[dict]:
     return [_finding(
         "expired_dataroom_grants", "low", "Expired data-room access grants linger",
         f"{expired} expired grant(s) still listed — remove them to keep the access "
-        "register clean.", "dataroom",
+        "register clean.", "documents",
     )]
 
 

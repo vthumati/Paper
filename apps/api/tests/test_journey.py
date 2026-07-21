@@ -65,6 +65,8 @@ def test_founder_journey_inception_to_series(client):
 
     # ============ PRE-SEED — first money in ============
     g = client.put(f"/entities/{eid}/stage", json={"stage": "preseed"}, headers=h).json()
+    # raising is a Growth-pack activity — upgrading unlocks the fundraise tabs
+    g = client.put(f"/entities/{eid}/pack", json={"pack": "growth"}, headers=h).json()
     assert "fundraising" in g["tabs"]  # SAFEs now reachable
 
     scheme = client.post(

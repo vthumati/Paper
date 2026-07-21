@@ -30,7 +30,17 @@ from ..models.round import Round, RoundStatus
 from ..models.startup import RecognitionStatus, StartupRecognition
 from ..models.team import TeamMember
 from ..models.valuation import ValuationReport
-from ..stages import STAGE_INFO, STAGES, features_for, stage_rank, tabs_for
+from ..stages import (
+    PACK_INFO,
+    PACKS,
+    STAGE_INFO,
+    STAGES,
+    features_for,
+    pack_for_stage,
+    pack_rank,
+    stage_rank,
+    tabs_for,
+)
 
 
 def _has(db: Session, model, **filters) -> bool:
@@ -111,11 +121,14 @@ def suggest_stage(db: Session, entity: LegalEntity) -> str:
 
 def stage_guide(db: Session, entity: LegalEntity) -> dict:
     stage = entity.stage if entity.stage in STAGES else "inception"
+    pack = entity.pack if entity.pack in PACKS else "starter"
     info = STAGE_INFO[stage]
     checklist = [
         {**item, "done": CHECKS[item["key"]](db, entity)} for item in info["checklist"]
     ]
     suggested = suggest_stage(db, entity)
+    # a stage implies a pack; suggest an upgrade only if it's a higher tier
+    suggested_pack = pack_for_stage(suggested)
     return {
         "entity_id": entity.id,
         "stage": stage,
@@ -123,8 +136,11 @@ def stage_guide(db: Session, entity: LegalEntity) -> dict:
         "headline": info["headline"],
         "suggested_stage": suggested if stage_rank(suggested) > stage_rank(stage) else None,
         "stages": [{"key": s, "label": STAGE_INFO[s]["label"]} for s in STAGES],
-        "tabs": tabs_for(stage),
-        "features": features_for(stage),
+        "pack": pack,
+        "packs": [{"key": p, "label": PACK_INFO[p]["label"], "blurb": PACK_INFO[p]["blurb"]} for p in PACKS],
+        "suggested_pack": suggested_pack if pack_rank(suggested_pack) > pack_rank(pack) else None,
+        "tabs": tabs_for(pack),
+        "features": features_for(pack),
         "checklist": checklist,
         "progress": {"done": sum(1 for c in checklist if c["done"]), "total": len(checklist)},
     }

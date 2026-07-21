@@ -32,8 +32,11 @@ class LegalEntity(Base, TimestampMixin):
     pan: Mapped[str | None] = mapped_column(String(16), nullable=True)
     incorporation_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
     # Lifecycle stage (companies only): inception / seed / series / ipo.
-    # Drives the guided checklist and which features are surfaced (app/stages.py).
+    # Drives the guided "what to do now" checklist (app/stages.py).
     stage: Mapped[str] = mapped_column(String(16), default="inception")
+    # Feature pack (companies only): starter / growth / scale — the commercial
+    # tier that decides which tabs and feature-parts are visible (app/stages.py).
+    pack: Mapped[str] = mapped_column(String(16), default="starter")
 
 
 class IncorporationStatus(str, enum.Enum):

@@ -151,10 +151,15 @@ class EntityOut(ORMModel):
     pan: str | None
     incorporation_date: datetime.date | None
     stage: str
+    pack: str
 
 
 class StageIn(BaseModel):
     stage: Literal["inception", "preseed", "seed", "series", "ipo"]
+
+
+class PackIn(BaseModel):
+    pack: Literal["starter", "growth", "scale"]
 
 
 # --- cap table ---
