@@ -291,7 +291,20 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
         <>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             <Stat label="Companies reporting" value={`${t.reporting} / ${t.companies}`} />
-            <Stat label="Latest revenue (sum)" value={fmtMoney(t.latest_revenue)} />
+            <Stat
+              label="Latest revenue (sum)"
+              value={fmtMoney(t.latest_revenue)}
+              deltas={(() => {
+                const last = (xs: { y: number }[], back: number) => xs[xs.length - back]?.y;
+                const now = mon.companies.reduce((s, c) => s + (last(c.revenue_series, 1) ?? 0), 0);
+                const prev = mon.companies.reduce(
+                  (s, c) => s + (last(c.revenue_series, 2) ?? last(c.revenue_series, 1) ?? 0),
+                  0
+                );
+                if (!prev || prev === now) return undefined;
+                return [{ label: "vs prior period", pct: Math.round(((now - prev) / prev) * 1000) / 10 }];
+              })()}
+            />
             <Stat label="Cash on hand (sum)" value={fmtMoney(t.cash)} />
             <Stat label="Low on runway" value={t.low_runway} alert={t.low_runway > 0} hint="Companies with under 6 months of runway" />
           </div>
@@ -704,6 +717,17 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
                     <div key={m.key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <span className="muted" style={{ fontSize: 12, flex: "0 0 160px" }}>{m.label}</span>
                       <div style={{ position: "relative", flex: 1, height: 14, background: "rgba(120,120,120,0.12)", borderRadius: 7 }}>
+                        {(() => {
+                          const st = bench.stats[m.key];
+                          if (!st || st.reporters < 2) return null;
+                          return [["Q1", st.q1] as const, ["Q3", st.q3] as const].map(([lbl, q]) => (
+                            <span
+                              key={lbl}
+                              title={`${lbl} ${fmtMetric(q, m.unit)}`}
+                              style={{ position: "absolute", left: `${((q - min) / span) * 100}%`, top: 1, bottom: 1, width: 0, borderLeft: "2px dotted var(--muted)", opacity: 0.7 }}
+                            />
+                          ));
+                        })()}
                         {med !== null && (
                           <span
                             title={`Median ${fmtMetric(med, m.unit)}`}
@@ -725,6 +749,37 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
                   );
                 })}
               </div>
+
+              {bench.metrics.some((m) => (bench.stats[m.key]?.reporters ?? 0) >= 2) && (
+                <>
+                  <div className="muted" style={{ fontSize: 12, margin: "14px 0 4px" }}>
+                    Distribution — quartiles across reporting companies (dotted Q1/Q3 marks on the strips above)
+                  </div>
+                  <table>
+                    <thead>
+                      <tr><th>Metric</th><th>Reporters</th><th>Min</th><th>Q1</th><th>Median</th><th>Q3</th><th>Max</th><th>Total</th></tr>
+                    </thead>
+                    <tbody>
+                      {bench.metrics.map((m) => {
+                        const st = bench.stats[m.key];
+                        if (!st || st.reporters < 2) return null;
+                        return (
+                          <tr key={m.key}>
+                            <td>{m.label}</td>
+                            <td>{st.reporters}</td>
+                            <td>{fmtMetric(st.min, m.unit)}</td>
+                            <td>{fmtMetric(st.q1, m.unit)}</td>
+                            <td><strong>{fmtMetric(st.median, m.unit)}</strong></td>
+                            <td>{fmtMetric(st.q3, m.unit)}</td>
+                            <td>{fmtMetric(st.max, m.unit)}</td>
+                            <td className="muted">{m.unit === "inr" ? fmtMetric(st.total, m.unit) : "—"}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </>
+              )}
             </>
           )}
         </>

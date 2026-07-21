@@ -166,6 +166,33 @@ export default function Investors({ entityId }: { entityId: string }) {
               );
             })()}
           </div>
+
+          {(title || body) && (
+            <div style={{ marginTop: 12 }}>
+              <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
+                Preview — how investors will see it in their portal
+              </div>
+              <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--light)", padding: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <strong>{title || "Untitled update"}</strong>
+                  {updPeriod && <span className="badge">{updPeriod}</span>}
+                  <span className="muted" style={{ fontSize: 12 }}>{new Date().toLocaleDateString()}</span>
+                </div>
+                {body && <div className="muted" style={{ marginTop: 4 }}>{body}</div>}
+                {updHighlights && <div className="muted">🌟 {updHighlights}</div>}
+                {updLowlights && <div className="muted">⚠️ {updLowlights}</div>}
+                {updAsks && <div className="muted">🙏 {updAsks}</div>}
+                {metrics && (
+                  <div className="row" style={{ gap: 12, flexWrap: "wrap", marginTop: 6 }}>
+                    <span className="muted">Shares <strong>{metrics.shares_issued.toLocaleString()}</strong></span>
+                    <span className="muted">FMV <strong>{metrics.fmv_per_share ? `₹${metrics.fmv_per_share}` : "—"}</strong></span>
+                    <span className="muted">Runway <strong>{metrics.runway_months ?? "—"} mo</strong></span>
+                    <span className="muted" style={{ fontSize: 11 }}>(metrics frozen at publish)</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -1160,6 +1160,10 @@ export interface PortfolioBenchmarks {
   rows: { investment_id: string; company_name: string; sector: string | null; values: Record<string, number | null> }[];
   medians: Record<string, number | null>;
   segments: { segment: string; companies: number; medians: Record<string, number | null> }[];
+  stats: Record<
+    string,
+    { min: number; q1: number; median: number; q3: number; max: number; total: number; reporters: number } | null
+  >;
 }
 export interface MetricAlertRule {
   id: string;

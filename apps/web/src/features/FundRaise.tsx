@@ -15,6 +15,16 @@ const KINDS: Record<string, string> = {
 };
 // stages selectable in the pipeline; "committed" is reached by converting
 const STAGES = ["prospect", "contacted", "meeting", "diligence", "soft_circled", "passed"];
+const STAGE_ORDER = ["prospect", "contacted", "meeting", "diligence", "soft_circled", "committed", "passed"];
+export const STAGE_COLORS: Record<string, string> = {
+  prospect: "#8a8f98",
+  contacted: "#c9a227",
+  meeting: "#2f6fb2",
+  diligence: "#7b5cd6",
+  soft_circled: "#2f7d5b",
+  committed: "#1e6b3f",
+  passed: "#b3423a",
+};
 const ACT_KINDS = ["note", "meeting", "call", "email", "other"];
 const ACT_ICONS: Record<string, string> = { note: "📝", meeting: "📅", call: "📞", email: "✉️", other: "🔹" };
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -94,6 +104,18 @@ export default function FundRaise({ fundId, onChanged }: { fundId: string; onCha
         </div>
       )}
 
+      {Object.keys(sum.by_stage).length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+          {STAGE_ORDER.filter((s) => sum.by_stage[s]).map((s) => (
+            <span key={s} className="badge" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: STAGE_COLORS[s] ?? "#8a8f98" }} />
+              {s.replace(/_/g, " ")} · {fmtMoney(sum.by_stage[s].target)}{" "}
+              <span className="muted">({sum.by_stage[s].count})</span>
+            </span>
+          ))}
+        </div>
+      )}
+
       {open && (
         <div className="row" style={{ alignItems: "flex-end", marginTop: 12 }}>
           <div><label>Name</label><input value={name} onChange={(e) => setName(e.target.value)} /></div>
@@ -146,12 +168,15 @@ export default function FundRaise({ fundId, onChanged }: { fundId: string; onCha
                     {p.lp_id ? (
                       <span className="badge complete">committed</span>
                     ) : (
-                      <select
-                        value={p.stage}
-                        onChange={(e) => guard(() => api.setLpProspectStage(fundId, p.id, e.target.value))()}
-                      >
-                        {STAGES.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
-                      </select>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", flex: "0 0 auto", background: STAGE_COLORS[p.stage] ?? "#8a8f98" }} />
+                        <select
+                          value={p.stage}
+                          onChange={(e) => guard(() => api.setLpProspectStage(fundId, p.id, e.target.value))()}
+                        >
+                          {STAGES.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
+                        </select>
+                      </span>
                     )}
                   </td>
                   <td>

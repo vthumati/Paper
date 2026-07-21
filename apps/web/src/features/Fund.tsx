@@ -8,6 +8,7 @@ import FundForecast from "./FundForecast";
 import FundDDQ from "./FundDDQ";
 import FundNetwork from "./FundNetwork";
 import FundRaise from "./FundRaise";
+import TearSheet from "./TearSheet";
 import FundSignals from "./FundSignals";
 import FundFinancials from "./FundFinancials";
 import FundValuations from "./FundValuations";
@@ -82,6 +83,7 @@ export default function Fund({
   const [coName, setCoName] = useState("");
   const [coAmt, setCoAmt] = useState("");
   const [coSector, setCoSector] = useState("");
+  const [openTear, setOpenTear] = useState<string | null>(null);
 
   async function loadFund() {
     try {
@@ -142,6 +144,37 @@ export default function Fund({
     );
   }
 
+  // Visible-style change pills: latest series value vs ~a quarter / ~a year ago
+  const deltasFor = (key: "nav" | "tvpi" | "dpi" | "rvpi") => {
+    if (series.length < 2) return undefined;
+    const latest = Number(series[series.length - 1][key]);
+    if (!isFinite(latest)) return undefined;
+    const at = (days: number) => {
+      const cutoff = Date.now() - days * 86400000;
+      const past = [...series].reverse().find((p) => new Date(p.date).getTime() <= cutoff);
+      return past ? Number(past[key]) : null;
+    };
+    const out: { label: string; pct: number }[] = [];
+    for (const [label, days] of [["vs last quarter", 91], ["vs last year", 365]] as const) {
+      const base = at(days);
+      if (base !== null && base !== 0 && isFinite(base)) {
+        const pct = Math.round(((latest - base) / Math.abs(base)) * 1000) / 10;
+        if (pct !== 0) out.push({ label, pct });
+      }
+    }
+    if (out.length === 0) {
+      // young fund: no point a quarter back yet — show the move since inception
+      const first = Number(series[0][key]);
+      if (isFinite(first) && first !== 0 && first !== latest) {
+        out.push({
+          label: "since inception",
+          pct: Math.round(((latest - first) / Math.abs(first)) * 1000) / 10,
+        });
+      }
+    }
+    return out.length ? out : undefined;
+  };
+
   return (
     <div>
       {error && <p className="error">{error}</p>}
@@ -165,15 +198,16 @@ export default function Fund({
                   label="NAV"
                   value={fmtMoney(perf.nav)}
                   spark={series.map((p) => Number(p.nav))}
+                  deltas={deltasFor("nav")}
                   hint={
                     perf.positions_at_cost > 0
                       ? `${perf.positions_at_cost} position(s) held at cost — mark them under Portfolio`
                       : "Portfolio at the fund's marks"
                   }
                 />
-                <Stat label="TVPI" value={perf.tvpi ?? "—"} spark={series.map((p) => Number(p.tvpi))} hint="Total value to paid-in" />
-                <Stat label="DPI" value={perf.dpi ?? "—"} spark={series.map((p) => Number(p.dpi))} hint="Distributions to paid-in" />
-                <Stat label="RVPI" value={perf.rvpi ?? "—"} spark={series.map((p) => Number(p.rvpi))} hint="Residual value to paid-in" />
+                <Stat label="TVPI" value={perf.tvpi ?? "—"} spark={series.map((p) => Number(p.tvpi))} deltas={deltasFor("tvpi")} hint="Total value to paid-in" />
+                <Stat label="DPI" value={perf.dpi ?? "—"} spark={series.map((p) => Number(p.dpi))} deltas={deltasFor("dpi")} hint="Distributions to paid-in" />
+                <Stat label="RVPI" value={perf.rvpi ?? "—"} spark={series.map((p) => Number(p.rvpi))} deltas={deltasFor("rvpi")} hint="Residual value to paid-in" />
                 <Stat label="XIRR" value={perf.xirr_pct !== null ? `${perf.xirr_pct}%` : "—"} hint="Money-weighted annualised return" />
                 {perf.nav_per_unit && (
                   <Stat
@@ -544,12 +578,9 @@ export default function Fund({
                         </button>{" "}
                         <button
                           className="secondary"
-                          onClick={guard(
-                            () => api.tearSheet(fund.id, p.id),
-                            "Tear sheet generated — see the entity's Documents tab"
-                          )}
+                          onClick={() => setOpenTear(openTear === p.id ? null : p.id)}
                         >
-                          Tear sheet
+                          {openTear === p.id ? "Close" : "Tear sheet"}
                         </button>
                       </td>
                     </tr>
@@ -558,6 +589,19 @@ export default function Fund({
               </table>
             )}
           </div>
+
+          {openTear && (() => {
+            const inv = portfolio.find((p) => p.id === openTear);
+            if (!inv) return null;
+            return (
+              <TearSheet
+                fundId={fund.id}
+                inv={inv}
+                soiRow={soi?.holdings.find((h) => h.id === inv.id) ?? null}
+                onClose={() => setOpenTear(null)}
+              />
+            );
+          })()}
 
           {soi && soi.holdings.length > 0 && (
             <div className="card">

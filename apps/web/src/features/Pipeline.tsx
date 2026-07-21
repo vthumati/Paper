@@ -4,6 +4,14 @@ import { useGuard } from "../hooks";
 import { api, type Prospect, type Round } from "../api";
 
 const STAGES = ["contacted", "meeting", "diligence", "term_sheet", "committed", "passed"];
+const STAGE_COLORS: Record<string, string> = {
+  contacted: "#c9a227",
+  meeting: "#2f6fb2",
+  diligence: "#7b5cd6",
+  term_sheet: "#2f7d5b",
+  committed: "#1e6b3f",
+  passed: "#b3423a",
+};
 
 export default function Pipeline({
   entityId,
@@ -14,7 +22,12 @@ export default function Pipeline({
 }) {
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [rounds, setRounds] = useState<Round[]>([]);
-  const [summary, setSummary] = useState<{ open_value: string; committed_value: string; total: number } | null>(null);
+  const [summary, setSummary] = useState<{
+    by_stage: Record<string, { count: number; value: string }>;
+    open_value: string;
+    committed_value: string;
+    total: number;
+  } | null>(null);
   const { error, setError, guard } = useGuard(() => load());
   const [note, setNote] = useState("");
 
@@ -50,6 +63,17 @@ export default function Pipeline({
         <p className="muted">
           {summary.total} prospects · Open value {fmtMoney(summary.open_value)} · Committed {fmtMoney(summary.committed_value)}
         </p>
+      )}
+      {summary && Object.keys(summary.by_stage ?? {}).length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+          {STAGES.filter((s) => summary.by_stage[s]).map((s) => (
+            <span key={s} className="badge" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: STAGE_COLORS[s] }} />
+              {s.replace(/_/g, " ")} · {fmtMoney(summary.by_stage[s].value)}{" "}
+              <span className="muted">({summary.by_stage[s].count})</span>
+            </span>
+          ))}
+        </div>
       )}
 
       <div className="row">
@@ -89,13 +113,16 @@ export default function Pipeline({
                 <td>{p.firm || "—"}</td>
                 <td>{p.check_size || "—"}</td>
                 <td>
-                  <select
-                    value={p.stage}
-                    disabled={!!p.commitment_id}
-                    onChange={(ev) => guard(() => api.updateProspectStage(p.id, { stage: ev.target.value }))()}
-                  >
-                    {STAGES.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
-                  </select>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", flex: "0 0 auto", background: STAGE_COLORS[p.stage] ?? "#8a8f98" }} />
+                    <select
+                      value={p.stage}
+                      disabled={!!p.commitment_id}
+                      onChange={(ev) => guard(() => api.updateProspectStage(p.id, { stage: ev.target.value }))()}
+                    >
+                      {STAGES.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
+                    </select>
+                  </span>
                 </td>
                 <td>
                   {p.commitment_id ? (
