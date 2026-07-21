@@ -111,6 +111,7 @@ def publish_update(
         highlights=body.highlights,
         lowlights=body.lowlights,
         asks=body.asks,
+        audience=body.audience,
         status="published" if body.publish else "draft",
         created_by=user.id,
     )
@@ -139,6 +140,7 @@ def edit_update(
     upd.highlights = body.highlights
     upd.lowlights = body.lowlights
     upd.asks = body.asks
+    upd.audience = body.audience
     db.commit()
     db.refresh(upd)
     return upd
@@ -184,6 +186,7 @@ def list_updates(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get
             "lowlights": u.lowlights,
             "asks": u.asks,
             "metrics": u.metrics,
+            "audience": u.audience,
             "status": u.status,
             "published_at": u.published_at,
             "created_at": u.created_at,
@@ -240,6 +243,8 @@ def view_update(
         else None
     )
     if upd is None or upd.status != "published" or access is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Update not found")
+    if upd.audience is not None and user.email not in upd.audience:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Update not found")
     view = (
         db.query(InvestorUpdateView)

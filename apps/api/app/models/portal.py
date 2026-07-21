@@ -86,6 +86,8 @@ class InvestorUpdate(Base, TimestampMixin):
     lowlights: Mapped[str | None] = mapped_column(Text, nullable=True)
     asks: Mapped[str | None] = mapped_column(Text, nullable=True)
     metrics: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # optional audience: list of investor emails; null = every invited investor
+    audience: Mapped[list | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(12), default="published")
     published_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
     created_by: Mapped[str] = mapped_column(String(32))

@@ -31,6 +31,7 @@ from ..models.fund import (
     LPProspect,
     LPProspectActivity,
     PortfolioInvestment,
+    PortfolioKPI,
 )
 from ..services.money import q
 from ..models.identity import User
@@ -39,6 +40,7 @@ from decimal import Decimal, InvalidOperation
 from ..schemas import (
     CapitalCallIn,
     CapitalCallOut,
+    CompanyNoteIn,
     ComplianceGenerateIn,
     DealActivityIn,
     DealContactIn,
@@ -48,6 +50,8 @@ from ..schemas import (
     DealInvestIn,
     DealOut,
     DealStageIn,
+    FundExpenseIn,
+    InvestmentRoundIn,
     DistributionIn,
     DistributionOut,
     DocumentOut,
@@ -818,6 +822,150 @@ def delete_alert_rule(
 ):
     require_write(ctx.role)
     svc.delete_alert_rule(db, ctx.fund, rule_id)
+
+
+# --- follow-on investment rounds (Rundit-style per-round history) ---
+@router.get("/funds/{fund_id}/portfolio/{investment_id}/rounds")
+def list_investment_rounds(
+    investment_id: str, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+):
+    inv = _get_investment(db, ctx.fund.id, investment_id)
+    return svc.investment_rounds(db, inv)
+
+
+@router.post("/funds/{fund_id}/portfolio/{investment_id}/rounds", status_code=201)
+def add_investment_round(
+    investment_id: str,
+    body: InvestmentRoundIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    inv = _get_investment(db, ctx.fund.id, investment_id)
+    svc.add_investment_round(db, inv, body.model_dump(), user.id)
+    return svc.investment_rounds(db, inv)
+
+
+# --- fund expense ledger ---
+@router.get("/funds/{fund_id}/expenses")
+def list_fund_expenses(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    return svc.list_fund_expenses(db, ctx.fund)
+
+
+@router.post("/funds/{fund_id}/expenses", status_code=201)
+def add_fund_expense(
+    body: FundExpenseIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    svc.add_fund_expense(db, ctx.fund, body.model_dump(), user.id)
+    return svc.list_fund_expenses(db, ctx.fund)
+
+
+@router.delete("/funds/{fund_id}/expenses/{expense_id}", status_code=204)
+def delete_fund_expense(
+    expense_id: str, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+):
+    require_write(ctx.role)
+    svc.delete_fund_expense(db, ctx.fund, expense_id)
+
+
+# --- internal team notes on portfolio companies ---
+@router.get("/funds/{fund_id}/portfolio/{investment_id}/notes")
+def list_company_notes(
+    investment_id: str, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+):
+    inv = _get_investment(db, ctx.fund.id, investment_id)
+    return svc.list_company_notes(db, inv)
+
+
+@router.post("/funds/{fund_id}/portfolio/{investment_id}/notes", status_code=201)
+def add_company_note(
+    investment_id: str,
+    body: CompanyNoteIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    inv = _get_investment(db, ctx.fund.id, investment_id)
+    svc.add_company_note(db, inv, body.body, user.id)
+    return svc.list_company_notes(db, inv)
+
+
+@router.delete("/funds/{fund_id}/portfolio/{investment_id}/notes/{note_id}", status_code=204)
+def delete_company_note(
+    investment_id: str,
+    note_id: str,
+    ctx: FundCtx = Depends(fund_ctx),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    inv = _get_investment(db, ctx.fund.id, investment_id)
+    svc.delete_company_note(db, inv, note_id)
+
+
+# --- CSV exports (Rundit-style data out) ---
+def _csv_response(filename: str, header: list[str], rows: list[list]) -> Response:
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(header)
+    w.writerows(rows)
+    return Response(
+        content=out.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/funds/{fund_id}/export/holdings")
+def export_holdings(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    soi = svc.schedule_of_investments(db, ctx.fund)
+    return _csv_response(
+        "fund_holdings.csv",
+        ["company_name", "instrument", "invested_on", "cost", "current_value",
+         "marked", "ownership_pct", "moic", "unrealized_gain", "pct_of_nav"],
+        [[h["company_name"], h["instrument"], h["invested_on"], h["cost"],
+          h["current_value"], h["marked"], h["ownership_pct"], h["moic"],
+          h["unrealized_gain"], h["pct_of_nav"]] for h in soi["holdings"]],
+    )
+
+
+@router.get("/funds/{fund_id}/export/capital-accounts")
+def export_capital_accounts(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    accounts = svc.capital_accounts(db, ctx.fund)["accounts"]
+    return _csv_response(
+        "capital_accounts.csv",
+        ["lp_name", "committed", "drawn", "remaining", "distributed", "fees_charged", "units"],
+        [[a["lp_name"], a["committed"], a["drawn"], a["remaining"],
+          a["distributed"], a["fees_charged"], a["units"]] for a in accounts],
+    )
+
+
+@router.get("/funds/{fund_id}/export/kpis")
+def export_kpis(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    import json
+
+    rows = []
+    for inv in db.query(PortfolioInvestment).filter_by(fund_id=ctx.fund.id):
+        for k in (
+            db.query(PortfolioKPI)
+            .filter_by(investment_id=inv.id)
+            .order_by(PortfolioKPI.as_of)
+        ):
+            rows.append([
+                inv.company_name, k.period_label, k.as_of, k.revenue, k.cash,
+                k.monthly_burn, k.headcount, json.dumps(k.custom) if k.custom else "",
+            ])
+    return _csv_response(
+        "portfolio_kpis.csv",
+        ["company_name", "period_label", "as_of", "revenue", "cash",
+         "monthly_burn", "headcount", "custom"],
+        rows,
+    )
 
 
 # --- DDQ answer bank: due-diligence questionnaire responses ---

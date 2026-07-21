@@ -23,13 +23,16 @@ from sqlalchemy.orm import Session
 from ..clock import now_ist, today_ist
 from ..models.fund import (
     CapitalCall,
+    CompanyNote,
     DDQEntry,
     Distribution,
     DistributionKind,
     DrawdownNotice,
     FeeCharge,
     Fund,
+    FundExpense,
     FundPlan,
+    InvestmentRound,
     KPIDefinition,
     KPIRequest,
     KPIRequestSchedule,
@@ -1093,9 +1096,13 @@ def fund_financials(db: Session, fund: Fund) -> dict:
     committed = sum(
         (Decimal(lp.commitment) for lp in db.query(LP).filter_by(fund_id=fund.id)), Decimal("0")
     )
+    expenses = sum(
+        (Decimal(e.amount) for e in db.query(FundExpense).filter_by(fund_id=fund.id)),
+        Decimal("0"),
+    )
 
-    net_operations = unrealized - fees            # = statement-of-operations bottom line
-    cash = paid_in - invested_cost - distributed_lps - carry - fees
+    net_operations = unrealized - fees - expenses  # = statement-of-operations bottom line
+    cash = paid_in - invested_cost - distributed_lps - carry - fees - expenses
     net_assets = investments_fv + cash
     ending_capital = paid_in + net_operations - distributed_lps - carry
 
@@ -1108,6 +1115,7 @@ def fund_financials(db: Session, fund: Fund) -> dict:
             "unrealized_appreciation": s(unrealized),
             "total_investment_income": s(unrealized),
             "management_fees": s(fees),
+            "fund_expenses": s(expenses),
             "net_increase_from_operations": s(net_operations),
         },
         "cash_flow": {
@@ -1116,6 +1124,7 @@ def fund_financials(db: Session, fund: Fund) -> dict:
             "distributions_to_lps": s(-distributed_lps),
             "carry_paid": s(-carry),
             "management_fees_paid": s(-fees),
+            "fund_expenses_paid": s(-expenses),
             "net_change_in_cash": s(cash),
             "ending_cash": s(cash),
         },
@@ -1143,6 +1152,166 @@ def fund_financials(db: Session, fund: Fund) -> dict:
         # ties out by construction; surfaced so the UI can show a check
         "balances": q(net_assets) == q(ending_capital),
     }
+
+
+# --- follow-on investment rounds (Rundit-style per-round history) --------------
+def _round_view(r: InvestmentRound) -> dict:
+    return {
+        "id": r.id,
+        "round_label": r.round_label,
+        "instrument": r.instrument,
+        "amount": str(q(r.amount)),
+        "invested_on": r.invested_on,
+        "note": r.note,
+    }
+
+
+def add_investment_round(
+    db: Session, investment: PortfolioInvestment, data: dict, user_id: str
+) -> dict:
+    """Record a follow-on cheque: the round is appended to the history and the
+    company's total cost (PortfolioInvestment.amount) grows by the amount, so
+    SOI / NAV / financials stay consistent."""
+    amount = Decimal(str(data["amount"]))
+    if amount <= 0:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "amount must be positive")
+    r = InvestmentRound(
+        investment_id=investment.id,
+        fund_id=investment.fund_id,
+        round_label=data.get("round_label"),
+        instrument=data.get("instrument") or "equity",
+        amount=amount,
+        invested_on=data.get("invested_on"),
+        note=data.get("note"),
+        created_by=user_id,
+    )
+    investment.amount = Decimal(investment.amount) + amount
+    db.add(r)
+    db.commit()
+    db.refresh(r)
+    return _round_view(r)
+
+
+def investment_rounds(db: Session, investment: PortfolioInvestment) -> dict:
+    rounds = (
+        db.query(InvestmentRound)
+        .filter_by(investment_id=investment.id)
+        .order_by(InvestmentRound.invested_on, InvestmentRound.created_at)
+        .all()
+    )
+    followons = sum((Decimal(r.amount) for r in rounds), Decimal("0"))
+    return {
+        "initial": {
+            "amount": str(q(Decimal(investment.amount) - followons)),
+            "instrument": investment.instrument,
+            "invested_on": investment.invested_on,
+        },
+        "rounds": [_round_view(r) for r in rounds],
+        "total_cost": str(q(investment.amount)),
+    }
+
+
+# --- fund expense ledger --------------------------------------------------------
+EXPENSE_CATEGORIES = ("legal", "audit", "administration", "diligence", "other")
+
+
+def _expense_view(e: FundExpense) -> dict:
+    return {
+        "id": e.id,
+        "date": e.date,
+        "category": e.category,
+        "amount": str(q(e.amount)),
+        "note": e.note,
+    }
+
+
+def add_fund_expense(db: Session, fund: Fund, data: dict, user_id: str) -> dict:
+    amount = Decimal(str(data["amount"]))
+    if amount <= 0:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "amount must be positive")
+    e = FundExpense(
+        fund_id=fund.id,
+        date=data["date"],
+        category=data.get("category") or "other",
+        amount=amount,
+        note=data.get("note"),
+        created_by=user_id,
+    )
+    db.add(e)
+    db.commit()
+    db.refresh(e)
+    return _expense_view(e)
+
+
+def list_fund_expenses(db: Session, fund: Fund) -> dict:
+    rows = (
+        db.query(FundExpense)
+        .filter_by(fund_id=fund.id)
+        .order_by(FundExpense.date.desc(), FundExpense.created_at.desc())
+        .all()
+    )
+    return {
+        "expenses": [_expense_view(e) for e in rows],
+        "total": str(q(sum((Decimal(e.amount) for e in rows), Decimal("0")))),
+        "categories": EXPENSE_CATEGORIES,
+    }
+
+
+def delete_fund_expense(db: Session, fund: Fund, expense_id: str) -> None:
+    e = db.get(FundExpense, expense_id)
+    if e is None or e.fund_id != fund.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Expense not found")
+    db.delete(e)
+    db.commit()
+
+
+# --- internal team notes on portfolio companies ---------------------------------
+def _note_view(n: CompanyNote, author: str | None) -> dict:
+    return {
+        "id": n.id,
+        "body": n.body,
+        "author": author,
+        "created_at": n.created_at,
+    }
+
+
+def add_company_note(
+    db: Session, investment: PortfolioInvestment, body: str, user_id: str
+) -> dict:
+    from ..models.identity import User
+
+    n = CompanyNote(
+        investment_id=investment.id,
+        fund_id=investment.fund_id,
+        body=body.strip(),
+        created_by=user_id,
+    )
+    db.add(n)
+    db.commit()
+    db.refresh(n)
+    u = db.get(User, user_id)
+    return _note_view(n, u.full_name if u else None)
+
+
+def list_company_notes(db: Session, investment: PortfolioInvestment) -> list[dict]:
+    from ..models.identity import User
+
+    rows = (
+        db.query(CompanyNote)
+        .filter_by(investment_id=investment.id)
+        .order_by(CompanyNote.created_at.desc())
+        .all()
+    )
+    authors = {u.id: u.full_name for u in db.query(User).filter(User.id.in_([n.created_by for n in rows]))} if rows else {}
+    return [_note_view(n, authors.get(n.created_by)) for n in rows]
+
+
+def delete_company_note(db: Session, investment: PortfolioInvestment, note_id: str) -> None:
+    n = db.get(CompanyNote, note_id)
+    if n is None or n.investment_id != investment.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Note not found")
+    db.delete(n)
+    db.commit()
 
 
 # --- SEBI independent portfolio valuation (FR-J-15) --------------------------

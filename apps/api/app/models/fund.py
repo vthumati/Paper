@@ -381,6 +381,56 @@ class PortfolioInvestment(Base, TimestampMixin):
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
 
+class InvestmentRound(Base, TimestampMixin):
+    """A follow-on cheque into an existing portfolio company (Rundit-style
+    per-round investment history). The parent PortfolioInvestment.amount stays
+    the running total cost, so SOI / NAV / financials are unchanged."""
+
+    __tablename__ = "investment_rounds"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    investment_id: Mapped[str] = mapped_column(
+        ForeignKey("portfolio_investments.id"), index=True
+    )
+    fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), index=True)
+    round_label: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    instrument: Mapped[str] = mapped_column(String(32), default="equity")
+    amount: Mapped[Decimal] = mapped_column(Numeric(20, 2))
+    invested_on: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_by: Mapped[str] = mapped_column(String(32))
+
+
+class FundExpense(Base, TimestampMixin):
+    """An actual fund expense (audit, legal, admin …) — feeds the fund
+    financial statements alongside fees and carry."""
+
+    __tablename__ = "fund_expenses"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), index=True)
+    date: Mapped[datetime.date] = mapped_column(Date)
+    category: Mapped[str] = mapped_column(String(64), default="other")
+    amount: Mapped[Decimal] = mapped_column(Numeric(20, 2))
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_by: Mapped[str] = mapped_column(String(32))
+
+
+class CompanyNote(Base, TimestampMixin):
+    """An internal team comment on a portfolio company (Rundit-style
+    collaboration) — never shown to LPs or the company."""
+
+    __tablename__ = "company_notes"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    investment_id: Mapped[str] = mapped_column(
+        ForeignKey("portfolio_investments.id"), index=True
+    )
+    fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), index=True)
+    body: Mapped[str] = mapped_column(String(2000))
+    created_by: Mapped[str] = mapped_column(String(32))
+
+
 class KPIRequestStatus(str, enum.Enum):
     PENDING = "pending"
     SUBMITTED = "submitted"

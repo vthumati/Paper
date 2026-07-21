@@ -642,6 +642,25 @@ class MetricAlertRuleIn(BaseModel):
     severity: Literal["high", "warn"] = "warn"
 
 
+class InvestmentRoundIn(BaseModel):
+    amount: Decimal = Field(gt=0)
+    round_label: str | None = None
+    instrument: str | None = None
+    invested_on: datetime.date | None = None
+    note: str | None = None
+
+
+class FundExpenseIn(BaseModel):
+    date: datetime.date
+    amount: Decimal = Field(gt=0)
+    category: str | None = None
+    note: str | None = None
+
+
+class CompanyNoteIn(BaseModel):
+    body: str = Field(min_length=1, max_length=2000)
+
+
 class DDQEntryIn(BaseModel):
     question: str
     category: str | None = None
@@ -1477,6 +1496,7 @@ class InvestorUpdateIn(BaseModel):
     highlights: str | None = None
     lowlights: str | None = None
     asks: str | None = None
+    audience: list[EmailStr] | None = None  # null = every invited investor
     publish: bool = True
 
 
@@ -1489,6 +1509,7 @@ class InvestorUpdateOut(ORMModel):
     lowlights: str | None
     asks: str | None
     metrics: dict | None
+    audience: list[str] | None
     status: str
     published_at: datetime.datetime | None
     created_at: datetime.datetime

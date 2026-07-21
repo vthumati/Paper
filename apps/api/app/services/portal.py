@@ -111,7 +111,7 @@ def _liquidity_for_user(db: Session, user: User, today) -> list[dict]:
     return out
 
 
-def _updates(db: Session, entity_id: str) -> list[dict]:
+def _updates(db: Session, entity_id: str, viewer_email: str) -> list[dict]:
     return [
         {
             "id": u.id,
@@ -127,6 +127,8 @@ def _updates(db: Session, entity_id: str) -> list[dict]:
         for u in db.query(InvestorUpdate)
         .filter_by(entity_id=entity_id, status="published")
         .order_by(InvestorUpdate.created_at.desc())
+        # audience is an optional email list; null = every invited investor
+        if u.audience is None or viewer_email in u.audience
     ]
 
 
@@ -266,7 +268,7 @@ def portal_for_user(db: Session, user: User) -> dict:
                 "access_id": a.id,
                 "stakeholder_id": a.stakeholder_id,
                 "documents": _shared_documents(db, entity.id, user.email),
-                "updates": _updates(db, entity.id),
+                "updates": _updates(db, entity.id, user.email),
             }
         )
 
@@ -291,7 +293,7 @@ def portal_for_user(db: Session, user: User) -> dict:
                 "access_id": None,
                 "stakeholder_id": None,
                 "documents": _shared_documents(db, entity.id, user.email),
-                "updates": _updates(db, entity.id),
+                "updates": _updates(db, entity.id, user.email),
             }
             companies.append(entry)
             by_entity[entity.id] = entry
@@ -387,7 +389,7 @@ def portal_for_user(db: Session, user: User) -> dict:
                     )
                     .order_by(Document.created_at.desc())
                 ],
-                "updates": _updates(db, fund.entity_id),
+                "updates": _updates(db, fund.entity_id, user.email),
             }
         )
 
@@ -416,7 +418,7 @@ def portal_for_user(db: Session, user: User) -> dict:
                         subject_type="co_investor", subject_id=ci.id
                     )
                 ],
-                "updates": _updates(db, spv.entity_id),
+                "updates": _updates(db, spv.entity_id, user.email),
             }
         )
         total_committed += Decimal(ci.commitment)
