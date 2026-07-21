@@ -88,9 +88,30 @@ export default function Tenants() {
           <div
             key={t.id}
             className="list-item"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
             onClick={() => nav(`/tenants/${t.id}/entities`)}
           >
-            <strong>{t.name}</strong> <span className="badge">{t.type}</span>
+            <span>
+              <strong>{t.name}</strong> <span className="badge">{t.type}</span>
+            </span>
+            <button
+              className="secondary"
+              style={{ flex: "0 0 auto" }}
+              title="Delete this workspace (must be empty)"
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (!window.confirm(`Delete workspace "${t.name}"? This cannot be undone.`)) return;
+                setError("");
+                try {
+                  await api.deleteTenant(t.id);
+                  load();
+                } catch (err) {
+                  setError((err as Error).message);
+                }
+              }}
+            >
+              Delete
+            </button>
           </div>
         ))}
       </div>

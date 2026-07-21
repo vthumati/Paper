@@ -1747,6 +1747,7 @@ export const api = {
 
   listTenants: () => get<Tenant[]>("/tenants"),
   createTenant: (b: { name: string; type: string }) => post<Tenant>("/tenants", b),
+  deleteTenant: (tid: string) => del<void>(`/tenants/${tid}`),
 
   listEntities: (tid: string) => get<Entity[]>(`/tenants/${tid}/entities`),
   createEntity: (tid: string, b: Partial<Entity>) =>
