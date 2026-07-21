@@ -9,12 +9,13 @@ from ..models.dataroom import DataRoom
 from ..models.document import Document
 from ..models.entity import Incorporation, LegalEntity
 from ..models.esop import ESOPScheme, Grant
-from ..models.fund import Fund
+from ..models.fund import Fund, PortfolioInvestment
 from ..models.governance import Meeting, Resolution, ResolutionStatus
 from ..models.round import Round, RoundStatus
 from ..models.valuation import ValuationReport, ValuationStatus
 from .captable import compute_cap_table
 from .fund import capital_accounts
+from .fund_perf import fund_performance
 from .valuation import current_valuation
 
 _OPEN = {ObligationStatus.DUE, ObligationStatus.IN_PREP}
@@ -124,9 +125,20 @@ def entity_dashboard(db: Session, entity: LegalEntity) -> dict:
     fund = db.query(Fund).filter_by(entity_id=eid).first()
     if fund:
         acc = capital_accounts(db, fund)
+        perf = fund_performance(db, fund)
         out["fund"] = {
+            "sebi_category": fund.sebi_category.value,
+            "carry_pct": str(fund.carry_pct),
+            "hurdle_pct": str(fund.hurdle_pct),
+            "mgmt_fee_pct": str(fund.mgmt_fee_pct),
             "committed": acc["totals"]["committed"],
             "drawn": acc["totals"]["drawn"],
+            "uncalled": acc["totals"]["remaining"],
+            "distributed": acc["totals"]["distributed"],
             "lps": len(acc["accounts"]),
+            "nav": perf["nav"],
+            "tvpi": perf["tvpi"],
+            "dpi": perf["dpi"],
+            "portfolio_count": db.query(PortfolioInvestment).filter_by(fund_id=fund.id).count(),
         }
     return out
