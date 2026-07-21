@@ -801,6 +801,12 @@ def delete_kpi_definition(db: Session, fund: Fund, definition_id: str) -> None:
     d = db.get(KPIDefinition, definition_id)
     if d is None or d.fund_id != fund.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Metric definition not found")
+    # drop any alert rules that reference this custom metric — otherwise they
+    # linger in the catalog as no-ops (metric no longer resolvable in signals)
+    for r in db.query(MetricAlertRule).filter_by(
+        fund_id=fund.id, metric=f"custom.{d.key}"
+    ):
+        db.delete(r)
     # historical values stay in PortfolioKPI.custom; they just stop being shown
     db.delete(d)
     db.commit()

@@ -235,16 +235,7 @@ def view_update(
 ):
     """Record that an invited investor opened a published update (engagement)."""
     upd = db.get(InvestorUpdate, update_id)
-    access = (
-        db.query(InvestorAccess)
-        .filter_by(entity_id=upd.entity_id, email=user.email)
-        .first()
-        if upd is not None
-        else None
-    )
-    if upd is None or upd.status != "published" or access is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Update not found")
-    if upd.audience is not None and user.email not in upd.audience:
+    if upd is None or not svc.can_view_update(db, upd, user.email):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Update not found")
     view = (
         db.query(InvestorUpdateView)

@@ -132,6 +132,33 @@ def _updates(db: Session, entity_id: str, viewer_email: str) -> list[dict]:
     ]
 
 
+def can_view_update(db: Session, upd: InvestorUpdate, email: str) -> bool:
+    """True if `email` may see a published update — mirrors the three paths
+    _updates() surfaces updates through: company InvestorAccess, fund-LP
+    membership (update on the fund's entity), and SPV co-investor (update on
+    the SPV's entity). Used to gate engagement (view-count) recording."""
+    if upd.status != "published":
+        return False
+    if upd.audience is not None and email not in upd.audience:
+        return False
+    if (
+        db.query(InvestorAccess)
+        .filter_by(entity_id=upd.entity_id, email=email)
+        .first()
+        is not None
+    ):
+        return True
+    for lp in db.query(LP).filter_by(email=email):
+        fund = db.get(Fund, lp.fund_id)
+        if fund is not None and fund.entity_id == upd.entity_id:
+            return True
+    for ci in db.query(CoInvestor).filter_by(email=email):
+        spv = db.get(SPV, ci.spv_id)
+        if spv is not None and spv.entity_id == upd.entity_id:
+            return True
+    return False
+
+
 def portfolio_value_history(db: Session, user: User) -> dict:
     """Marked value of the user's company equity holdings over time (FR-K):
     at each historical valuation date across their companies, value each

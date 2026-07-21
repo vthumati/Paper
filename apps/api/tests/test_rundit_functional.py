@@ -127,3 +127,55 @@ def test_update_audience_scopes_visibility(client):
     # view recording honours the audience too
     assert client.post(f"/portal/updates/{upd['id']}/view", headers=lp).status_code == 200
     assert client.post(f"/portal/updates/{upd['id']}/view", headers=angel).status_code == 404
+
+
+# --- QA/polish pass fixes ----------------------------------------------------
+def test_deleting_custom_metric_removes_its_alert_rules(client):
+    """QA: an alert rule on custom.<key> must not linger as a no-op once its
+    metric definition is deleted."""
+    h = auth_headers(client)
+    fid = _fund(client, h)
+    d = client.post(
+        f"/funds/{fid}/kpi-definitions", json={"label": "CO2 tonnes", "unit": "number"}, headers=h
+    ).json()
+    key = d["key"]
+    rule = client.post(
+        f"/funds/{fid}/alert-rules",
+        json={"metric": f"custom.{key}", "comparator": "gt", "threshold": "100"},
+        headers=h,
+    )
+    assert rule.status_code == 201
+    assert len(client.get(f"/funds/{fid}/alert-rules", headers=h).json()["rules"]) == 1
+
+    assert client.delete(f"/funds/{fid}/kpi-definitions/{d['id']}", headers=h).status_code == 204
+    # the orphaned rule is gone, not left referencing an unknown metric
+    assert client.get(f"/funds/{fid}/alert-rules", headers=h).json()["rules"] == []
+
+
+def test_fund_lp_can_record_update_view(client):
+    """QA: a fund LP sees fund updates in the portal but has no company-level
+    InvestorAccess row — view recording must still work for them."""
+    owner = auth_headers(client, email="gp@house.in")
+    tid = client.post("/tenants", json={"name": "GP House", "type": "fund"}, headers=owner).json()["id"]
+    eid = client.post(
+        f"/tenants/{tid}/entities", json={"name": "Beta Fund I", "type": "fund"}, headers=owner
+    ).json()["id"]
+    fid = client.post(f"/entities/{eid}/fund", json={"sebi_category": "II"}, headers=owner).json()["id"]
+    client.post(
+        f"/funds/{fid}/lps",
+        json={"name": "Pension LP", "email": "lp@pension.in", "commitment": "50000000"},
+        headers=owner,
+    )
+    # fund publishes an update on its own entity
+    upd = client.post(
+        f"/entities/{eid}/investor-updates",
+        json={"title": "Q2 fund letter", "body": "Portfolio is tracking well."},
+        headers=owner,
+    ).json()
+
+    lp = auth_headers(client, email="lp@pension.in")
+    seen = client.get("/portal", headers=lp).json()["funds"][0]["updates"]
+    assert [u["title"] for u in seen] == ["Q2 fund letter"]
+    # the LP can record engagement despite having no InvestorAccess row
+    r = client.post(f"/portal/updates/{upd['id']}/view", headers=lp)
+    assert r.status_code == 200 and r.json()["view_count"] == 1
