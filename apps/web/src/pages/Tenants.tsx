@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import EmptyState from "../components/EmptyState";
+import TeardownDialog from "../components/TeardownDialog";
 import { useNavigate } from "react-router-dom";
 import { api, type Alert, type Tenant } from "../api";
 
@@ -10,6 +11,7 @@ export default function Tenants() {
   const [name, setName] = useState("");
   const [type, setType] = useState("company");
   const [error, setError] = useState("");
+  const [tearing, setTearing] = useState<Tenant | null>(null);
 
   const load = () => api.listTenants().then(setTenants).catch((e) => setError(e.message));
   useEffect(() => {
@@ -97,17 +99,10 @@ export default function Tenants() {
             <button
               className="secondary"
               style={{ flex: "0 0 auto" }}
-              title="Delete this workspace (must be empty)"
-              onClick={async (e) => {
+              title="Delete this workspace and everything in it"
+              onClick={(e) => {
                 e.stopPropagation();
-                if (!window.confirm(`Delete workspace "${t.name}"? This cannot be undone.`)) return;
-                setError("");
-                try {
-                  await api.deleteTenant(t.id);
-                  load();
-                } catch (err) {
-                  setError((err as Error).message);
-                }
+                setTearing(t);
               }}
             >
               Delete
@@ -115,6 +110,19 @@ export default function Tenants() {
           </div>
         ))}
       </div>
+
+      {tearing && (
+        <TeardownDialog
+          kind="workspace"
+          id={tearing.id}
+          name={tearing.name}
+          onClose={() => setTearing(null)}
+          onDone={() => {
+            setTearing(null);
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }

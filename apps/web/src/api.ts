@@ -102,6 +102,12 @@ export interface Entity {
   stage: string;
   pack: string;
 }
+export interface TeardownPreview {
+  name: string;
+  associated_records: number;
+  total_rows: number;
+  breakdown: Record<string, number>;
+}
 export interface IncorporationFounder {
   name: string;
   email?: string | null;
@@ -1748,6 +1754,14 @@ export const api = {
   listTenants: () => get<Tenant[]>("/tenants"),
   createTenant: (b: { name: string; type: string }) => post<Tenant>("/tenants", b),
   deleteTenant: (tid: string) => del<void>(`/tenants/${tid}`),
+  workspaceTeardownPreview: (tid: string) =>
+    get<TeardownPreview>(`/tenants/${tid}/teardown-preview`),
+  workspaceTeardown: (tid: string, confirm_name: string) =>
+    post<{ deleted_rows: number }>(`/tenants/${tid}/teardown`, { confirm_name }),
+  entityTeardownPreview: (eid: string) =>
+    get<TeardownPreview>(`/entities/${eid}/teardown-preview`),
+  entityTeardown: (eid: string, confirm_name: string) =>
+    post<{ deleted_rows: number }>(`/entities/${eid}/teardown`, { confirm_name }),
 
   listEntities: (tid: string) => get<Entity[]>(`/tenants/${tid}/entities`),
   createEntity: (tid: string, b: Partial<Entity>) =>

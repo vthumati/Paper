@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import EmptyState from "../components/EmptyState";
+import TeardownDialog from "../components/TeardownDialog";
 import { useNavigate, useParams } from "react-router-dom";
 import IncorporationWizard from "../features/IncorporationWizard";
 import { api, type Entity } from "../api";
@@ -11,6 +12,7 @@ export default function Entities() {
   const [name, setName] = useState("");
   const [type, setType] = useState("pvt_ltd");
   const [error, setError] = useState("");
+  const [tearing, setTearing] = useState<Entity | null>(null);
 
   const load = () =>
     api.listEntities(tenantId).then(setEntities).catch((e) => setError(e.message));
@@ -73,12 +75,43 @@ export default function Entities() {
           <EmptyState icon="🏢" title="No entities yet" hint="Incorporate a company or add an existing entity above to open its workspace." />
         )}
         {entities.map((e) => (
-          <div key={e.id} className="list-item" onClick={() => nav(`/entities/${e.id}`)}>
-            <strong>{e.name}</strong> <span className="badge">{e.type}</span>
-            {e.cin && <span className="muted"> · CIN {e.cin}</span>}
+          <div
+            key={e.id}
+            className="list-item"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+            onClick={() => nav(`/entities/${e.id}`)}
+          >
+            <span>
+              <strong>{e.name}</strong> <span className="badge">{e.type}</span>
+              {e.cin && <span className="muted"> · CIN {e.cin}</span>}
+            </span>
+            <button
+              className="secondary"
+              style={{ flex: "0 0 auto" }}
+              title="Delete this entity and all its data"
+              onClick={(ev) => {
+                ev.stopPropagation();
+                setTearing(e);
+              }}
+            >
+              Delete
+            </button>
           </div>
         ))}
       </div>
+
+      {tearing && (
+        <TeardownDialog
+          kind="entity"
+          id={tearing.id}
+          name={tearing.name}
+          onClose={() => setTearing(null)}
+          onDone={() => {
+            setTearing(null);
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }
