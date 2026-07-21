@@ -861,6 +861,8 @@ export interface Deal {
   amount: string;
   notes: string | null;
   investment_id: string | null;
+  source: string | null;
+  next_followup_on: string | null;
 }
 export interface DealContact {
   id: string;
@@ -868,14 +870,17 @@ export interface DealContact {
   role: string | null;
   email: string | null;
   note: string | null;
+  strength: number;
 }
 export interface DealActivity {
   id: string;
   kind: string;
   body: string;
   occurred_on: string;
+  contact_id: string | null;
 }
 export interface DealCrm {
+  strength: number;
   contacts: DealContact[];
   activities: DealActivity[];
 }
@@ -1780,8 +1785,10 @@ export const api = {
   dealCrm: (did: string) => get<DealCrm>(`/deals/${did}/crm`),
   addDealContact: (did: string, b: { name: string; role?: string | null; email?: string | null; note?: string | null }) =>
     post<DealCrm>(`/deals/${did}/contacts`, b),
-  addDealActivity: (did: string, b: { kind: string; body: string; occurred_on?: string | null }) =>
+  addDealActivity: (did: string, b: { kind: string; body: string; occurred_on?: string | null; contact_id?: string | null }) =>
     post<DealCrm>(`/deals/${did}/activities`, b),
+  setDealFollowup: (did: string, on: string | null) =>
+    put<Deal>(`/deals/${did}/followup`, { on }),
   generateAifCompliance: (eid: string, b: { financial_year_end: string }) =>
     post<Obligation[]>(`/entities/${eid}/compliance/generate-aif`, b),
 
