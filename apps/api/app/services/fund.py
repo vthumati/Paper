@@ -14,6 +14,7 @@ Simplification: pref keeps accruing on all paid-in capital (earlier return-of-
 capital distributions don't stop the clock)."""
 import datetime
 from decimal import ROUND_HALF_UP, Decimal
+from statistics import median
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -27,6 +28,7 @@ from ..models.fund import (
     FeeCharge,
     Fund,
     FundPlan,
+    KPIDefinition,
     KPIRequest,
     KPIRequestStatus,
     LP,
@@ -562,7 +564,23 @@ def _runway_months(cash: Decimal | None, burn: Decimal | None) -> float | None:
 
 
 def add_kpi(db: Session, investment: PortfolioInvestment, data: dict) -> PortfolioKPI:
-    kpi = PortfolioKPI(investment_id=investment.id, fund_id=investment.fund_id, **data)
+    # custom metric values are kept only for keys the fund has defined (FR-J-23)
+    custom = data.pop("custom", None)
+    if custom:
+        defined = {
+            d.key for d in db.query(KPIDefinition).filter_by(fund_id=investment.fund_id)
+        }
+        custom = {
+            k: str(Decimal(str(v)))
+            for k, v in custom.items()
+            if k in defined and v is not None
+        }
+    kpi = PortfolioKPI(
+        investment_id=investment.id,
+        fund_id=investment.fund_id,
+        custom=custom or None,
+        **data,
+    )
     db.add(kpi)
     db.commit()
     db.refresh(kpi)
@@ -580,6 +598,7 @@ def _kpi_view(k: PortfolioKPI) -> dict:
         "headcount": k.headcount,
         "runway_months": _runway_months(k.cash, k.monthly_burn),
         "note": k.note,
+        "custom": k.custom or {},
     }
 
 
@@ -656,6 +675,114 @@ def portfolio_monitoring(db: Session, fund: Fund) -> dict:
         },
         "companies": companies,
     }
+
+
+# --- custom KPI definitions + ESG presets (FR-J-23) ---------------------------
+KPI_UNITS = ("inr", "number", "pct")
+
+ESG_KPI_PRESETS = [
+    {"key": "female_headcount_pct", "label": "Female headcount %", "unit": "pct"},
+    {"key": "independent_directors_pct", "label": "Independent directors %", "unit": "pct"},
+    {"key": "ghg_emissions_tco2e", "label": "GHG emissions (tCO2e)", "unit": "number"},
+    {"key": "energy_use_kwh", "label": "Energy use (kWh)", "unit": "number"},
+    {"key": "csr_spend", "label": "CSR spend", "unit": "inr"},
+]
+
+
+def _kpi_key(label: str) -> str:
+    out: list[str] = []
+    for ch in label.strip().lower():
+        if ch.isalnum():
+            out.append(ch)
+        elif out and out[-1] != "_":
+            out.append("_")
+    return "".join(out).strip("_")[:64]
+
+
+def _definition_view(d: KPIDefinition) -> dict:
+    return {"id": d.id, "key": d.key, "label": d.label, "unit": d.unit}
+
+
+def list_kpi_definitions(db: Session, fund: Fund) -> list[dict]:
+    rows = (
+        db.query(KPIDefinition)
+        .filter_by(fund_id=fund.id)
+        .order_by(KPIDefinition.created_at)
+        .all()
+    )
+    return [_definition_view(d) for d in rows]
+
+
+def create_kpi_definition(
+    db: Session, fund: Fund, data: dict, user_id: str
+) -> KPIDefinition:
+    unit = data.get("unit") or "number"
+    if unit not in KPI_UNITS:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"unit must be one of {KPI_UNITS}")
+    key = _kpi_key(data.get("key") or data["label"])
+    if not key:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "label must contain letters or digits")
+    if db.query(KPIDefinition).filter_by(fund_id=fund.id, key=key).first():
+        raise HTTPException(status.HTTP_409_CONFLICT, f"metric '{key}' is already defined")
+    d = KPIDefinition(
+        fund_id=fund.id, key=key, label=data["label"].strip(), unit=unit, created_by=user_id
+    )
+    db.add(d)
+    db.commit()
+    db.refresh(d)
+    return d
+
+
+def delete_kpi_definition(db: Session, fund: Fund, definition_id: str) -> None:
+    d = db.get(KPIDefinition, definition_id)
+    if d is None or d.fund_id != fund.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Metric definition not found")
+    # historical values stay in PortfolioKPI.custom; they just stop being shown
+    db.delete(d)
+    db.commit()
+
+
+# --- internal benchmarking: portfolio medians (FR-J-24) -----------------------
+def portfolio_benchmarks(db: Session, fund: Fund) -> dict:
+    """Companies side-by-side on the core and custom metrics from each one's
+    latest reported period, against the portfolio median. Pure derivation."""
+    defs = list_kpi_definitions(db, fund)
+    metrics = [
+        {"key": "revenue", "label": "Revenue", "unit": "inr"},
+        {"key": "revenue_growth_pct", "label": "Revenue growth %", "unit": "pct"},
+        {"key": "monthly_burn", "label": "Monthly burn", "unit": "inr"},
+        {"key": "runway_months", "label": "Runway (months)", "unit": "number"},
+        {"key": "headcount", "label": "Headcount", "unit": "number"},
+    ] + [
+        {"key": f"custom.{d['key']}", "label": d["label"], "unit": d["unit"]} for d in defs
+    ]
+
+    rows = []
+    for c in portfolio_monitoring(db, fund)["companies"]:
+        latest = c["latest"] or {}
+        values: dict[str, float | None] = {
+            "revenue": float(latest["revenue"]) if latest.get("revenue") else None,
+            "revenue_growth_pct": c["revenue_growth_pct"],
+            "monthly_burn": float(latest["monthly_burn"]) if latest.get("monthly_burn") else None,
+            "runway_months": c["runway_months"],
+            "headcount": latest.get("headcount"),
+        }
+        for d in defs:
+            v = (latest.get("custom") or {}).get(d["key"])
+            values[f"custom.{d['key']}"] = float(v) if v is not None else None
+        rows.append(
+            {
+                "investment_id": c["investment_id"],
+                "company_name": c["company_name"],
+                "values": values,
+            }
+        )
+
+    medians = {}
+    for m in metrics:
+        xs = [r["values"][m["key"]] for r in rows if r["values"][m["key"]] is not None]
+        medians[m["key"]] = round(median(xs), 2) if xs else None
+    return {"fund_id": fund.id, "metrics": metrics, "rows": rows, "medians": medians}
 
 
 # --- fund financial statements (Carta "fund accounting", no GL export) --------

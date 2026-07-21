@@ -3,6 +3,7 @@ import enum
 from decimal import Decimal
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Date,
     DateTime,
@@ -11,6 +12,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -262,6 +264,24 @@ class PortfolioKPI(Base, TimestampMixin):
     monthly_burn: Mapped[Decimal | None] = mapped_column(Numeric(20, 2), nullable=True)
     headcount: Mapped[int | None] = mapped_column(Integer, nullable=True)
     note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # fund-defined custom metrics (FR-J-23), keyed by KPIDefinition.key
+    custom: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
+class KPIDefinition(Base, TimestampMixin):
+    """A fund-defined custom metric collected alongside the core KPIs
+    (Vestberry-style custom KPIs, incl. ESG presets). Values are stored per
+    period in PortfolioKPI.custom under this definition's `key`."""
+
+    __tablename__ = "kpi_definitions"
+    __table_args__ = (UniqueConstraint("fund_id", "key"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), index=True)
+    key: Mapped[str] = mapped_column(String(64))
+    label: Mapped[str] = mapped_column(String(120))
+    unit: Mapped[str] = mapped_column(String(8), default="number")  # inr | number | pct
+    created_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class PortfolioValuation(Base, TimestampMixin):

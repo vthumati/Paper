@@ -624,6 +624,13 @@ class PortfolioKPIIn(BaseModel):
     monthly_burn: Decimal | None = Field(default=None, ge=0)
     headcount: int | None = Field(default=None, ge=0)
     note: str | None = None
+    custom: dict[str, Decimal] | None = None  # keyed by KPIDefinition.key
+
+
+class KPIDefinitionIn(BaseModel):
+    label: str
+    unit: Literal["inr", "number", "pct"] = "number"
+    key: str | None = None  # defaults to a slug of the label; presets pass theirs
 
 
 class LPReportIn(BaseModel):

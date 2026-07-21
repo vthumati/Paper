@@ -51,6 +51,7 @@ from ..schemas import (
     FundOut,
     FundPlanIn,
     FundValuationPolicyIn,
+    KPIDefinitionIn,
     KPIRequestIn,
     LPIn,
     LPOut,
@@ -603,6 +604,43 @@ def _get_investment(db: Session, fund_id: str, investment_id: str) -> PortfolioI
 @router.get("/funds/{fund_id}/portfolio-monitoring")
 def portfolio_monitoring(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
     return svc.portfolio_monitoring(db, ctx.fund)
+
+
+# --- custom KPI definitions + ESG presets (FR-J-23) ---
+@router.get("/funds/{fund_id}/kpi-definitions")
+def list_kpi_definitions(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    return {
+        "definitions": svc.list_kpi_definitions(db, ctx.fund),
+        "presets": svc.ESG_KPI_PRESETS,
+    }
+
+
+@router.post("/funds/{fund_id}/kpi-definitions", status_code=201)
+def create_kpi_definition(
+    body: KPIDefinitionIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    d = svc.create_kpi_definition(db, ctx.fund, body.model_dump(), user.id)
+    return svc._definition_view(d)
+
+
+@router.delete("/funds/{fund_id}/kpi-definitions/{definition_id}", status_code=204)
+def delete_kpi_definition(
+    definition_id: str,
+    ctx: FundCtx = Depends(fund_ctx),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    svc.delete_kpi_definition(db, ctx.fund, definition_id)
+
+
+# --- internal benchmarking: portfolio medians (FR-J-24) ---
+@router.get("/funds/{fund_id}/benchmarks")
+def portfolio_benchmarks(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    return svc.portfolio_benchmarks(db, ctx.fund)
 
 
 @router.post("/funds/{fund_id}/portfolio/{investment_id}/kpis", status_code=201)
