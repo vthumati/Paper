@@ -538,3 +538,17 @@ register(
         "$disclaimer\n",
     )
 )
+register(
+    DocumentTemplate(
+        "ddq",
+        "Due Diligence Questionnaire Responses",
+        "ddq",
+        "DUE DILIGENCE QUESTIONNAIRE — RESPONSES\n"
+        "Fund: $fund (SEBI AIF Category $category)\n"
+        "Prepared: $date\n\n"
+        "${sections}"
+        "Responses prepared from the fund's due-diligence answer bank. "
+        "Figures and statements are furnished for diligence purposes and are "
+        "unaudited unless stated otherwise.\n",
+    )
+)

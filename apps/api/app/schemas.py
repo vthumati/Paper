@@ -642,6 +642,18 @@ class MetricAlertRuleIn(BaseModel):
     severity: Literal["high", "warn"] = "warn"
 
 
+class DDQEntryIn(BaseModel):
+    question: str
+    category: str | None = None
+    answer: str | None = None
+
+
+class DDQEntryUpdateIn(BaseModel):
+    question: str | None = None
+    category: str | None = None
+    answer: str | None = None
+
+
 class LPReportIn(BaseModel):
     period_label: str
     period_start: datetime.date

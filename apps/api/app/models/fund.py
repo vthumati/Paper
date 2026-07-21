@@ -12,6 +12,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -309,6 +310,21 @@ class KPIDefinition(Base, TimestampMixin):
     label: Mapped[str] = mapped_column(String(120))
     unit: Mapped[str] = mapped_column(String(8), default="number")  # inr | number | pct
     created_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
+class DDQEntry(Base, TimestampMixin):
+    """One question-and-answer in the fund's due-diligence answer bank
+    (Visible-style DDQ support): answered once, reused for every LP's
+    questionnaire and exportable as a DDQ document."""
+
+    __tablename__ = "ddq_entries"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), index=True)
+    category: Mapped[str] = mapped_column(String(64), default="General")
+    question: Mapped[str] = mapped_column(String(500))
+    answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[str] = mapped_column(String(32))
 
 
 class MetricAlertRule(Base, TimestampMixin):
