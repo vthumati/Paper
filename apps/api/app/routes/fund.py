@@ -366,6 +366,96 @@ def valuation_report(
     return docsvc.document_view(db, doc)
 
 
+# --- company tear sheet (one-pager document) ---
+@router.post(
+    "/funds/{fund_id}/portfolio/{investment_id}/tear-sheet",
+    response_model=DocumentOut,
+    status_code=201,
+)
+def tear_sheet(
+    investment_id: str,
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """One-pager for a portfolio company: investment summary, value & MOIC,
+    latest valuation, KPI trend and active signals — composed from the
+    monitoring/valuation/signals services."""
+    require_write(ctx.role)
+    inv = _get_investment(db, ctx.fund.id, investment_id)
+    entity = db.get(LegalEntity, ctx.fund.entity_id)
+    inr = svc._inr  # lakh/crore formatting, consistent with signals
+
+    cost = Decimal(inv.amount)
+    fair = Decimal(inv.current_value) if inv.current_value is not None else cost
+    moic = f"{(fair / cost).quantize(Decimal('0.01'))}×" if cost > 0 else "—"
+
+    vals = svc.valuation_history(db, inv)
+    if vals:
+        v = vals[0]
+        valuation = (
+            f"{inr(v['value'])} ({v['methodology_label']}) by {v['valuer'] or 'n/a'}"
+            f"{' [independent]' if v['is_independent'] else ''} as of {v['as_of']}"
+        )
+    else:
+        valuation = "none recorded — fund's own mark" if inv.current_value else "none recorded"
+
+    def _kpi_line(k: dict) -> str:
+        runway = f"{k['runway_months']} mo" if k["runway_months"] is not None else "—"
+        return (
+            f"  {k['period_label']} ({k['as_of']}): "
+            f"revenue {inr(k['revenue']) if k['revenue'] else '—'}"
+            f" · cash {inr(k['cash']) if k['cash'] else '—'}"
+            f" · burn {inr(k['monthly_burn']) if k['monthly_burn'] else '—'}"
+            f" · HC {k['headcount'] if k['headcount'] is not None else '—'}"
+            f" · runway {runway}"
+        )
+
+    # kpi_history is ascending by as_of; show the latest 4, newest first
+    kpi_lines = [
+        _kpi_line(k) for k in list(reversed(svc.kpi_history(db, inv)))[:4]
+    ] or ["  No KPI periods reported."]
+
+    sig = next(
+        (c for c in svc.portfolio_signals(db, ctx.fund)["companies"]
+         if c["investment_id"] == inv.id),
+        None,
+    )
+    sig_lines = (
+        [f"  [{s['severity'].upper()}] {s['message']}" for s in sig["signals"]]
+        if sig
+        else ["  None — healthy on the latest reported data."]
+    )
+
+    doc = docsvc.create_document(
+        db,
+        entity_id=ctx.fund.entity_id,
+        template_key="tear_sheet",
+        data={
+            "company": inv.company_name,
+            "fund": entity.name if entity else "",
+            "date": today_ist().isoformat(),
+            "instrument": inv.instrument,
+            "invested": inr(cost),
+            "ownership": str(inv.ownership_pct),
+            "invested_on": str(inv.invested_on or "—"),
+            "contact": inv.contact_email or "—",
+            "cost": inr(cost),
+            "fair_value": inr(fair),
+            "moic": moic,
+            "gain": inr(fair - cost),
+            "valuation": valuation,
+            "kpis": "\n".join(kpi_lines),
+            "signals": "\n".join(sig_lines),
+        },
+        user_id=user.id,
+        title=f"Tear Sheet — {inv.company_name} — {today_ist().isoformat()}",
+        subject_type="tear_sheet",
+        subject_id=inv.id,
+    )
+    return docsvc.document_view(db, doc)
+
+
 # --- portfolio signals (risk early-warning) ---
 @router.get("/funds/{fund_id}/signals")
 def portfolio_signals(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):

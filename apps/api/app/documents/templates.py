@@ -424,6 +424,29 @@ register(
 )
 register(
     DocumentTemplate(
+        "tear_sheet",
+        "Portfolio Company Tear Sheet",
+        "tear_sheet",
+        "PORTFOLIO COMPANY TEAR SHEET\n"
+        "Company: $company\nFund: $fund\nAs of: $date\n\n"
+        "INVESTMENT\n"
+        "  Instrument: $instrument · Invested: $invested"
+        " · Ownership: $ownership%\n"
+        "  Invested on: $invested_on · Reporting contact: $contact\n\n"
+        "VALUE\n"
+        "  Cost $cost · Fair value $fair_value · MOIC $moic"
+        " · Unrealised gain $gain\n"
+        "  Latest valuation: $valuation\n\n"
+        "KPI TREND (latest first)\n"
+        "$kpis\n\n"
+        "SIGNALS\n"
+        "$signals\n\n"
+        "Figures from the fund's records; fair values per the fund's marks and "
+        "valuation policy.\n",
+    )
+)
+register(
+    DocumentTemplate(
         "fund_financials",
         "Fund Financial Statements",
         "fund_financials",
