@@ -457,6 +457,15 @@ export default function Fund({
                           }, "Mark recorded")}
                         >
                           Mark
+                        </button>{" "}
+                        <button
+                          className="secondary"
+                          onClick={guard(
+                            () => api.tearSheet(fund.id, p.id),
+                            "Tear sheet generated — see the entity's Documents tab"
+                          )}
+                        >
+                          Tear sheet
                         </button>
                       </td>
                     </tr>

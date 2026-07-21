@@ -1703,6 +1703,8 @@ export const api = {
   listPortfolioValuations: (fid: string, iid: string) =>
     get<PortfolioValuation[]>(`/funds/${fid}/portfolio/${iid}/valuations`),
   valuationReport: (fid: string) => post<Document>(`/funds/${fid}/valuations/report`),
+  tearSheet: (fid: string, iid: string) =>
+    post<Document>(`/funds/${fid}/portfolio/${iid}/tear-sheet`),
   fundraiseSummary: (fid: string) => get<FundraiseSummary>(`/funds/${fid}/fundraise`),
   addLpProspect: (fid: string, b: Partial<LPProspect>) =>
     post<FundraiseSummary>(`/funds/${fid}/prospects`, b),
