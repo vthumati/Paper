@@ -3,6 +3,7 @@ import {
   api,
   type KPIDefinitionList,
   type KPIRequest,
+  type MetricAlertRuleList,
   type PortfolioBenchmarks,
   type PortfolioMonitoring as Monitoring,
   type PortfolioSignals,
@@ -69,6 +70,14 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
   const [bench, setBench] = useState<PortfolioBenchmarks | null>(null);
   const [signals, setSignals] = useState<PortfolioSignals | null>(null);
 
+  // metric alert rules (Visible-style thresholds)
+  const [alerts, setAlerts] = useState<MetricAlertRuleList | null>(null);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [aMetric, setAMetric] = useState("revenue");
+  const [aComp, setAComp] = useState<"lt" | "gt">("lt");
+  const [aThreshold, setAThreshold] = useState("");
+  const [aSeverity, setASeverity] = useState<"high" | "warn">("warn");
+
   const load = () =>
     Promise.all([
       api.portfolioMonitoring(fundId).then(setMon),
@@ -76,6 +85,7 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
       api.listKpiDefinitions(fundId).then(setDefs),
       api.portfolioBenchmarks(fundId).then(setBench),
       api.portfolioSignals(fundId).then(setSignals),
+      api.listAlertRules(fundId).then(setAlerts),
     ]);
   useEffect(() => {
     load();
@@ -95,6 +105,13 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
           title="Define the fund's own metrics (incl. ESG presets) to collect alongside the core KPIs"
         >
           {defsOpen ? "Close metrics" : "Custom metrics"}
+        </button>
+        <button
+          className="secondary"
+          onClick={() => setAlertsOpen((v) => !v)}
+          title="Set performance thresholds on tracked metrics — breaches surface as portfolio signals"
+        >
+          {alertsOpen ? "Close alerts" : "Metric alerts"}
         </button>
         <button
           className="secondary"
@@ -188,6 +205,79 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
                 ))}
             </div>
           )}
+        </div>
+      )}
+
+      {alertsOpen && alerts && (
+        <div style={{ margin: "10px 0" }}>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+            Alert when a company's latest reported value crosses a threshold — breaches appear in
+            the signals panel with the chosen severity.
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+            {alerts.rules.length === 0 && <span className="muted">No alert rules yet.</span>}
+            {alerts.rules.map((r) => {
+              const m = alerts.metrics.find((x) => x.key === r.metric);
+              return (
+                <span key={r.id} className={`badge ${r.severity === "high" ? "danger" : ""}`}>
+                  {m?.label ?? r.metric} {r.comparator === "lt" ? "<" : ">"}{" "}
+                  {fmtMetric(Number(r.threshold), m?.unit ?? "number")}{" "}
+                  <a
+                    href="#"
+                    title="Remove this alert rule"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      guard(async () => {
+                        await api.deleteAlertRule(fundId, r.id);
+                      }, "Alert rule removed")();
+                    }}
+                  >
+                    ×
+                  </a>
+                </span>
+              );
+            })}
+          </div>
+          <div className="row" style={{ alignItems: "flex-end" }}>
+            <div>
+              <label>Metric</label>
+              <select value={aMetric} onChange={(e) => setAMetric(e.target.value)}>
+                {alerts.metrics.map((m) => (
+                  <option key={m.key} value={m.key}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label>Condition</label>
+              <select value={aComp} onChange={(e) => setAComp(e.target.value as "lt" | "gt")}>
+                <option value="lt">falls below</option>
+                <option value="gt">rises above</option>
+              </select>
+            </div>
+            <div>
+              <label>Threshold</label>
+              <input placeholder="e.g. 6" value={aThreshold} onChange={(e) => setAThreshold(e.target.value)} />
+            </div>
+            <div>
+              <label>Severity</label>
+              <select value={aSeverity} onChange={(e) => setASeverity(e.target.value as "high" | "warn")}>
+                <option value="warn">warning</option>
+                <option value="high">high</option>
+              </select>
+            </div>
+            <button
+              style={{ flex: "0 0 auto" }}
+              disabled={!aThreshold.trim() || isNaN(Number(aThreshold))}
+              onClick={guard(async () => {
+                await api.addAlertRule(fundId, {
+                  metric: aMetric, comparator: aComp, threshold: aThreshold, severity: aSeverity,
+                });
+                setAThreshold("");
+              }, "Alert rule added")}
+            >
+              Add alert
+            </button>
+          </div>
         </div>
       )}
 

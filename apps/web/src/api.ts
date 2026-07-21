@@ -1137,6 +1137,17 @@ export interface PortfolioBenchmarks {
   rows: { investment_id: string; company_name: string; values: Record<string, number | null> }[];
   medians: Record<string, number | null>;
 }
+export interface MetricAlertRule {
+  id: string;
+  metric: string;
+  comparator: "lt" | "gt";
+  threshold: string;
+  severity: "high" | "warn";
+}
+export interface MetricAlertRuleList {
+  rules: MetricAlertRule[];
+  metrics: { key: string; label: string; unit: string }[];
+}
 export interface PortfolioMonitoring {
   fund_id: string;
   totals: {
@@ -1774,6 +1785,11 @@ export const api = {
     del<void>(`/funds/${fid}/kpi-definitions/${did}`),
   portfolioBenchmarks: (fid: string) =>
     get<PortfolioBenchmarks>(`/funds/${fid}/benchmarks`),
+  listAlertRules: (fid: string) => get<MetricAlertRuleList>(`/funds/${fid}/alert-rules`),
+  addAlertRule: (fid: string, b: unknown) =>
+    post<MetricAlertRule>(`/funds/${fid}/alert-rules`, b),
+  deleteAlertRule: (fid: string, rid: string) =>
+    del<void>(`/funds/${fid}/alert-rules/${rid}`),
   addInvestment: (fid: string, b: unknown) =>
     post<PortfolioInvestment>(`/funds/${fid}/portfolio`, b),
   markInvestment: (fid: string, iid: string, b: unknown) =>
