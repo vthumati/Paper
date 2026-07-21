@@ -162,6 +162,11 @@ class PackIn(BaseModel):
     pack: Literal["starter", "growth", "scale"]
 
 
+class TeardownIn(BaseModel):
+    """Destructive teardown must echo the exact name to confirm intent."""
+    confirm_name: str
+
+
 # --- cap table ---
 class SecurityClassIn(BaseModel):
     name: str

@@ -5,7 +5,8 @@ from ..db import get_db
 from ..deps import TenantCtx, get_current_user, tenant_ctx
 from ..models.entity import LegalEntity
 from ..models.identity import Membership, Role, Tenant, User
-from ..schemas import TenantIn, TenantOut
+from ..schemas import TenantIn, TenantOut, TeardownIn
+from ..services import teardown
 
 router = APIRouter(tags=["tenants"])
 
@@ -58,3 +59,27 @@ def delete_tenant(ctx: TenantCtx = Depends(tenant_ctx), db: Session = Depends(ge
     db.query(Membership).filter_by(tenant_id=ctx.tenant.id).delete()
     db.delete(ctx.tenant)
     db.commit()
+
+
+# --- full teardown (destructive): workspace + all entities and their data ---
+@router.get("/tenants/{tenant_id}/teardown-preview")
+def workspace_teardown_preview(
+    ctx: TenantCtx = Depends(tenant_ctx), db: Session = Depends(get_db)
+):
+    if ctx.role != Role.OWNER:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the workspace owner can delete it")
+    return teardown.preview_workspace_teardown(db, ctx.tenant)
+
+
+@router.post("/tenants/{tenant_id}/teardown")
+def workspace_teardown(
+    body: TeardownIn, ctx: TenantCtx = Depends(tenant_ctx), db: Session = Depends(get_db)
+):
+    """Permanently delete the workspace and every entity, member and record
+    inside it. Owner-only; the request must echo the workspace's exact name."""
+    if ctx.role != Role.OWNER:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the workspace owner can delete it")
+    if body.confirm_name.strip() != ctx.tenant.name:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Confirmation name does not match")
+    deleted = teardown.teardown_workspace(db, ctx.tenant)
+    return {"deleted_rows": deleted}

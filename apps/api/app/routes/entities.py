@@ -4,7 +4,9 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..deps import EntityCtx, TenantCtx, entity_ctx, require_write, tenant_ctx
 from ..models.entity import EntityType, LegalEntity
-from ..schemas import EntityIn, EntityOut, PackIn, StageIn
+from ..models.identity import Role
+from ..schemas import EntityIn, EntityOut, PackIn, StageIn, TeardownIn
+from ..services import teardown
 from ..services.stage import stage_guide
 
 router = APIRouter(tags=["entities"])
@@ -73,3 +75,28 @@ def set_pack(
     ctx.entity.pack = body.pack
     db.commit()
     return stage_guide(db, ctx.entity)
+
+
+# --- full teardown (destructive) ---
+@router.get("/entities/{entity_id}/teardown-preview")
+def entity_teardown_preview(
+    ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)
+):
+    """Dry run: what deleting this entity would remove (row counts by area)."""
+    if ctx.role != Role.OWNER:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the owner can delete an entity")
+    return teardown.preview_entity_teardown(db, ctx.entity)
+
+
+@router.post("/entities/{entity_id}/teardown")
+def entity_teardown(
+    body: TeardownIn, ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)
+):
+    """Permanently delete this entity and every record that hangs off it.
+    Owner-only; the request must echo the entity's exact name."""
+    if ctx.role != Role.OWNER:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the owner can delete an entity")
+    if body.confirm_name.strip() != ctx.entity.name:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Confirmation name does not match")
+    deleted = teardown.teardown_entity(db, ctx.entity)
+    return {"deleted_rows": deleted}
