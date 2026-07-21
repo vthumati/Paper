@@ -1,5 +1,42 @@
 from tests.conftest import auth_headers
 
+
+def test_report_preview_and_portal_view(client):
+    """The web-native report view: GP preview JSON + LP-scoped portal route."""
+    gp = auth_headers(client, email="gp@fund.in")
+    tid = client.post("/tenants", json={"name": "GP House", "type": "fund"}, headers=gp).json()["id"]
+    eid = client.post(
+        f"/tenants/{tid}/entities", json={"name": "Alpha Fund I", "type": "fund"}, headers=gp
+    ).json()["id"]
+    fid = client.post(f"/entities/{eid}/fund", json={"sebi_category": "II"}, headers=gp).json()["id"]
+    client.post(
+        f"/funds/{fid}/lps",
+        json={"name": "LP One", "email": "lp1@invest.in", "commitment": "10000000"},
+        headers=gp,
+    )
+    client.post(
+        f"/funds/{fid}/portfolio",
+        json={"company_name": "Acme", "amount": "2000000", "invested_on": "2025-01-15"},
+        headers=gp,
+    )
+
+    # GP preview defaults to the last completed quarter
+    prev = client.get(f"/funds/{fid}/lp-report/preview", headers=gp)
+    assert prev.status_code == 200
+    data = prev.json()
+    assert data["fund_name"] == "Alpha Fund I"
+    assert data["period_label"].startswith("FY")
+    assert data["snapshot"]["committed"] == "10000000.00"
+    assert len(data["holdings"]) == 1
+    assert data["holdings"][0]["holding_years"] is not None
+
+    # the LP sees the same view through their portal; a stranger 404s
+    lp = auth_headers(client, email="lp1@invest.in")
+    mine = client.get(f"/portal/funds/{fid}/lp-report", headers=lp)
+    assert mine.status_code == 200 and mine.json()["fund_name"] == "Alpha Fund I"
+    stranger = auth_headers(client, email="nobody@nowhere.in")
+    assert client.get(f"/portal/funds/{fid}/lp-report", headers=stranger).status_code == 404
+
 LP_EMAIL = "lp-report@x.in"
 
 

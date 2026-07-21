@@ -255,6 +255,32 @@ def view_update(
     return {"id": upd.id, "view_count": view.view_count}
 
 
+@router.get("/portal/funds/{fund_id}/lp-report")
+def portal_lp_report(
+    fund_id: str,
+    user: User = Depends(require_verified_email),
+    db: Session = Depends(get_db),
+):
+    """The web-native quarterly report for an LP of the fund (email-scoped),
+    for the last completed quarter."""
+    from ..clock import today_ist
+    from ..models.entity import LegalEntity
+    from ..models.fund import LP, Fund
+    from ..services import fund as fund_svc
+
+    fund = db.get(Fund, fund_id)
+    is_lp = (
+        db.query(LP).filter_by(fund_id=fund_id, email=user.email).first() if fund else None
+    )
+    if fund is None or is_lp is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Fund not found")
+    entity = db.get(LegalEntity, fund.entity_id)
+    label, start, end = fund_svc.default_report_period(today_ist())
+    return fund_svc.lp_report_data(
+        db, fund, entity.name if entity else "", label, start, end
+    )
+
+
 @router.post("/portal/notices/{notice_id}/ack")
 def acknowledge_notice(
     notice_id: str,

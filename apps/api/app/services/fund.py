@@ -885,6 +885,7 @@ def portfolio_benchmarks(db: Session, fund: Fund) -> dict:
             "q3": q3,
             "max": round(xs[-1], 2),
             "total": round(sum(xs), 2),
+            "avg": round(sum(xs) / len(xs), 2),
             "reporters": len(xs),
         }
 
@@ -1561,6 +1562,69 @@ def reopen_kpi_request(db: Session, req: KPIRequest) -> KPIRequest:
     db.commit()
     db.refresh(req)
     return req
+
+
+# --- web-native LP report view (Rundit-style magazine page) --------------------
+def default_report_period(today: datetime.date) -> tuple[str, datetime.date, datetime.date]:
+    """Label + start/end of the last completed calendar quarter (Indian-FY label)."""
+    label, end = _last_completed_period(today, "quarterly")
+    start = datetime.date(end.year, end.month - 2, 1)
+    return label, start, end
+
+
+def lp_report_data(
+    db: Session,
+    fund: Fund,
+    fund_name: str,
+    period_label: str,
+    start: datetime.date,
+    end: datetime.date,
+) -> dict:
+    """The quarterly LP report as structured data for the on-screen magazine
+    view — same sources as the generated document (FR-J-22)."""
+    from .fund_perf import fund_performance
+
+    caps = capital_accounts(db, fund)["totals"]
+    perf = fund_performance(db, fund)
+    activity = period_activity(db, fund, start, end)
+    soi = schedule_of_investments(db, fund)
+    vals = valuation_summary(db, fund)["totals"]
+    today = today_ist()
+
+    holdings = []
+    for h in soi["holdings"]:
+        cost = Decimal(h["cost"])
+        gain_pct = (
+            round(float(Decimal(h["unrealized_gain"]) / cost * 100), 1) if cost > 0 else None
+        )
+        holding_years = None
+        if h["invested_on"]:
+            invested = datetime.date.fromisoformat(str(h["invested_on"]))
+            holding_years = round((today - invested).days / 365, 1)
+        holdings.append({**h, "gain_pct": gain_pct, "holding_years": holding_years})
+
+    return {
+        "fund_id": fund.id,
+        "fund_name": fund_name,
+        "category": fund.sebi_category.value,
+        "period_label": period_label,
+        "period_start": start.isoformat(),
+        "period_end": end.isoformat(),
+        "prepared_on": today.isoformat(),
+        "snapshot": caps,
+        "performance": {
+            "nav": perf["nav"],
+            "nav_per_unit": perf["nav_per_unit"],
+            "dpi": perf["dpi"],
+            "rvpi": perf["rvpi"],
+            "tvpi": perf["tvpi"],
+            "xirr_pct": perf["xirr_pct"],
+        },
+        "activity": activity,
+        "holdings": holdings,
+        "totals": soi["totals"],
+        "valuation_status": vals,
+    }
 
 
 # --- portfolio signals (Vestberry-style risk early-warning) -------------------

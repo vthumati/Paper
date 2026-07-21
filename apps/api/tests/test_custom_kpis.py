@@ -94,6 +94,7 @@ def test_benchmarks_medians_and_rows(client):
     rev = b["stats"]["revenue"]
     assert rev == {
         "min": 1000000.0, "q1": 1500000.0, "median": 2000000.0,
-        "q3": 2500000.0, "max": 3000000.0, "total": 6000000.0, "reporters": 3,
+        "q3": 2500000.0, "max": 3000000.0, "total": 6000000.0,
+        "avg": 2000000.0, "reporters": 3,
     }
     assert b["stats"]["revenue_growth_pct"] is None  # nobody has 2 periods yet

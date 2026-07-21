@@ -534,6 +534,26 @@ def tear_sheet(
 
 
 # --- quarterly LP report pack ---
+@router.get("/funds/{fund_id}/lp-report/preview")
+def lp_report_preview(
+    period_label: str | None = None,
+    period_start: datetime.date | None = None,
+    period_end: datetime.date | None = None,
+    ctx: FundCtx = Depends(fund_ctx),
+    db: Session = Depends(get_db),
+):
+    """Structured report data for the on-screen magazine view; defaults to the
+    last completed quarter when no period is given."""
+    if not (period_label and period_start and period_end):
+        period_label, period_start, period_end = svc.default_report_period(today_ist())
+    if period_end < period_start:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "period_end is before period_start")
+    entity = db.get(LegalEntity, ctx.fund.entity_id)
+    return svc.lp_report_data(
+        db, ctx.fund, entity.name if entity else "", period_label, period_start, period_end
+    )
+
+
 @router.post("/funds/{fund_id}/lp-report", response_model=DocumentOut, status_code=201)
 def lp_report(
     body: LPReportIn,
