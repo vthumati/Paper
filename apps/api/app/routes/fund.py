@@ -57,6 +57,7 @@ from ..schemas import (
     LPProspectConvertIn,
     LPProspectIn,
     LPProspectStageIn,
+    LPReportIn,
     PortfolioValuationIn,
     PortfolioIn,
     PortfolioKPIIn,
@@ -452,6 +453,86 @@ def tear_sheet(
         title=f"Tear Sheet — {inv.company_name} — {today_ist().isoformat()}",
         subject_type="tear_sheet",
         subject_id=inv.id,
+    )
+    return docsvc.document_view(db, doc)
+
+
+# --- quarterly LP report pack ---
+@router.post("/funds/{fund_id}/lp-report", response_model=DocumentOut, status_code=201)
+def lp_report(
+    body: LPReportIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Quarterly report to LPs: fund snapshot, since-inception performance,
+    the period's capital calls and distributions, the Schedule of Investments
+    and valuation status. Surfaces automatically in every LP's portal."""
+    require_write(ctx.role)
+    if body.period_end < body.period_start:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "period_end is before period_start"
+        )
+    entity = db.get(LegalEntity, ctx.fund.entity_id)
+    inr = svc._inr
+
+    caps = svc.capital_accounts(db, ctx.fund)["totals"]
+    perf = fund_performance(db, ctx.fund)
+    activity = svc.period_activity(db, ctx.fund, body.period_start, body.period_end)
+    soi = svc.schedule_of_investments(db, ctx.fund)
+    vals = svc.valuation_summary(db, ctx.fund)["totals"]
+
+    act_lines = [
+        f"  Capital call #{c['call_no']} ({c['date']}): {inr(c['amount'])}"
+        + (f" — {c['purpose']}" if c["purpose"] else "")
+        for c in activity["capital_calls"]
+    ] + [
+        f"  Distribution #{d['dist_no']} ({d['date']}): {inr(d['gross_amount'])} gross"
+        f" ({d['kind']}, carry {inr(d['carry_amount'])})"
+        for d in activity["distributions"]
+    ]
+    holdings_lines = [
+        f"  {h['company_name']}: cost {inr(h['cost'])}"
+        f" · fair value {inr(h['current_value'])}"
+        f" · MOIC {h['moic'] or '—'}× · {h['pct_of_nav']}% of NAV"
+        for h in soi["holdings"]
+    ]
+    doc = docsvc.create_document(
+        db,
+        entity_id=ctx.fund.entity_id,
+        template_key="lp_report",
+        data={
+            "fund": entity.name if entity else "",
+            "category": ctx.fund.sebi_category.value,
+            "period": body.period_label,
+            "period_start": body.period_start.isoformat(),
+            "period_end": body.period_end.isoformat(),
+            "date": today_ist().isoformat(),
+            "committed": inr(caps["committed"]),
+            "drawn": inr(caps["drawn"]),
+            "uncalled": inr(caps["remaining"]),
+            "distributed": inr(caps["distributed"]),
+            "nav": inr(perf["nav"]),
+            "nav_per_unit": perf["nav_per_unit"] or "—",
+            "dpi": perf["dpi"] or "—",
+            "rvpi": perf["rvpi"] or "—",
+            "tvpi": perf["tvpi"] or "—",
+            "xirr": f"{perf['xirr_pct']}%" if perf["xirr_pct"] is not None else "—",
+            "activity": "\n".join(act_lines)
+            or "  No capital calls or distributions this period.",
+            "holdings": "\n".join(holdings_lines) or "  No portfolio holdings.",
+            "total_cost": inr(soi["totals"]["cost"]),
+            "total_value": inr(soi["totals"]["current_value"]),
+            "total_moic": f"{soi['totals']['moic'] or '—'}×",
+            "valuation_status": (
+                f"{vals['valued']} of {vals['holdings']} holdings valued"
+                f" · {vals['independent']} independently · {vals['stale']} stale vs policy"
+            ),
+        },
+        user_id=user.id,
+        title=f"LP Report — {body.period_label}",
+        subject_type="lp_report",
+        subject_id=ctx.fund.id,
     )
     return docsvc.document_view(db, doc)
 

@@ -364,6 +364,55 @@ def capital_accounts(db: Session, fund: Fund) -> dict:
     }
 
 
+def period_activity(
+    db: Session, fund: Fund, start: datetime.date, end: datetime.date
+) -> dict:
+    """Capital calls and distributions falling in a reporting period (FR-J-22
+    quarterly LP report): calls by due date, distributions by their date, each
+    falling back to creation date when undated."""
+    calls = []
+    called = Decimal("0")
+    for c in db.query(CapitalCall).filter_by(fund_id=fund.id).order_by(CapitalCall.call_no):
+        on = c.due_date or c.created_at.date()
+        if not (start <= on <= end):
+            continue
+        amount = sum(
+            (Decimal(n.amount) for n in db.query(DrawdownNotice).filter_by(call_id=c.id)),
+            Decimal("0"),
+        )
+        called += amount
+        calls.append(
+            {
+                "call_no": c.call_no,
+                "date": on.isoformat(),
+                "purpose": c.purpose,
+                "amount": str(q(amount)),
+            }
+        )
+
+    dists = []
+    distributed = Decimal("0")
+    for d in db.query(Distribution).filter_by(fund_id=fund.id).order_by(Distribution.dist_no):
+        on = d.date or d.created_at.date()
+        if not (start <= on <= end):
+            continue
+        distributed += Decimal(d.gross_amount)
+        dists.append(
+            {
+                "dist_no": d.dist_no,
+                "date": on.isoformat(),
+                "kind": d.kind.value,
+                "gross_amount": str(q(Decimal(d.gross_amount))),
+                "carry_amount": str(q(Decimal(d.carry_amount))),
+            }
+        )
+    return {
+        "capital_calls": calls,
+        "distributions": dists,
+        "totals": {"called": str(q(called)), "distributed": str(q(distributed))},
+    }
+
+
 # --- fund construction / forecast (Carta "Fund Forecasting") -----------------
 def get_or_default_plan(db: Session, fund: Fund) -> tuple[FundPlan | None, bool]:
     """Return (plan, has_plan). When no plan is saved yet, returns None so the

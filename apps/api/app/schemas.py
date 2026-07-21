@@ -626,6 +626,12 @@ class PortfolioKPIIn(BaseModel):
     note: str | None = None
 
 
+class LPReportIn(BaseModel):
+    period_label: str
+    period_start: datetime.date
+    period_end: datetime.date
+
+
 class KPIRequestIn(BaseModel):
     period_label: str
     as_of: datetime.date

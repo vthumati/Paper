@@ -7,6 +7,7 @@ plus a portfolio summary aggregating across everything."""
 from decimal import ROUND_HALF_UP, Decimal
 
 from fastapi import HTTPException, status
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from ..clock import now_ist, today_ist
@@ -356,14 +357,23 @@ def portal_for_user(db: Session, user: User) -> dict:
                 "capital_calls": notices,
                 "look_through": lp_look_through(db, fund, lp),
                 "performance": perf,
-                # statements + tax forms generated for this LP surface here automatically
+                # statements + tax forms for this LP, plus fund-wide quarterly
+                # LP reports, surface here automatically
                 "statements": [
                     {"id": d.id, "title": d.title, "created_at": d.created_at}
                     for d in db.query(Document)
                     .filter(
                         Document.entity_id == fund.entity_id,
-                        Document.subject_type.in_(["lp_statement", "form_64c"]),
-                        Document.subject_id == lp.id,
+                        or_(
+                            and_(
+                                Document.subject_type.in_(["lp_statement", "form_64c"]),
+                                Document.subject_id == lp.id,
+                            ),
+                            and_(
+                                Document.subject_type == "lp_report",
+                                Document.subject_id == fund.id,
+                            ),
+                        ),
                     )
                     .order_by(Document.created_at.desc())
                 ],

@@ -447,6 +447,33 @@ register(
 )
 register(
     DocumentTemplate(
+        "lp_report",
+        "Quarterly Report to Limited Partners",
+        "lp_report",
+        "QUARTERLY REPORT TO LIMITED PARTNERS\n"
+        "Fund: $fund (SEBI AIF Category $category)\n"
+        "Period: $period ($period_start to $period_end)\n"
+        "Prepared: $date\n\n"
+        "FUND SNAPSHOT\n"
+        "  Committed $committed · Drawn $drawn · Uncalled $uncalled"
+        " · Distributed $distributed\n\n"
+        "PERFORMANCE (since inception)\n"
+        "  NAV $nav · NAV per unit ₹$nav_per_unit\n"
+        "  DPI $dpi · RVPI $rvpi · TVPI $tvpi · XIRR $xirr\n\n"
+        "ACTIVITY THIS PERIOD\n"
+        "$activity\n\n"
+        "PORTFOLIO — SCHEDULE OF INVESTMENTS\n"
+        "$holdings\n"
+        "  Total: cost $total_cost · fair value $total_value"
+        " · MOIC $total_moic\n\n"
+        "VALUATION STATUS\n"
+        "  $valuation_status\n\n"
+        "Prepared for the fund's contributors from its records. Figures are "
+        "unaudited; fair values per the fund's marks and valuation policy.\n",
+    )
+)
+register(
+    DocumentTemplate(
         "fund_financials",
         "Fund Financial Statements",
         "fund_financials",
