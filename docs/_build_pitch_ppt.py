@@ -206,7 +206,7 @@ def build():
     stages = [("STAGE 01", "Incorporate", "Wizard-driven Pvt Ltd / LLP / OPC formation with the full incorporation set drafted."),
               ("STAGE 02", "Own", "Cap table, ESOP pools & grants, founder vesting, fully-diluted & scenario views."),
               ("STAGE 03", "Raise", "Rounds & SAFEs, data room, term-sheet scanner, PAS-4 & FC-GPR on close."),
-              ("STAGE 04", "Manage & fund", "Board & ROC compliance, registers — plus full SEBI AIF & SPV administration.")]
+              ("STAGE 04", "Manage & fund", "Board & ROC compliance, registers — plus SEBI AIF & SPV administration with portfolio intelligence built in.")]
     rw = (SW - 2 * M - 3 * 0.22) / 4
     for i, (n, h, b) in enumerate(stages):
         x = M + i * (rw + 0.22)
@@ -218,12 +218,12 @@ def build():
     pillars = [("For founders", ["Stage-aware guidance — only what matters now",
                                  "Cap table, ESOP & 409A-style valuations",
                                  "Diligence readiness score before you raise"]),
-               ("For funds & SPVs", ["LP capital accounts, drawdowns & unitised NAV",
-                                     "Waterfall (hurdle + catch-up); XIRR / DPI / TVPI",
-                                     "Form 64C/64D & SEBI AIF compliance calendar"]),
+               ("For funds & SPVs", ["Capital accounts, waterfall, NAV & 64C/64D",
+                                     "KPI collection, risk signals & tear sheets",
+                                     "Deal-flow & LP CRM w/ relationship intelligence"]),
                ("For investors & LPs", ["One portal across every holding",
-                                        "Portfolio value, vesting & capital statements",
-                                        "Commit to deals; record resolution consents"])]
+                                        "Statements, quarterly LP reports & call notices",
+                                        "Founders report KPIs from the same portal"])]
     pw = (SW - 2 * M - 2 * 0.3) / 3
     for i, (h, items) in enumerate(pillars):
         x = M + i * (pw + 0.3)
@@ -387,21 +387,22 @@ def build():
     eyebrow(s, M, 0.6, "07", "Why Paper wins")
     section_title(s, M, 1.0, "Global tools aren't built or priced for India. Local tools are point solutions.")
     pos = [("Carta / Pulley / Ledgy", "World-class cap tables, but US-priced and US-regulated — no PAS-4, no FC-GPR, no ROC, no SEBI AIF."),
+           ("Fund-ops tools (global)", "Vestberry, 4Degrees, Carta fund admin — portfolio intelligence, deal CRM and fund accounting as three more dollar subscriptions, none SEBI-native."),
            ("Point tools (India)", "Solve one slice — a cap table, or e-sign, or a tracker. The founder still stitches five vendors together."),
            ("CS / CA retainers", "The default today: reliable but manual, opaque and expensive, with company data trapped in someone's inbox."),
-           ("Paper", "One India-native platform across the entire lifecycle — company and fund — with compliance built in.")]
-    y = 2.45
+           ("Paper", "One India-native platform across the entire lifecycle — company and fund — with compliance and portfolio intelligence built in.")]
+    y = 2.35
     for i, (who, gap) in enumerate(pos):
         highlight = who == "Paper"
         if highlight:
-            rect(s, M - 0.15, y - 0.05, SW - 2 * M + 0.3, 0.92, ACCENT_SOFT, rounded=True, radius=0.08)
-        text(s, M + 0.05, y + 0.14, 3.0, 0.6, [[(who, 16, BRAND, True, False, SERIF)]])
-        text(s, M + 3.3, y + 0.06, SW - 2 * M - 3.3, 0.8,
-             [[(gap, 13, INK if highlight else MUTED)]], line_spacing=1.15,
+            rect(s, M - 0.15, y - 0.05, SW - 2 * M + 0.3, 0.82, ACCENT_SOFT, rounded=True, radius=0.08)
+        text(s, M + 0.05, y + 0.12, 3.0, 0.6, [[(who, 15, BRAND, True, False, SERIF)]])
+        text(s, M + 3.3, y + 0.03, SW - 2 * M - 3.3, 0.75,
+             [[(gap, 12, INK if highlight else MUTED)]], line_spacing=1.12,
              anchor=MSO_ANCHOR.MIDDLE)
         if not highlight:
-            rect(s, M + 0.05, y + 0.86, SW - 2 * M - 0.1, 0.012, LINE)
-        y += 1.0
+            rect(s, M + 0.05, y + 0.78, SW - 2 * M - 0.1, 0.012, LINE)
+        y += 0.9
 
     # ---------------- 9. THE ASK ---------------------------------------------
     s = new_slide(prs, BRAND)
@@ -412,9 +413,9 @@ def build():
          line_spacing=1.05)
     text(s, M, 2.85, 10.8, 1.2,
          [[("We have a working full-stack platform spanning incorporation, cap table, fundraising, "
-            "governance, compliance and fund administration. Capital takes us from product to "
-            "distribution — turning ~2 lakh startups and 1,849 funds into paying, expanding accounts.",
-            15, CLOUD)]], line_spacing=1.3)
+            "governance, compliance, fund administration and fund portfolio intelligence. Capital "
+            "takes us from product to distribution — turning ~2 lakh startups and 1,849 funds into "
+            "paying, expanding accounts.", 15, CLOUD)]], line_spacing=1.3)
     use = [("50%", "Go-to-market: founder & fund acquisition, marketplace partnerships"),
            ("35%", "Product & compliance-engine depth across MCA / SEBI / FEMA"),
            ("15%", "Compliance, security & SOC-grade operations")]
