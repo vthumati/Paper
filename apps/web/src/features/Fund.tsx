@@ -80,6 +80,7 @@ export default function Fund({
   const [distKind, setDistKind] = useState("profit");
   const [coName, setCoName] = useState("");
   const [coAmt, setCoAmt] = useState("");
+  const [coSector, setCoSector] = useState("");
 
   async function loadFund() {
     try {
@@ -481,13 +482,17 @@ export default function Fund({
             <div className="row">
               <input placeholder="Company" value={coName} onChange={(e) => setCoName(e.target.value)} />
               <input placeholder="Amount ₹" value={coAmt} onChange={(e) => setCoAmt(e.target.value)} />
+              <input placeholder="Sector (segment)" value={coSector} onChange={(e) => setCoSector(e.target.value)} />
               <button
                 style={{ flex: "0 0 auto" }}
                 disabled={!coName}
                 onClick={guard(async () => {
-                  await api.addInvestment(fund.id, { company_name: coName, amount: coAmt || "0" });
+                  await api.addInvestment(fund.id, {
+                    company_name: coName, amount: coAmt || "0", sector: coSector || null,
+                  });
                   setCoName("");
                   setCoAmt("");
+                  setCoSector("");
                 }, "Investment added")}
               >
                 Add investment

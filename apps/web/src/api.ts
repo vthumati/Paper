@@ -399,6 +399,7 @@ export interface CapitalAccounts {
 export interface PortfolioInvestment {
   id: string;
   company_name: string;
+  sector: string | null;
   instrument: string;
   amount: string;
   ownership_pct: string;
@@ -971,6 +972,13 @@ export interface FundPlan {
     deployed_vs_initial_pct: number | null;
     deals_vs_plan_pct: number | null;
   };
+  variance: {
+    metric: string;
+    unit: "inr" | "number" | "x";
+    planned: string | number | null;
+    actual: string | number | null;
+    variance_pct: number | null;
+  }[];
 }
 export interface FundPlanInput {
   fund_size: string;
@@ -1149,8 +1157,9 @@ export interface KPIDefinitionList {
 export interface PortfolioBenchmarks {
   fund_id: string;
   metrics: { key: string; label: string; unit: string }[];
-  rows: { investment_id: string; company_name: string; values: Record<string, number | null> }[];
+  rows: { investment_id: string; company_name: string; sector: string | null; values: Record<string, number | null> }[];
   medians: Record<string, number | null>;
+  segments: { segment: string; companies: number; medians: Record<string, number | null> }[];
 }
 export interface MetricAlertRule {
   id: string;
@@ -1175,6 +1184,7 @@ export interface PortfolioMonitoring {
   companies: {
     investment_id: string;
     company_name: string;
+    sector: string | null;
     contact_email: string | null;
     ownership_pct: string;
     periods: number;

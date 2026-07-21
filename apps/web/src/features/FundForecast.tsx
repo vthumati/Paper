@@ -156,6 +156,37 @@ export default function FundForecast({
           <Progress label="Deals vs. plan" pct={a.deals_vs_plan_pct}
             detail={`${a.deals} of ${d.num_initial_deals}`} />
         </div>
+
+        <div className="muted" style={{ fontSize: 12, margin: "14px 0 4px" }}>
+          Variance report — plan vs. the live ledgers
+        </div>
+        <table>
+          <thead>
+            <tr><th>Metric</th><th>Planned</th><th>Actual</th><th>Variance</th></tr>
+          </thead>
+          <tbody>
+            {plan.variance.map((r) => {
+              const fmt = (v: string | number | null) =>
+                v === null ? "—" : r.unit === "inr" ? fmtMoney(String(v)) : r.unit === "x" ? `${v}×` : String(v);
+              return (
+                <tr key={r.metric}>
+                  <td>{r.metric}</td>
+                  <td>{fmt(r.planned)}</td>
+                  <td>{fmt(r.actual)}</td>
+                  <td>
+                    {r.variance_pct === null ? (
+                      <span className="muted">—</span>
+                    ) : (
+                      <span className={r.variance_pct >= 0 ? "delta-up" : "delta-down"}>
+                        {r.variance_pct >= 0 ? "▲" : "▼"} {Math.abs(r.variance_pct)}%
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );

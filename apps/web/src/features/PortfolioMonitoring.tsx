@@ -515,7 +515,10 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
             <tbody>
               {mon.companies.map((c) => (
                 <tr key={c.investment_id}>
-                  <td><Avatar name={c.company_name} /> {c.company_name}</td>
+                  <td>
+                    <Avatar name={c.company_name} /> {c.company_name}
+                    {c.sector && <> <span className="badge">{c.sector}</span></>}
+                  </td>
                   <td>
                     {(() => {
                       const score = riskScore(signals, c.investment_id);
@@ -658,6 +661,34 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
                   </tr>
                 </tbody>
               </table>
+
+              {bench.segments.length > 0 && (
+                <>
+                  <div className="muted" style={{ fontSize: 12, margin: "14px 0 4px" }}>
+                    Segment comparison — medians per sector cohort
+                  </div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Segment</th>
+                        <th>Companies</th>
+                        {bench.metrics.map((m) => <th key={m.key}>{m.label}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bench.segments.map((s) => (
+                        <tr key={s.segment}>
+                          <td><span className="badge">{s.segment}</span></td>
+                          <td>{s.companies}</td>
+                          {bench.metrics.map((m) => (
+                            <td key={m.key}>{fmtMetric(s.medians[m.key], m.unit) ?? <span className="muted">—</span>}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
 
               <div style={{ marginTop: 12, display: "grid", gap: 7 }}>
                 {bench.metrics.map((m) => {
