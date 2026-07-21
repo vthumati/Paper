@@ -1,6 +1,8 @@
+import csv
 import datetime
+import io
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from ..db import get_db
@@ -27,11 +29,12 @@ from ..models.fund import (
     LP,
     LPDistribution,
     LPProspect,
+    LPProspectActivity,
     PortfolioInvestment,
 )
 from ..services.money import q
 from ..models.identity import User
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from ..schemas import (
     CapitalCallIn,
@@ -41,6 +44,7 @@ from ..schemas import (
     DealContactIn,
     DealFollowupIn,
     DealIn,
+    DealsImportIn,
     DealInvestIn,
     DealOut,
     DealStageIn,
@@ -56,6 +60,7 @@ from ..schemas import (
     KPIRequestIn,
     LPIn,
     LPOut,
+    LPProspectActivityIn,
     LPProspectConvertIn,
     LPProspectIn,
     LPProspectStageIn,
@@ -66,7 +71,7 @@ from ..schemas import (
     PortfolioMarkIn,
     PortfolioOut,
 )
-from ..clock import today_ist
+from ..clock import now_ist, today_ist
 from ..models.entity import LegalEntity
 from ..services import document as docsvc
 from ..services import fund as svc
@@ -163,6 +168,69 @@ def convert_prospect(
     require_write(ctx.role)
     p = _get_prospect(db, ctx.fund.id, prospect_id)
     return svc.convert_prospect_to_lp(db, p, body.commitment)
+
+
+# --- LP-prospect CRM: activity timeline, strength, follow-ups (FR-J-16) ---
+def _prospect_crm(db: Session, prospect: LPProspect) -> dict:
+    acts = (
+        db.query(LPProspectActivity)
+        .filter_by(prospect_id=prospect.id)
+        .order_by(LPProspectActivity.occurred_on.desc(), LPProspectActivity.created_at.desc())
+        .all()
+    )
+    return {
+        "strength": _rel_strength(acts, today_ist()),
+        "next_followup_on": prospect.next_followup_on,
+        "activities": [
+            {"id": a.id, "kind": a.kind, "body": a.body, "occurred_on": a.occurred_on}
+            for a in acts
+        ],
+    }
+
+
+@router.get("/funds/{fund_id}/prospects/{prospect_id}/crm")
+def prospect_crm(
+    prospect_id: str, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+):
+    return _prospect_crm(db, _get_prospect(db, ctx.fund.id, prospect_id))
+
+
+@router.post("/funds/{fund_id}/prospects/{prospect_id}/activities", status_code=201)
+def add_prospect_activity(
+    prospect_id: str,
+    body: LPProspectActivityIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    p = _get_prospect(db, ctx.fund.id, prospect_id)
+    db.add(
+        LPProspectActivity(
+            prospect_id=p.id,
+            fund_id=ctx.fund.id,
+            kind=body.kind,
+            body=body.body,
+            occurred_on=body.occurred_on or today_ist(),
+            created_by=user.id,
+        )
+    )
+    db.commit()
+    return _prospect_crm(db, p)
+
+
+@router.put("/funds/{fund_id}/prospects/{prospect_id}/followup")
+def set_prospect_followup(
+    prospect_id: str,
+    body: DealFollowupIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    db: Session = Depends(get_db),
+):
+    require_write(ctx.role)
+    p = _get_prospect(db, ctx.fund.id, prospect_id)
+    p.next_followup_on = body.on
+    db.commit()
+    return svc.fundraise_summary(db, ctx.fund)
 
 
 # --- LPs ---
@@ -706,6 +774,7 @@ def set_deal_stage(
 ):
     require_write(ctx.role)
     ctx.deal.stage = body.stage
+    ctx.deal.stage_changed_at = now_ist()
     db.commit()
     db.refresh(ctx.deal)
     return ctx.deal
@@ -819,6 +888,134 @@ def add_deal_activity(
     ))
     db.commit()
     return _deal_crm(db, ctx.deal.id)
+
+
+# --- deal pipeline CSV import (onboarding an existing pipeline, FR-J-10) ---
+DEALS_IMPORT_TEMPLATE = (
+    "company_name,sector,stage,amount,source\n"
+    "Acme Robotics,DeepTech,screening,15000000,IIT network\n"
+    "BlueLeaf Foods,Consumer,sourced,8000000,\n"
+)
+_DEAL_STAGES = {s.value for s in DealStage}
+
+
+@router.get("/funds/{fund_id}/deals/import-template")
+def deals_import_template(ctx: FundCtx = Depends(fund_ctx)):
+    return Response(
+        content=DEALS_IMPORT_TEMPLATE,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="deals-import.csv"'},
+    )
+
+
+@router.post("/funds/{fund_id}/deals/import")
+def import_deals(
+    body: DealsImportIn, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+):
+    """Validate a deals CSV (required: company_name; optional: sector, stage,
+    amount, source); with apply=true, create the deals atomically."""
+    require_write(ctx.role)
+    reader = csv.DictReader(io.StringIO(body.csv))
+    if not reader.fieldnames or "company_name" not in reader.fieldnames:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "CSV needs a company_name column")
+    rows: list[dict] = []
+    errors: list[str] = []
+    for i, r in enumerate(reader, start=2):
+        name = (r.get("company_name") or "").strip()
+        if not name:
+            errors.append(f"row {i}: company_name is required")
+            continue
+        stage = ((r.get("stage") or "").strip().lower()) or "sourced"
+        if stage not in _DEAL_STAGES:
+            errors.append(f"row {i}: unknown stage '{stage}' (use {sorted(_DEAL_STAGES)})")
+            continue
+        try:
+            amount = Decimal((r.get("amount") or "").strip() or "0")
+        except InvalidOperation:
+            errors.append(f"row {i}: amount is not a number")
+            continue
+        if amount < 0:
+            errors.append(f"row {i}: amount must not be negative")
+            continue
+        rows.append(
+            {
+                "company_name": name,
+                "sector": (r.get("sector") or "").strip() or None,
+                "stage": DealStage(stage),
+                "amount": amount,
+                "source": (r.get("source") or "").strip() or None,
+            }
+        )
+    report = {"valid": not errors, "rows": len(rows), "errors": errors}
+    if not body.apply:
+        return report
+    if errors:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            {"message": "CSV has errors — nothing was imported", "errors": errors},
+        )
+    for r in rows:
+        db.add(Deal(fund_id=ctx.fund.id, **r))
+    db.commit()
+    return {**report, "applied": True, "imported": len(rows)}
+
+
+# --- firm network directory: everyone the fund knows (FR-J-17) ---
+@router.get("/funds/{fund_id}/network")
+def firm_network(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    """One roster across deal contacts and LP prospects — "who do we know at X"
+    — with relationship strength and last touch, deduped by email (else name).
+    Derived entirely from the fund's own logged relationships."""
+    today = today_ist()
+    people: dict[str, dict] = {}
+
+    def merge(key: str, name: str, role: str | None, email: str | None,
+              link: str, strength: int, last_touch: datetime.date | None) -> None:
+        e = people.setdefault(
+            key,
+            {"name": name, "role": role, "email": email, "links": [],
+             "strength": 0, "last_touch": None},
+        )
+        if link not in e["links"]:
+            e["links"].append(link)
+        e["strength"] = max(e["strength"], strength)
+        if last_touch and (e["last_touch"] is None or last_touch > e["last_touch"]):
+            e["last_touch"] = last_touch
+        if role and not e["role"]:
+            e["role"] = role
+
+    deals = {d.id: d for d in db.query(Deal).filter_by(fund_id=ctx.fund.id)}
+    if deals:
+        acts = db.query(DealActivity).filter(DealActivity.deal_id.in_(deals.keys())).all()
+        by_contact: dict[str, list[DealActivity]] = {}
+        for a in acts:
+            if a.contact_id:
+                by_contact.setdefault(a.contact_id, []).append(a)
+        for c in db.query(DealContact).filter(DealContact.deal_id.in_(deals.keys())):
+            mine = by_contact.get(c.id, [])
+            merge(
+                (c.email or f"name:{c.name.strip().lower()}"),
+                c.name, c.role, c.email,
+                f"deal: {deals[c.deal_id].company_name}",
+                _rel_strength(mine, today),
+                max((a.occurred_on for a in mine), default=None),
+            )
+
+    for p in db.query(LPProspect).filter_by(fund_id=ctx.fund.id):
+        acts = db.query(LPProspectActivity).filter_by(prospect_id=p.id).all()
+        merge(
+            (p.email or f"name:{p.name.strip().lower()}"),
+            p.name, p.firm, p.email,
+            "LP fundraise",
+            _rel_strength(acts, today),
+            max((a.occurred_on for a in acts), default=None),
+        )
+
+    roster = sorted(
+        people.values(),
+        key=lambda e: (-e["strength"], e["name"].lower()),
+    )
+    return {"fund_id": ctx.fund.id, "count": len(roster), "people": roster}
 
 
 @router.put("/deals/{deal_id}/followup", response_model=DealOut)

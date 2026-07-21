@@ -667,6 +667,11 @@ class DealFollowupIn(BaseModel):
     on: datetime.date | None = None  # null clears the follow-up
 
 
+class DealsImportIn(BaseModel):
+    csv: str
+    apply: bool = False
+
+
 class DealStageIn(BaseModel):
     stage: DealStage
 
@@ -688,6 +693,12 @@ class DealActivityIn(BaseModel):
     body: str
     occurred_on: datetime.date | None = None
     contact_id: str | None = None  # attribute the touch to a deal contact
+
+
+class LPProspectActivityIn(BaseModel):
+    kind: Literal["note", "meeting", "call", "email", "other"] = "note"
+    body: str
+    occurred_on: datetime.date | None = None
 
 
 class ScenarioIn(BaseModel):
@@ -740,6 +751,8 @@ class DealOut(ORMModel):
     investment_id: str | None
     source: str | None
     next_followup_on: datetime.date | None
+    stage_changed_at: datetime.datetime | None
+    created_at: datetime.datetime
 
 
 # --- ESOP ---

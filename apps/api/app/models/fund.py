@@ -98,6 +98,23 @@ class LPProspect(Base, TimestampMixin):
     target_commitment: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
     notes: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     lp_id: Mapped[str | None] = mapped_column(String(32), nullable=True)  # set on convert
+    # next follow-up; overdue prospects surface in the pipeline + Tasks hub
+    next_followup_on: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+
+
+class LPProspectActivity(Base, TimestampMixin):
+    """A dated touchpoint on an LP prospect (mirrors DealActivity) — the
+    fundraise relationship timeline. Append-only."""
+
+    __tablename__ = "lp_prospect_activities"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    prospect_id: Mapped[str] = mapped_column(ForeignKey("lp_prospects.id"), index=True)
+    fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(24), default="note")  # note/meeting/call/email/other
+    body: Mapped[str] = mapped_column(String(2000))
+    occurred_on: Mapped[datetime.date] = mapped_column(Date)
+    created_by: Mapped[str] = mapped_column(String(32))
 
 
 class CapitalCall(Base, TimestampMixin):
@@ -185,6 +202,8 @@ class Deal(Base, TimestampMixin):
     source: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # next follow-up date; overdue follow-ups surface in the pipeline + Tasks hub
     next_followup_on: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+    # when the deal last moved stage (falls back to created_at) — stale detection
+    stage_changed_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class DealContact(Base, TimestampMixin):

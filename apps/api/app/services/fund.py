@@ -1040,6 +1040,7 @@ def _prospect_view(p: LPProspect) -> dict:
         "target_commitment": str(q(p.target_commitment)),
         "notes": p.notes,
         "lp_id": p.lp_id,
+        "next_followup_on": p.next_followup_on,
     }
 
 
