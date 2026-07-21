@@ -109,7 +109,7 @@ const AUDIENCES: AudienceDef[] = [
     key: "fund",
     label: "Fund (AIF)",
     icon: "🏦",
-    tagline: "Run a SEBI AIF end to end — LPs, deals, NAV, distributions.",
+    tagline: "Run a SEBI AIF end to end — fundraise, deals, portfolio, NAV, LP reporting.",
     entityTypes: "Fund",
   },
   {
@@ -416,6 +416,10 @@ const TOPICS: Topic[] = [
           <Step n={3} title="Open the Fund tab">
             The Fund workspace is where capital accounts, the deal pipeline and NAV all live.
           </Step>
+          <Step n={4} title="Model the fund plan">
+            Use the <strong>Forecast</strong> to plan portfolio construction — cheque sizes, reserves
+            for follow-ons, deployment pacing and projected returns — before you start deploying.
+          </Step>
         </ol>
       </>
     ),
@@ -424,20 +428,30 @@ const TOPICS: Topic[] = [
     id: "fund-lps",
     audience: "fund",
     group: "Capital",
-    title: "Onboard LPs & capital",
-    blurb: "Bring in limited partners and track their capital accounts.",
-    minutes: 4,
+    title: "Raise from LPs & manage capital",
+    blurb: "Fundraise CRM, commitments, capital accounts and call notices.",
+    minutes: 5,
     icon: "🤝",
     body: (
       <>
         <ol style={{ display: "flex", flexDirection: "column", gap: 12, paddingLeft: 0 }}>
-          <Step n={1} title="Add limited partners">
-            Record each LP and their commitment to the fund.
+          <Step n={1} title="Work the LP fundraise pipeline">
+            Track prospective LPs through stages on the <strong>Fundraise</strong> board. Log
+            touchpoints (calls, meetings, emails) per prospect — a{" "}
+            <strong>relationship-strength</strong> score builds from your activity — and set
+            follow-up reminders so warm conversations never go cold.
           </Step>
-          <Step n={2} title="Track capital accounts">
+          <Step n={2} title="Convert prospects to LPs">
+            When a prospect commits, convert them — they become an LP with a commitment on the fund.
+          </Step>
+          <Step n={3} title="Issue capital-call notices">
+            Draw down capital with <strong>call notices</strong>; LPs receive and acknowledge them
+            online in their portal.
+          </Step>
+          <Step n={4} title="Track capital accounts">
             Contributions, drawdowns and fees flow into a per-LP <strong>capital account</strong>.
           </Step>
-          <Step n={3} title="Unitise (optional)">
+          <Step n={5} title="Unitise (optional)">
             Run the fund on a units / NAV-per-unit basis if you prefer a unitised structure.
           </Step>
         </ol>
@@ -453,20 +467,80 @@ const TOPICS: Topic[] = [
     audience: "fund",
     group: "Invest",
     title: "Make & track investments",
-    blurb: "Deal pipeline, portfolio marks and look-through.",
-    minutes: 3,
+    blurb: "Deal board, contacts & relationship CRM, sources, analytics and marks.",
+    minutes: 5,
     icon: "📈",
     body: (
       <>
         <ol style={{ display: "flex", flexDirection: "column", gap: 12, paddingLeft: 0 }}>
-          <Step n={1} title="Run the deal pipeline">
-            Move prospective deals through stages until you invest.
+          <Step n={1} title="Run the deal board">
+            Deals live on a <strong>kanban board</strong> (or a table, if you prefer) — drag-free
+            stage changes, cheque size, sector and the people on each card. Deals that sit too long
+            in a stage get a <strong>stale</strong> badge, and you can set per-deal follow-up
+            reminders that surface in Tasks.
           </Step>
-          <Step n={2} title="Mark the portfolio">
-            Record portfolio marks over time to drive performance and NAV.
+          <Step n={2} title="Build the deal CRM">
+            Open a deal's CRM to add <strong>contacts</strong> and log an activity timeline — calls,
+            meetings, notes — attributed to specific people. Relationship-strength scores show who
+            on your team knows the company best.
           </Step>
-          <Step n={3} title="See look-through">
+          <Step n={3} title="Track deal sources">
+            Tag where each deal came from (network, accelerator, inbound …) and see your{" "}
+            <strong>top sources</strong> in pipeline analytics. Bulk-load an existing pipeline with
+            the <strong>CSV import</strong>.
+          </Step>
+          <Step n={4} title="Read pipeline analytics">
+            Deals by stage, sector mix, most-active deals and top sources — all from your own data.
+            The <strong>network directory</strong> answers "who do we know at …" across every deal
+            and LP relationship.
+          </Step>
+          <Step n={5} title="Invest & mark the portfolio">
+            Convert a deal to an investment, then record portfolio marks over time to drive
+            performance and NAV.
+          </Step>
+          <Step n={6} title="See look-through">
             The Schedule of Investments gives you (and LPs) look-through into the underlying holdings.
+          </Step>
+        </ol>
+      </>
+    ),
+  },
+  {
+    id: "fund-monitoring",
+    audience: "fund",
+    group: "Monitor",
+    title: "Monitor the portfolio",
+    blurb: "KPI collection, custom metrics & ESG, signals, benchmarks, tear sheets.",
+    minutes: 4,
+    icon: "📡",
+    body: (
+      <>
+        <p className="muted" style={{ lineHeight: 1.5 }}>
+          Once you have invested, <strong>Monitoring</strong> keeps the portfolio honest — company
+          KPIs on a cadence, early-warning signals, and one-pagers you can hand to your IC or LPs.
+        </p>
+        <ol style={{ display: "flex", flexDirection: "column", gap: 12, paddingLeft: 0 }}>
+          <Step n={1} title="Collect KPIs">
+            Record company KPIs per period — revenue, burn, runway, headcount — or send{" "}
+            <strong>KPI requests</strong> so founders self-report from their portal, with reminders
+            for the laggards.
+          </Step>
+          <Step n={2} title="Define custom metrics & ESG">
+            Add <strong>custom KPI definitions</strong> for whatever your portfolio should report
+            (GMV, DAU …) and pull in <strong>ESG presets</strong> like female headcount % or GHG
+            emissions.
+          </Step>
+          <Step n={3} title="Watch signals & risk scores">
+            <strong>Portfolio signals</strong> flag risk early — runway short, revenue falling,
+            stale reporting — and surface follow-on candidates. Each company carries a risk score.
+          </Step>
+          <Step n={4} title="Benchmark internally">
+            Compare any company against <strong>portfolio medians</strong> — min, median and max
+            across your own portfolio for each metric, including your custom ones.
+          </Step>
+          <Step n={5} title="Generate tear sheets">
+            One click produces a company <strong>tear sheet</strong> — position, performance, KPIs
+            and signals on a single page, ready for an IC pack.
           </Step>
         </ol>
       </>
@@ -492,7 +566,16 @@ const TOPICS: Topic[] = [
           </p>
         </Sub>
         <Sub icon="📊" title="Performance">
-          <p>Track <strong>XIRR, DPI and TVPI</strong> at the fund and LP level.</p>
+          <p>
+            Track <strong>XIRR, DPI, TVPI and RVPI</strong> at the fund and LP level — the fund
+            header shows every headline number with a sparkline of its history.
+          </p>
+        </Sub>
+        <Sub icon="📐" title="Valuation policy">
+          <p>
+            Adopt a SEBI-compliant <strong>valuation policy</strong> and record independent
+            valuations against it, so every NAV is defensible.
+          </p>
         </Sub>
       </>
     ),
@@ -502,8 +585,8 @@ const TOPICS: Topic[] = [
     audience: "fund",
     group: "Report",
     title: "LP reporting & SEBI compliance",
-    blurb: "Capital-account statements, Form 64C/64D and the AIF calendar.",
-    minutes: 3,
+    blurb: "Quarterly report packs, statements, financials, 64C/64D and the AIF calendar.",
+    minutes: 4,
     icon: "📬",
     body: (
       <>
@@ -511,10 +594,18 @@ const TOPICS: Topic[] = [
           <Step n={1} title="Issue capital-account statements">
             Generate per-LP statements as documents they can access in the portal.
           </Step>
-          <Step n={2} title="Produce tax statements">
+          <Step n={2} title="Send the quarterly LP report pack">
+            One click builds the quarter's <strong>LP report</strong> — performance, portfolio
+            highlights, capital activity and NAV — and publishes it to every LP's portal.
+          </Step>
+          <Step n={3} title="Produce fund financial statements">
+            Generate the fund's <strong>financial statements</strong> (balance sheet, income &amp;
+            expenditure, capital account summary) for any period.
+          </Step>
+          <Step n={4} title="Produce tax statements">
             Generate <strong>Form 64C / 64D</strong> AIF tax statements at year end.
           </Step>
-          <Step n={3} title="Work the AIF calendar">
+          <Step n={5} title="Work the AIF calendar">
             The SEBI AIF compliance calendar tracks recurring filings and their due dates.
           </Step>
         </ol>
@@ -663,8 +754,20 @@ const TOPICS: Topic[] = [
         </Sub>
         <Sub icon="🧾" title="Capital accounts & statements">
           <p>
-            As an LP, review your capital account and download capital-account and tax statements as
-            the fund issues them.
+            As an LP, review your capital account and download capital-account statements, tax
+            statements and <strong>quarterly LP reports</strong> as the fund issues them.
+          </p>
+        </Sub>
+        <Sub icon="📞" title="Capital calls">
+          <p>
+            When the fund draws down capital, the <strong>call notice</strong> appears in your portal
+            — review the amount and due date, then acknowledge it online.
+          </p>
+        </Sub>
+        <Sub icon="📡" title="KPI requests">
+          <p>
+            If you are a founder whose investor requests KPIs, the request lands in your portal —
+            submit the numbers directly and they flow into the fund's monitoring dashboard.
           </p>
         </Sub>
         <Sub icon="🎯" title="Vesting">
