@@ -16,7 +16,7 @@ export default function Activity() {
     <div>
       <p className="muted">
         <a href="#" onClick={(e) => { e.preventDefault(); nav("/"); }}>
-          ← Organisations
+          ← Workspaces
         </a>
       </p>
       <h1>My activity</h1>

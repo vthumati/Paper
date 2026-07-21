@@ -100,6 +100,7 @@ export interface Entity {
   pan: string | null;
   incorporation_date: string | null;
   stage: string;
+  pack: string;
 }
 export interface IncorporationFounder {
   name: string;
@@ -140,6 +141,9 @@ export interface StageGuide {
   headline: string;
   suggested_stage: string | null;
   stages: { key: string; label: string }[];
+  pack: string;
+  packs: { key: string; label: string; blurb: string }[];
+  suggested_pack: string | null;
   tabs: string[];
   features: Record<string, boolean>;
   checklist: ChecklistItem[];
@@ -1761,6 +1765,7 @@ export const api = {
       `/tenants/${tid}/incorporations/${iid}/registered`, b
     ),
   setStage: (eid: string, stage: string) => put<StageGuide>(`/entities/${eid}/stage`, { stage }),
+  setPack: (eid: string, pack: string) => put<StageGuide>(`/entities/${eid}/pack`, { pack }),
 
   listSecurityClasses: (eid: string) =>
     get<SecurityClass[]>(`/entities/${eid}/security-classes`),

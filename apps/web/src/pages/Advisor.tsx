@@ -24,7 +24,7 @@ export default function Advisor() {
   return (
     <div>
       <p className="muted">
-        <a href="#" onClick={(e) => { e.preventDefault(); nav("/"); }}>← Organisations</a>
+        <a href="#" onClick={(e) => { e.preventDefault(); nav("/"); }}>← Workspaces</a>
       </p>
       <h1>Advisor console</h1>
       {error && <p className="error">{error}</p>}

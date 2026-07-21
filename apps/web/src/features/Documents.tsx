@@ -2,8 +2,16 @@ import { useEffect, useState } from "react";
 import { api, type Document, type DocTemplate } from "../api";
 import EmptyState from "../components/EmptyState";
 import { placeholders, renderPreview } from "../lib/templates";
+import DataRoom from "./DataRoom";
 
-export default function Documents({ entityId }: { entityId: string }) {
+export default function Documents({
+  entityId,
+  showDataRoom = true,
+}: {
+  entityId: string;
+  showDataRoom?: boolean;
+}) {
+  const [sub, setSub] = useState<"library" | "dataroom">("library");
   const [templates, setTemplates] = useState<DocTemplate[]>([]);
   const [docs, setDocs] = useState<Document[]>([]);
   const [selected, setSelected] = useState<Document | null>(null);
@@ -60,6 +68,21 @@ export default function Documents({ entityId }: { entityId: string }) {
   return (
     <div>
       {error && <p className="error">{error}</p>}
+      {showDataRoom && (
+        <div className="tabs subtabs">
+          <button className={sub === "library" ? "active" : ""} onClick={() => setSub("library")}>
+            Library
+          </button>
+          <button className={sub === "dataroom" ? "active" : ""} onClick={() => setSub("dataroom")}>
+            Data room
+          </button>
+        </div>
+      )}
+
+      {showDataRoom && sub === "dataroom" && <DataRoom entityId={entityId} />}
+
+      {(!showDataRoom || sub === "library") && (
+      <>
       <div className="card">
         <h2>Generate document</h2>
         <div className="row">
@@ -155,6 +178,8 @@ export default function Documents({ entityId }: { entityId: string }) {
           )}
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

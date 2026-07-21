@@ -3,9 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, type Entity, type StageGuide } from "../api";
 import CapTableHub from "../features/CapTableHub";
 import FundraisingHub from "../features/FundraisingHub";
-import Workflows from "../features/Workflows";
 import Documents from "../features/Documents";
-import DataRoom from "../features/DataRoom";
 import Compliance from "../features/Compliance";
 import Fund from "../features/Fund";
 import Esop from "../features/Esop";
@@ -18,7 +16,6 @@ import Spv from "../features/Spv";
 import Governance from "../features/Governance";
 import Dashboard from "../features/Dashboard";
 import TasksHub from "../features/TasksHub";
-import Files from "../features/Files";
 import Team from "../features/Team";
 import Contracts from "../features/Contracts";
 import Investors from "../features/Investors";
@@ -31,16 +28,13 @@ import OfferBuilder from "../features/OfferBuilder";
 type Tab =
   | "dashboard"
   | "tasks"
-  | "files"
   | "team"
   | "contracts"
   | "investors"
   | "captable"
   | "fundraising"
   | "governance"
-  | "workflows"
   | "documents"
-  | "dataroom"
   | "diligence"
   | "compliance"
   | "fund"
@@ -81,7 +75,6 @@ const TAB_DEFS: {
   { key: "esop", label: "ESOP", group: "ownership", scope: "company" },
   { key: "valuations", label: "Valuations", group: "ownership", scope: "all" },
   { key: "fundraising", label: "Rounds & SAFEs", group: "raise", scope: "company" },
-  { key: "dataroom", label: "Data Room", group: "raise", scope: "all" },
   { key: "diligence", label: "Diligence", group: "raise", scope: "company" },
   { key: "investors", label: "Investors", group: "raise", scope: "all" },
   { key: "governance", label: "Board & Resolutions", group: "govern", scope: "all" },
@@ -92,8 +85,6 @@ const TAB_DEFS: {
   { key: "contracts", label: "Contracts", group: "operate", scope: "company" },
   { key: "finance", label: "Finance", group: "operate", scope: "company" },
   { key: "documents", label: "Documents", group: "operate", scope: "all" },
-  { key: "files", label: "Files", group: "operate", scope: "all" },
-  { key: "workflows", label: "Workflows", group: "operate", scope: "all" },
   { key: "services", label: "Marketplace", group: "partners", scope: "all" },
   { key: "advisors", label: "Advisors", group: "partners", scope: "all" },
   { key: "admin", label: "Managed Admin", group: "partners", scope: "all" },
@@ -176,6 +167,15 @@ export default function EntityDetail() {
       setError((e as Error).message);
     }
   };
+  const changePack = async (pack: string) => {
+    try {
+      setGuide(await api.setPack(entityId, pack));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  const packLabel = (key: string | null) =>
+    guide?.packs.find((p) => p.key === key)?.label ?? key;
 
   const nextTodos = guide ? guide.checklist.filter((c) => !c.done) : [];
 
@@ -195,20 +195,47 @@ export default function EntityDetail() {
       <h1>
         {entity.name} <span className="badge">{entity.type}</span>
         {isCompany && guide && (
-          <select
-            value={guide.stage}
-            onChange={(e) => changeStage(e.target.value)}
-            style={{ width: "auto", marginLeft: 12, display: "inline-block" }}
-            title="Company stage — controls which features are surfaced"
-          >
-            {guide.stages.map((s) => (
-              <option key={s.key} value={s.key}>
-                Stage: {s.label}
-              </option>
-            ))}
-          </select>
+          <>
+            <select
+              value={guide.pack}
+              onChange={(e) => changePack(e.target.value)}
+              style={{ width: "auto", marginLeft: 12, display: "inline-block" }}
+              title="Feature pack — the plan that decides which tabs are available"
+            >
+              {guide.packs.map((p) => (
+                <option key={p.key} value={p.key}>
+                  Plan: {p.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={guide.stage}
+              onChange={(e) => changeStage(e.target.value)}
+              style={{ width: "auto", marginLeft: 8, display: "inline-block" }}
+              title="Company stage — drives the 'what to do now' checklist"
+            >
+              {guide.stages.map((s) => (
+                <option key={s.key} value={s.key}>
+                  Stage: {s.label}
+                </option>
+              ))}
+            </select>
+          </>
         )}
       </h1>
+
+      {isCompany && guide?.suggested_pack && (
+        <div className="card" style={{ borderLeft: "4px solid #2563eb" }}>
+          <p style={{ margin: 0 }}>
+            Your data suggests the{" "}
+            <strong>{packLabel(guide.suggested_pack)}</strong> plan —{" "}
+            {guide.packs.find((p) => p.key === guide.suggested_pack)?.blurb}{" "}
+            <button onClick={() => changePack(guide.suggested_pack!)}>
+              Upgrade to {packLabel(guide.suggested_pack)}
+            </button>
+          </p>
+        </div>
+      )}
 
       {isCompany && guide?.suggested_stage && (
         <div className="card" style={{ borderLeft: "4px solid #2563eb" }}>
@@ -238,10 +265,10 @@ export default function EntityDetail() {
         {isCompany && guide && (
           <button
             className="secondary"
-            title="Stages surface what's relevant now; nothing is ever removed"
+            title="Your plan surfaces what's relevant now; nothing is ever removed"
             onClick={() => setShowAll((v) => !v)}
           >
-            {showAll ? "Stage view" : "All features"}
+            {showAll ? "Plan view" : "Show everything"}
           </button>
         )}
       </div>
@@ -307,7 +334,6 @@ export default function EntityDetail() {
         </>
       )}
       {tab === "tasks" && <TasksHub entityId={entityId} />}
-      {tab === "files" && <Files entityId={entityId} />}
       {tab === "team" && (
         <>
           <OfferBuilder entityId={entityId} />
@@ -341,9 +367,7 @@ export default function EntityDetail() {
         <FundraisingHub entityId={entityId} onChanged={() => setCapRefresh((x) => x + 1)} />
       )}
       {tab === "governance" && <Governance entityId={entityId} />}
-      {tab === "workflows" && <Workflows entityId={entityId} />}
-      {tab === "documents" && <Documents entityId={entityId} />}
-      {tab === "dataroom" && <DataRoom entityId={entityId} />}
+      {tab === "documents" && <Documents entityId={entityId} showDataRoom={feat("dataroom")} />}
       {tab === "diligence" && <Diligence entityId={entityId} onNavigate={goTab} />}
       {tab === "compliance" && <Compliance entityId={entityId} entityType={entity.type} />}
       {tab === "fund" && <Fund entityId={entityId} initialSub={fundSub} />}

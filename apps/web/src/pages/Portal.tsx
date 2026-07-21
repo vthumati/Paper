@@ -64,7 +64,7 @@ export default function Portal() {
     <div>
       <p className="muted">
         <a href="#" onClick={(e) => { e.preventDefault(); nav("/"); }}>
-          ← Organisations
+          ← Workspaces
         </a>
       </p>
       <h1>Investor portal</h1>

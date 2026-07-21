@@ -31,7 +31,7 @@ export default function Tenants() {
 
   return (
     <div>
-      <h1>Organisations</h1>
+      <h1>Workspaces</h1>
 
       {alerts.length > 0 && (
         <div className="card">
@@ -56,7 +56,7 @@ export default function Tenants() {
         </div>
       )}
       <div className="card">
-        <h2>Create organisation</h2>
+        <h2>Create workspace</h2>
         <form onSubmit={create}>
           <div className="row">
             <div>
@@ -80,9 +80,9 @@ export default function Tenants() {
       </div>
 
       <div className="card">
-        <h2>Your organisations</h2>
+        <h2>Your workspaces</h2>
         {tenants.length === 0 && (
-          <EmptyState icon="🗂️" title="No organisations yet" hint="Create your first organisation above — a company, fund or firm — to get started." />
+          <EmptyState icon="🗂️" title="No workspaces yet" hint="Create your first workspace above — a company, fund or firm — to get started." />
         )}
         {tenants.map((t) => (
           <div

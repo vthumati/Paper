@@ -146,19 +146,19 @@ const TOPICS: Topic[] = [
     audience: "startup",
     group: "Set up",
     title: "Set up your workspace & incorporate",
-    blurb: "Create your organisation, then incorporate or add an existing company.",
+    blurb: "Create your workspace, then incorporate or add an existing company.",
     minutes: 3,
     icon: "🏢",
     body: (
       <>
         <p className="muted" style={{ lineHeight: 1.5 }}>
-          Everything in Paper lives under an <strong>organisation</strong> (your workspace). Inside
+          Everything in Paper lives under a <strong>workspace</strong>. Inside
           it you create one or more <strong>legal entities</strong> — a Pvt Ltd, LLP or OPC — and
           each entity gets its own cap table, documents and compliance calendar.
         </p>
         <ol style={{ display: "flex", flexDirection: "column", gap: 12, paddingLeft: 0 }}>
-          <Step n={1} title="Create an organisation">
-            From the home screen, add an organisation to hold your entities.
+          <Step n={1} title="Create a workspace">
+            From the home screen, add a workspace to hold your entities.
           </Step>
           <Step n={2} title="Incorporate a new company">
             Use the <strong>Incorporation wizard</strong> to spin up a fresh Pvt Ltd — it captures
@@ -360,7 +360,7 @@ const TOPICS: Topic[] = [
     audience: "startup",
     group: "Run",
     title: "Run day-to-day",
-    blurb: "Team, contracts, finance, valuations, documents and workflows.",
+    blurb: "Team, contracts, finance, valuations, documents and the marketplace.",
     minutes: 3,
     icon: "🛠️",
     body: (
@@ -372,7 +372,7 @@ const TOPICS: Topic[] = [
           </p>
         </Sub>
         <Sub icon="📄" title="Contracts & documents">
-          <p>Draft and store contracts; every generated document lands in Documents and Files.</p>
+          <p>Draft and store contracts; every generated document lands in Documents — where you also upload files and share a data room.</p>
         </Sub>
         <Sub icon="💰" title="Finance & valuations">
           <p>
@@ -380,9 +380,9 @@ const TOPICS: Topic[] = [
             an FMV-over-time chart for 409A-style needs.
           </p>
         </Sub>
-        <Sub icon="⚙️" title="Workflows & marketplace">
+        <Sub icon="⚙️" title="Marketplace & advisors">
           <p>
-            Run guided workflows, and tap the <strong>Marketplace</strong>, <strong>Advisors</strong>{" "}
+            Tap the <strong>Marketplace</strong>, <strong>Advisors</strong>{" "}
             and <strong>Managed Admin</strong> when you want a professional to take something off your
             plate.
           </p>
@@ -408,7 +408,7 @@ const TOPICS: Topic[] = [
         </p>
         <ol style={{ display: "flex", flexDirection: "column", gap: 12, paddingLeft: 0 }}>
           <Step n={1} title="Add a Fund entity">
-            Under an organisation, add an entity of type <strong>Fund</strong>.
+            Under a workspace, add an entity of type <strong>Fund</strong>.
           </Step>
           <Step n={2} title="Set fund terms">
             Configure the economics you will hold LPs to — management fee, hurdle and carry.
@@ -630,7 +630,7 @@ const TOPICS: Topic[] = [
         </p>
         <ol style={{ display: "flex", flexDirection: "column", gap: 12, paddingLeft: 0 }}>
           <Step n={1} title="Add an SPV entity">
-            Under an organisation, add an entity of type <strong>SPV</strong>.
+            Under a workspace, add an entity of type <strong>SPV</strong>.
           </Step>
           <Step n={2} title="Set SPV terms">
             Configure <strong>carry %</strong>, the minimum ticket, and a provisioning fund profile

@@ -36,7 +36,7 @@ export default function Advisors({ entityId }: { entityId: string }) {
         <p className="muted">
           Give your law firm, CA or CS scoped access to this company — <strong>viewer</strong> (read-only)
           or <strong>member</strong> (can act, e.g. manage filings). They see it in their own advisor
-          console; no membership in your organisation is created.
+          console; no membership in your workspace is created.
         </p>
         <div className="row">
           <div>

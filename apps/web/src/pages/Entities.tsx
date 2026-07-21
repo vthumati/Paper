@@ -34,7 +34,7 @@ export default function Entities() {
     <div>
       <p className="muted">
         <a href="#" onClick={(e) => { e.preventDefault(); nav("/"); }}>
-          ← Organisations
+          ← Workspaces
         </a>
       </p>
       <h1>Legal entities</h1>
