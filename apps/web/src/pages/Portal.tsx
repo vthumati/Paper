@@ -24,6 +24,7 @@ export default function Portal() {
   const [hist, setHist] = useState<ValueHistory | null>(null);
   const [range, setRange] = useState<string>("All");
   const [openGrant, setOpenGrant] = useState<string | null>(null);
+  const [openUpdates, setOpenUpdates] = useState<Record<string, boolean>>({});
   const [loaded, setLoaded] = useState(false);
 
   const load = () => {
@@ -432,9 +433,39 @@ export default function Portal() {
           ) : (
             c.updates.map((u) => (
               <div key={u.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}>
-                <strong>{u.title}</strong>{" "}
-                <span className="muted">{new Date(u.created_at).toLocaleDateString()}</span>
-                <div className="muted">{u.body}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <strong>{u.title}</strong>
+                  {u.period_label && <span className="badge">{u.period_label}</span>}
+                  <span className="muted">{new Date(u.created_at).toLocaleDateString()}</span>
+                  {!openUpdates[u.id] && (
+                    <button
+                      className="secondary"
+                      onClick={() => {
+                        setOpenUpdates((o) => ({ ...o, [u.id]: true }));
+                        api.viewPortalUpdate(u.id).catch(() => undefined);
+                      }}
+                    >
+                      Read
+                    </button>
+                  )}
+                </div>
+                {openUpdates[u.id] ? (
+                  <>
+                    <div className="muted">{u.body}</div>
+                    {u.highlights && <div className="muted">🌟 {u.highlights}</div>}
+                    {u.lowlights && <div className="muted">⚠️ {u.lowlights}</div>}
+                    {u.asks && <div className="muted">🙏 {u.asks}</div>}
+                    {u.metrics && (
+                      <div className="row" style={{ gap: 12, flexWrap: "wrap", marginTop: 4 }}>
+                        <span className="muted">Shares <strong>{Number(u.metrics.shares_issued ?? 0).toLocaleString()}</strong></span>
+                        <span className="muted">FMV <strong>{u.metrics.fmv_per_share ? `₹${u.metrics.fmv_per_share}` : "—"}</strong></span>
+                        <span className="muted">Runway <strong>{u.metrics.runway_months ?? "—"} mo</strong></span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="muted">{u.body.length > 120 ? `${u.body.slice(0, 120)}…` : u.body}</div>
+                )}
               </div>
             ))
           )}

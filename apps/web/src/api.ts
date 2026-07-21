@@ -746,11 +746,33 @@ export interface InvestorAccess {
   stakeholder_id: string | null;
   status: string;
 }
+export interface UpdateViewer {
+  email: string;
+  view_count: number;
+  last_viewed_at: string | null;
+}
 export interface InvestorUpdate {
   id: string;
   title: string;
   body: string;
+  period_label?: string | null;
+  highlights?: string | null;
+  lowlights?: string | null;
+  asks?: string | null;
+  metrics?: Record<string, string | number | null> | null;
+  status?: string;
+  published_at?: string | null;
   created_at: string;
+  viewers?: UpdateViewer[];
+}
+export interface InvestorUpdateInput {
+  title: string;
+  body: string;
+  period_label?: string | null;
+  highlights?: string | null;
+  lowlights?: string | null;
+  asks?: string | null;
+  publish?: boolean;
 }
 export interface PortalInstrument {
   id: string;
@@ -2019,8 +2041,14 @@ export const api = {
   grantInvestorAccess: (eid: string, b: unknown) =>
     post<InvestorAccess>(`/entities/${eid}/investor-access`, b),
   listInvestorUpdates: (eid: string) => get<InvestorUpdate[]>(`/entities/${eid}/investor-updates`),
-  publishInvestorUpdate: (eid: string, b: unknown) =>
+  publishInvestorUpdate: (eid: string, b: InvestorUpdateInput) =>
     post<InvestorUpdate>(`/entities/${eid}/investor-updates`, b),
+  editInvestorUpdate: (uid: string, b: InvestorUpdateInput) =>
+    put<InvestorUpdate>(`/investor-updates/${uid}`, b),
+  publishInvestorUpdateDraft: (uid: string) =>
+    post<InvestorUpdate>(`/investor-updates/${uid}/publish`),
+  viewPortalUpdate: (uid: string) =>
+    post<{ id: string; view_count: number }>(`/portal/updates/${uid}/view`),
   portal: () => get<PortalDashboard>("/portal"),
 
   listPipeline: (eid: string) => get<Prospect[]>(`/entities/${eid}/investor-pipeline`),

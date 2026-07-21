@@ -22,6 +22,11 @@ export default function Investors({ entityId }: { entityId: string }) {
   const [shId, setShId] = useState("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [updPeriod, setUpdPeriod] = useState("");
+  const [updHighlights, setUpdHighlights] = useState("");
+  const [updLowlights, setUpdLowlights] = useState("");
+  const [updAsks, setUpdAsks] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [buyers, setBuyers] = useState<Record<string, string>>({});
   const [metrics, setMetrics] = useState<InvestorMetrics | null>(null);
   const [period, setPeriod] = useState("");
@@ -83,21 +88,83 @@ export default function Investors({ entityId }: { entityId: string }) {
         </div>
 
         <div className="card" style={{ flex: 1 }}>
-          <h3>Publish update</h3>
-          <label>Title</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} />
+          <h3>{editingId ? "Edit draft update" : "Compose update"}</h3>
+          <p className="muted">
+            Structured, data-backed updates — a live metrics snapshot is frozen onto the update
+            when you publish.
+          </p>
+          <div className="row">
+            <div style={{ flex: 2 }}>
+              <label>Title</label>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label>Period</label>
+              <input placeholder="Q1 FY27" value={updPeriod} onChange={(e) => setUpdPeriod(e.target.value)} />
+            </div>
+          </div>
           <label>Body</label>
-          <textarea rows={3} value={body} onChange={(e) => setBody(e.target.value)} />
-          <div style={{ marginTop: 10 }}>
-            <button
-              disabled={!title || !body}
-              onClick={guard(async () => {
-                await api.publishInvestorUpdate(entityId, { title, body });
-                setTitle(""); setBody("");
-              })}
-            >
-              Publish
-            </button>
+          <textarea rows={2} value={body} onChange={(e) => setBody(e.target.value)} />
+          <div className="row">
+            <div style={{ flex: 1 }}>
+              <label>Highlights</label>
+              <textarea rows={2} value={updHighlights} onChange={(e) => setUpdHighlights(e.target.value)} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label>Lowlights</label>
+              <textarea rows={2} value={updLowlights} onChange={(e) => setUpdLowlights(e.target.value)} />
+            </div>
+          </div>
+          <label>Asks</label>
+          <input placeholder="Intros, hiring, help…" value={updAsks} onChange={(e) => setUpdAsks(e.target.value)} />
+          <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+            {(() => {
+              const payload = {
+                title,
+                body,
+                period_label: updPeriod || null,
+                highlights: updHighlights || null,
+                lowlights: updLowlights || null,
+                asks: updAsks || null,
+              };
+              const clear = () => {
+                setTitle(""); setBody(""); setUpdPeriod("");
+                setUpdHighlights(""); setUpdLowlights(""); setUpdAsks("");
+                setEditingId(null);
+              };
+              return (
+                <>
+                  <button
+                    disabled={!title || !body}
+                    onClick={guard(async () => {
+                      if (editingId) {
+                        await api.editInvestorUpdate(editingId, payload);
+                        await api.publishInvestorUpdateDraft(editingId);
+                      } else {
+                        await api.publishInvestorUpdate(entityId, { ...payload, publish: true });
+                      }
+                      clear();
+                    })}
+                  >
+                    Publish
+                  </button>
+                  <button
+                    className="secondary"
+                    disabled={!title || !body}
+                    onClick={guard(async () => {
+                      if (editingId) await api.editInvestorUpdate(editingId, payload);
+                      else await api.publishInvestorUpdate(entityId, { ...payload, publish: false });
+                      clear();
+                    })}
+                  >
+                    Save draft
+                  </button>
+                  {editingId && (
+                    <button className="secondary" onClick={clear}>Cancel</button>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -204,12 +271,58 @@ export default function Investors({ entityId }: { entityId: string }) {
           <EmptyState icon="📣" title="No updates published yet" hint="Publish an update above — invited investors see it in their portal." />
 
         ) : (
-          updates.map((u) => (
-            <div key={u.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}>
-              <strong>{u.title}</strong> <span className="muted">{new Date(u.created_at).toLocaleDateString()}</span>
-              <div className="muted">{u.body}</div>
-            </div>
-          ))
+          updates.map((u) => {
+            const viewers = u.viewers ?? [];
+            const opens = viewers.reduce((n, v) => n + v.view_count, 0);
+            return (
+              <div key={u.id} style={{ borderTop: "1px solid var(--border)", padding: "8px 0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <strong>{u.title}</strong>
+                  {u.period_label && <span className="badge">{u.period_label}</span>}
+                  <span className={`badge ${u.status === "published" ? "complete" : ""}`}>{u.status}</span>
+                  <span className="muted">{new Date(u.created_at).toLocaleDateString()}</span>
+                  {u.status === "published" && (
+                    <span
+                      className="muted"
+                      title={viewers.map((v) => `${v.email} · ${v.view_count}×`).join("\n") || "No opens yet"}
+                    >
+                      👁 {viewers.length} viewer{viewers.length === 1 ? "" : "s"} · {opens} open{opens === 1 ? "" : "s"}
+                    </span>
+                  )}
+                  {u.status === "draft" && (
+                    <span style={{ display: "flex", gap: 6 }}>
+                      <button
+                        className="secondary"
+                        onClick={() => {
+                          setEditingId(u.id);
+                          setTitle(u.title); setBody(u.body);
+                          setUpdPeriod(u.period_label ?? "");
+                          setUpdHighlights(u.highlights ?? "");
+                          setUpdLowlights(u.lowlights ?? "");
+                          setUpdAsks(u.asks ?? "");
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button onClick={guard(() => api.publishInvestorUpdateDraft(u.id))}>Publish</button>
+                    </span>
+                  )}
+                </div>
+                <div className="muted">{u.body}</div>
+                {u.highlights && <div className="muted">🌟 {u.highlights}</div>}
+                {u.lowlights && <div className="muted">⚠️ {u.lowlights}</div>}
+                {u.asks && <div className="muted">🙏 {u.asks}</div>}
+                {u.metrics && (
+                  <div className="row" style={{ gap: 12, flexWrap: "wrap", marginTop: 4 }}>
+                    <span className="muted">Shares <strong>{Number(u.metrics.shares_issued ?? 0).toLocaleString()}</strong></span>
+                    <span className="muted">FMV <strong>{u.metrics.fmv_per_share ? `₹${u.metrics.fmv_per_share}` : "—"}</strong></span>
+                    <span className="muted">Runway <strong>{u.metrics.runway_months ?? "—"} mo</strong></span>
+                    <span className="muted">Burn <strong>{u.metrics.monthly_burn ? fmtMoney(String(u.metrics.monthly_burn)) : "—"}</strong></span>
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
     </div>
