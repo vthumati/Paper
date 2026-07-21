@@ -1,0 +1,41 @@
+AI FEATURES — DEFERRED (no LLM credentials / infrastructure in this environment yet)
+Collected from the competitor gap analyses (Mantle, Vestberry, Visible.vc, 4Degrees,
+Pulley, Carta). Revisit once an LLM provider (API key + budget) is wired in.
+
+1. AI Inbox — parse forwarded emails, updates and attachments (PDFs) into
+   structured portfolio data: extract KPI values and narratives, route them to
+   the right company/period for GP review. (Visible "AI Inbox")
+
+2. AI-generated investor updates — turn a founder's submitted KPI request /
+   structured data into a narrative update draft they can edit and publish.
+   (Visible "AI Updates"; pairs with FR-K-2 structured updates)
+
+3. AI document extraction — upload a term sheet / SHA / subscription agreement
+   and extract key terms into structured fields (rounds, instruments, rights).
+   Would upgrade the rules-based term-sheet scanner (FR-E) to semantic flagging.
+   (Mantle doc extraction, Pulley AI scanner)
+
+4. Portfolio AI assistant / chat — "ask anything" over the fund's own data:
+   NAV, KPIs, signals, capital accounts, deal pipeline. Needs retrieval over
+   the existing services + guardrails so answers cite ledger data only.
+   (Mantle "Ask Mantle anything", Vestberry AI assistant)
+
+5. MCP server — expose Paper's portfolio/fund data to external LLM agents via
+   the Model Context Protocol so customers can build their own AI workflows.
+   (Visible MCP server)
+
+6. AI DDQ drafting — draft answers for unanswered DDQ-bank questions (FR-J-25)
+   from the fund's own records (terms, valuation policy, service providers),
+   flagged as drafts for GP review.
+
+7. AI meeting/notes capture for the CRMs — summarise call notes into deal /
+   LP-prospect activities and suggest follow-ups (relationship intelligence).
+   (4Degrees AI capture; pairs with FR-J-16/17 activity timelines)
+
+8. Compliance copilot — explain upcoming SEBI/ROC/FEMA obligations in plain
+   language and draft filing checklists from the compliance calendar.
+
+Notes:
+- All of the above are additive layers over existing rules-based features —
+  nothing blocks on them; the deterministic paths stay as fallbacks.
+- When implementing, default to the latest Claude models via the Anthropic API.
