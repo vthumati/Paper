@@ -168,14 +168,18 @@ const TOPICS: Topic[] = [
             Already incorporated? Add the entity with its name, type and CIN to bring it under
             management.
           </Step>
-          <Step n={4} title="Set your stage">
-            Open the entity and pick a <strong>stage</strong> (idea → pre-seed → seed …). The stage
-            controls which features surface first, so you are never shown more than you need.
+          <Step n={4} title="Pick a plan & follow the checklist">
+            Opening the entity lands you on its dashboard, with a <strong>plan</strong> selector and a{" "}
+            <strong>stage</strong> picker in the header. The plan
+            (<strong>Starter → Growth → Scale</strong>) decides which tabs are available — Starter is
+            day-one legal hygiene, Growth adds raising &amp; investors, Scale adds advanced cap-table
+            actions and fund admin. The stage drives a <strong>“what to do now” checklist</strong>;
+            each item links straight to the tab that completes it.
           </Step>
         </ol>
         <Callout>
-          Stages are only a guide — flip to <strong>All features</strong> anytime to see everything,
-          and nothing is ever hidden permanently.
+          Your plan surfaces only what's relevant now — hit <strong>Show everything</strong> any time
+          to see every feature, and nothing is ever hidden permanently.
         </Callout>
       </>
     ),
@@ -403,8 +407,11 @@ const TOPICS: Topic[] = [
     body: (
       <>
         <p className="muted" style={{ lineHeight: 1.5 }}>
-          A fund in Paper is an entity of type <strong>Fund</strong>. Once created, the{" "}
-          <strong>Fund (AIF)</strong> workspace unlocks LP management, deals, NAV and distributions.
+          A fund in Paper is an entity of type <strong>Fund</strong>. A fund opens on its own{" "}
+          <strong>fund dashboard</strong> (committed / drawn / NAV / TVPI / DPI, plus quick actions),
+          and its work is organised into three groups: <strong>Fund management</strong> (capital &amp;
+          LPs, LP fundraise, plan &amp; forecast, financials, LP updates),{" "}
+          <strong>Portfolio</strong> (deal pipeline, holdings) and <strong>Monitoring</strong>.
         </p>
         <ol style={{ display: "flex", flexDirection: "column", gap: 12, paddingLeft: 0 }}>
           <Step n={1} title="Add a Fund entity">
@@ -413,12 +420,15 @@ const TOPICS: Topic[] = [
           <Step n={2} title="Set fund terms">
             Configure the economics you will hold LPs to — management fee, hurdle and carry.
           </Step>
-          <Step n={3} title="Open the Fund tab">
-            The Fund workspace is where capital accounts, the deal pipeline and NAV all live.
+          <Step n={3} title="Explore the fund workspace">
+            <strong>Fund management</strong> holds capital accounts, LP fundraise and financials;{" "}
+            <strong>Portfolio</strong> holds the deal pipeline and holdings; and{" "}
+            <strong>Monitoring</strong> tracks portfolio-company performance.
           </Step>
           <Step n={4} title="Model the fund plan">
-            Use the <strong>Forecast</strong> to plan portfolio construction — cheque sizes, reserves
-            for follow-ons, deployment pacing and projected returns — before you start deploying.
+            Under <strong>Fund management → Plan &amp; forecast</strong>, plan portfolio construction
+            — cheque sizes, reserves for follow-ons, deployment pacing and projected returns — before
+            you start deploying.
           </Step>
         </ol>
       </>
@@ -436,7 +446,8 @@ const TOPICS: Topic[] = [
       <>
         <ol style={{ display: "flex", flexDirection: "column", gap: 12, paddingLeft: 0 }}>
           <Step n={1} title="Work the LP fundraise pipeline">
-            Track prospective LPs through stages on the <strong>Fundraise</strong> board. Log
+            Track prospective LPs through stages on the <strong>Fund management → LP fundraise</strong>{" "}
+            board. Log
             touchpoints (calls, meetings, emails) per prospect — a{" "}
             <strong>relationship-strength</strong> score builds from your activity — and set
             follow-up reminders so warm conversations never go cold.
@@ -543,6 +554,11 @@ const TOPICS: Topic[] = [
             and signals on a single page, ready for an IC pack.
           </Step>
         </ol>
+        <Callout>
+          Portfolio company already on Paper? On the holding, <strong>link it to that company's
+          workspace</strong> and hit <strong>Pull financials</strong> to bring its own reported
+          revenue / cash / burn straight into Monitoring — no separate KPI request needed.
+        </Callout>
       </>
     ),
   },
@@ -598,7 +614,12 @@ const TOPICS: Topic[] = [
             One click builds the quarter's <strong>LP report</strong> — performance, portfolio
             highlights, capital activity and NAV — and publishes it to every LP's portal.
           </Step>
-          <Step n={3} title="Produce fund financial statements">
+          <Step n={3} title="Publish LP updates">
+            Between formal reports, post narrative <strong>LP updates</strong> (from{" "}
+            <strong>Fund management → LP updates</strong>) — you can scope each to specific LPs, and
+            see who has read it.
+          </Step>
+          <Step n={4} title="Produce fund financial statements">
             Generate the fund's <strong>financial statements</strong> (balance sheet, income &amp;
             expenditure, capital account summary) for any period.
           </Step>
