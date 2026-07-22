@@ -67,8 +67,38 @@ export default function Portal() {
           ← Workspaces
         </a>
       </p>
-      <h1>Investor portal</h1>
-      <p className="muted" style={{ marginTop: 4 }}>Your holdings, capital accounts, documents and updates across every company and fund.</p>
+      <div className="hero">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 20, flexWrap: "wrap" }}>
+          <div>
+            <h1>Investor portal</h1>
+            <p className="hero-sub">Your holdings, capital accounts, documents and updates across every company and fund.</p>
+          </div>
+          {d && (
+            <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
+              <div style={{ minWidth: 96 }}>
+                <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05 }}>
+                  {fmtMoney(d.summary.portfolio_value)}
+                </div>
+                <div style={{ fontSize: 12, opacity: 0.82, marginTop: 3 }}>Portfolio value</div>
+              </div>
+              {d.summary.moic && (
+                <div style={{ minWidth: 70 }}>
+                  <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05 }}>
+                    {d.summary.moic}×
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.82, marginTop: 3 }}>MOIC</div>
+                </div>
+              )}
+              <div style={{ minWidth: 96 }}>
+                <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05 }}>
+                  {fmtMoney(d.summary.total_invested)}
+                </div>
+                <div style={{ fontSize: 12, opacity: 0.82, marginTop: 3 }}>Invested</div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
       {error && <p className="error">{error}</p>}
 
       {!loaded && (
@@ -111,10 +141,10 @@ export default function Portal() {
             <Stat label="Companies" value={d.summary.companies} hint="Companies where you hold equity or instruments." />
             <Stat label="Funds (as LP)" value={d.summary.funds} hint="Funds where you are a limited partner." />
             {d.spvs.length > 0 && <Stat label="SPV deals" value={d.summary.spvs} hint="Syndicate/SPV deals you're invited to or invested in." />}
-            <Stat label="Invested (₹)" value={d.summary.total_invested} hint="Total you have paid in across all holdings." />
-            <Stat label="Portfolio value (₹)" value={d.summary.portfolio_value} big hint="Current value: company holdings at latest FMV, plus fund/SPV positions at cost." />
+            <Stat label="Invested" value={fmtMoney(d.summary.total_invested)} hint="Total you have paid in across all holdings." />
+            <Stat label="Portfolio value" value={fmtMoney(d.summary.portfolio_value)} big hint="Current value: company holdings at latest FMV, plus fund/SPV positions at cost." />
             {d.summary.moic && <Stat label="MOIC" value={`${d.summary.moic}×`} big hint="Multiple on invested capital = portfolio value ÷ invested." />}
-            <Stat label="Committed to funds (₹)" value={d.summary.total_committed} hint="Capital you've committed to funds/SPVs." />
+            <Stat label="Committed to funds" value={fmtMoney(d.summary.total_committed)} hint="Capital you've committed to funds/SPVs." />
             {d.equity_grants.length > 0 && (
               <>
                 <Stat label="Options vested" value={d.summary.options_vested.toLocaleString()} hint="Your options vested to date." />
