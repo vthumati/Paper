@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useGuard } from "../hooks";
+import PageHeader from "../components/PageHeader";
 import { api, ApiError, type Benefit, type Eligibility, type Recognition } from "../api";
 
 const BENEFIT_LABELS: Record<string, string> = {
@@ -41,8 +42,13 @@ export default function StartupIndia({ entityId }: { entityId: string }) {
     <div>
       {error && <p className="error">{error}</p>}
 
+      <PageHeader
+        icon="🚀"
+        title="Startup India (DPIIT)"
+        subtitle="DPIIT recognition and startup tax benefits"
+      />
+
       <div className="card">
-        <h2>Startup India (DPIIT)</h2>
         {elig && (
           <>
             <p>

@@ -236,14 +236,16 @@ export default function EntityDetail() {
           ← Entities
         </a>
       </p>
-      <h1>
-        {entity.name} <span className="badge">{entity.type}</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+        <h1 style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {entity.name} <span className="badge">{entity.type}</span>
+        </h1>
         {isCompany && guide && (
-          <>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <select
               value={guide.pack}
               onChange={(e) => changePack(e.target.value)}
-              style={{ width: "auto", marginLeft: 12, display: "inline-block" }}
+              style={{ width: "auto" }}
               title="Feature pack — the plan that decides which tabs are available"
             >
               {guide.packs.map((p) => (
@@ -255,7 +257,7 @@ export default function EntityDetail() {
             <select
               value={guide.stage}
               onChange={(e) => changeStage(e.target.value)}
-              style={{ width: "auto", marginLeft: 8, display: "inline-block" }}
+              style={{ width: "auto" }}
               title="Company stage — drives the 'what to do now' checklist"
             >
               {guide.stages.map((s) => (
@@ -264,12 +266,12 @@ export default function EntityDetail() {
                 </option>
               ))}
             </select>
-          </>
+          </div>
         )}
-      </h1>
+      </div>
 
       {isCompany && guide?.suggested_pack && (
-        <div className="card" style={{ borderLeft: "4px solid #2563eb" }}>
+        <div className="card" style={{ borderLeft: "4px solid var(--accent)" }}>
           <p style={{ margin: 0 }}>
             Your data suggests the{" "}
             <strong>{packLabel(guide.suggested_pack)}</strong> plan —{" "}
@@ -282,7 +284,7 @@ export default function EntityDetail() {
       )}
 
       {isCompany && guide?.suggested_stage && (
-        <div className="card" style={{ borderLeft: "4px solid #2563eb" }}>
+        <div className="card" style={{ borderLeft: "4px solid var(--accent)" }}>
           <p style={{ margin: 0 }}>
             Based on your data, you look ready for{" "}
             <strong>{guide.stages.find((s) => s.key === guide.suggested_stage)?.label}</strong>.{" "}

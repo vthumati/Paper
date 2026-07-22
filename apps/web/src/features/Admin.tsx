@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import EmptyState from "../components/EmptyState";
+import PageHeader from "../components/PageHeader";
 import { useGuard } from "../hooks";
 import { api, ApiError, type AdminSubscription } from "../api";
 
@@ -35,20 +36,26 @@ export default function Admin({ entityId }: { entityId: string }) {
 
   if (!sub) {
     return (
-      <div className="card">
+      <div>
         {error && <p className="error">{error}</p>}
-        <h2>Managed Corporate Administration</h2>
-        <p className="muted">
-          Subscribe for managed cap-table/record upkeep, quarterly touchpoints, and annual audits.
-        </p>
-        <label>Tier</label>
-        <select value={tier} onChange={(e) => setTier(e.target.value)} style={{ maxWidth: 200 }}>
-          {TIERS.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-        <div style={{ marginTop: 10 }}>
-          <button onClick={guard(() => api.subscribe(entityId, { tier }))}>Subscribe</button>
+        <PageHeader
+          icon="🏢"
+          title="Managed Corporate Administration"
+          subtitle="Managed cap-table upkeep, touchpoints and annual audits"
+        />
+        <div className="card">
+          <p className="muted">
+            Subscribe for managed cap-table/record upkeep, quarterly touchpoints, and annual audits.
+          </p>
+          <label>Tier</label>
+          <select value={tier} onChange={(e) => setTier(e.target.value)} style={{ maxWidth: 200 }}>
+            {TIERS.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <div style={{ marginTop: 10 }}>
+            <button onClick={guard(() => api.subscribe(entityId, { tier }))}>Subscribe</button>
+          </div>
         </div>
       </div>
     );
@@ -57,12 +64,17 @@ export default function Admin({ entityId }: { entityId: string }) {
   return (
     <div>
       {error && <p className="error">{error}</p>}
-      <div className="card">
-        <h2>
-          Managed Administration <span className="badge">{sub.tier}</span>{" "}
-          <span className="badge complete">{sub.status}</span>
-        </h2>
-      </div>
+      <PageHeader
+        icon="🏢"
+        title="Managed Administration"
+        subtitle="Cap-table upkeep, touchpoints and annual audits"
+        right={
+          <>
+            <span className="badge">{sub.tier}</span>
+            <span className="badge complete">{sub.status}</span>
+          </>
+        }
+      />
 
       <div className="row">
         <div className="card" style={{ flex: 1 }}>

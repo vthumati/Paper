@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type Runway } from "../api";
 import Stat from "../components/Stat";
+import PageHeader from "../components/PageHeader";
 
 export default function Finance({ entityId }: { entityId: string }) {
   const [r, setR] = useState<Runway | null>(null);
@@ -34,6 +35,11 @@ export default function Finance({ entityId }: { entityId: string }) {
 
   return (
     <div>
+      <PageHeader
+        icon="💰"
+        title="Finance"
+        subtitle="Cash runway from monthly cash-and-burn snapshots."
+      />
       {error && <p className="error">{error}</p>}
 
       <div className="card">

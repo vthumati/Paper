@@ -32,6 +32,24 @@ export default function Login() {
     <div className="auth-page">
       <div className="auth-wrap">
         <div className="auth-brand">
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 16,
+              margin: "0 auto 14px",
+              background: "var(--grad-accent)",
+              boxShadow: "0 8px 24px rgba(16,185,129,0.4)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 30,
+              fontWeight: 800,
+              color: "#04160f",
+            }}
+          >
+            P
+          </div>
           <div className="mark">Paper</div>
           <div className="tag">OS for corporate legal</div>
         </div>

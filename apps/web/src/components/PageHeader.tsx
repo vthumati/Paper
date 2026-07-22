@@ -25,11 +25,27 @@ export default function PageHeader({
       }}
     >
       <div>
-        <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-          {icon && <span style={{ fontSize: 22 }}>{icon}</span>}
+        <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
+          {icon && (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 36,
+                height: 36,
+                borderRadius: 11,
+                background: "var(--light)",
+                fontSize: 19,
+                flex: "0 0 auto",
+              }}
+            >
+              {icon}
+            </span>
+          )}
           {title}
         </h2>
-        {subtitle && <p className="muted" style={{ margin: "2px 0 0" }}>{subtitle}</p>}
+        {subtitle && <p className="muted" style={{ margin: "4px 0 0" }}>{subtitle}</p>}
       </div>
       {right && <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{right}</div>}
     </div>

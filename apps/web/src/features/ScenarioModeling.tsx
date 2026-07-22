@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { fmtMoney } from "../lib/format";
 import { api, type Scenario } from "../api";
+import PageHeader from "../components/PageHeader";
 
 /** Pro-forma round modeling: what the cap table looks like AFTER a
  *  hypothetical round — nothing is written to the ledger. */
@@ -16,7 +17,7 @@ export default function ScenarioModeling({ entityId }: { entityId: string }) {
 
   return (
     <div className="card">
-      <h3>Scenario modeling (pro-forma)</h3>
+      <PageHeader icon="📊" title="Scenario modeling" subtitle="Pro-forma cap table after a hypothetical round" />
       <p className="muted">
         Model a hypothetical round — new money, pre-money or price, optional ESOP pool top-up
         (created pre-money). SAFEs convert at the scenario price. Nothing touches the ledger.

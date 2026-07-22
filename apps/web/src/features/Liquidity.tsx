@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fmtMoney } from "../lib/format";
+import PageHeader from "../components/PageHeader";
 import { api, type LiquidityEvent } from "../api";
 
 /** Company liquidity windows (buyback/tender): open a window, holders tender
@@ -30,8 +31,13 @@ export default function Liquidity({ entityId, onChanged }: { entityId: string; o
   };
 
   return (
-    <div className="card">
-      <h2>Liquidity events</h2>
+    <div>
+      <PageHeader
+        icon="💧"
+        title="Liquidity events"
+        subtitle="Buyback and tender windows for your shareholders."
+      />
+      <div className="card">
       <p className="muted">
         Open a buyback window at a fixed price. Shareholders tender from their portal; settling
         buys the tendered shares back into the cap table.
@@ -102,6 +108,7 @@ export default function Liquidity({ entityId, onChanged }: { entityId: string; o
           </tbody>
         </table>
       )}
+      </div>
     </div>
   );
 }

@@ -37,6 +37,9 @@ export default function SubmitKpis() {
 
   return (
     <div className="container" style={{ maxWidth: 560, margin: "60px auto" }}>
+      <div style={{ textAlign: "center", marginBottom: 16, fontFamily: "var(--font-serif)", fontSize: 24, fontWeight: 700, color: "var(--heading)" }}>
+        Paper
+      </div>
       <div className="card">
         <h1>{info.company_name}</h1>
         <p className="muted">

@@ -40,6 +40,7 @@ export default function Entities() {
         </a>
       </p>
       <h1>Legal entities</h1>
+      <p className="muted" style={{ marginTop: 4 }}>Incorporate a new company or manage the entities in this workspace.</p>
 
       <IncorporationWizard tenantId={tenantId} onRegistered={load} />
 

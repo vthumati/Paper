@@ -15,6 +15,7 @@ import Avatar from "../components/Avatar";
 import { CHART_COLORS } from "../components/Donut";
 import EmptyState from "../components/EmptyState";
 import LineChart from "../components/LineChart";
+import PageHeader from "../components/PageHeader";
 import Stat from "../components/Stat";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -100,53 +101,58 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
 
   return (
     <div className="card">
-      <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span>📈</span> Portfolio monitoring
-        <button
-          className="secondary"
-          style={{ marginLeft: "auto" }}
-          onClick={() => setDefsOpen((v) => !v)}
-          title="Define the fund's own metrics (incl. ESG presets) to collect alongside the core KPIs"
-        >
-          {defsOpen ? "Close metrics" : "Custom metrics"}
-        </button>
-        <button
-          className="secondary"
-          onClick={() => setAlertsOpen((v) => !v)}
-          title="Set performance thresholds on tracked metrics — breaches surface as portfolio signals"
-        >
-          {alertsOpen ? "Close alerts" : "Metric alerts"}
-        </button>
-        <button
-          className="secondary"
-          disabled={mon.companies.length === 0}
-          title="Download every company's KPI history as CSV"
-          onClick={guard(() => api.exportKpisCsv(fundId))}
-        >
-          Export KPIs
-        </button>
-        <button
-          className="secondary"
-          disabled={mon.companies.length === 0}
-          onClick={() => {
-            setReqOpen((v) => !v);
-            if (!rInvId && mon.companies[0]) setRInvId(mon.companies[0].investment_id);
-          }}
-          title="Ask the company's reporting contact to submit KPIs from their portal"
-        >
-          {reqOpen ? "Close request" : "Request KPIs"}
-        </button>
-        <button
-          className="secondary"
-          disabled={mon.companies.length === 0}
-          onClick={() => {
-            setOpen((v) => !v);
-            if (!invId && mon.companies[0]) setInvId(mon.companies[0].investment_id);
-          }}
-        >
-          {open ? "Close" : "Report KPIs"}
-        </button>
-      </h3>
+      <PageHeader
+        icon="📈"
+        title="Portfolio monitoring"
+        subtitle="Operating KPIs, runway and health across the portfolio"
+        right={
+          <>
+            <button
+              className="secondary"
+              onClick={() => setDefsOpen((v) => !v)}
+              title="Define the fund's own metrics (incl. ESG presets) to collect alongside the core KPIs"
+            >
+              {defsOpen ? "Close metrics" : "Custom metrics"}
+            </button>
+            <button
+              className="secondary"
+              onClick={() => setAlertsOpen((v) => !v)}
+              title="Set performance thresholds on tracked metrics — breaches surface as portfolio signals"
+            >
+              {alertsOpen ? "Close alerts" : "Metric alerts"}
+            </button>
+            <button
+              className="secondary"
+              disabled={mon.companies.length === 0}
+              title="Download every company's KPI history as CSV"
+              onClick={guard(() => api.exportKpisCsv(fundId))}
+            >
+              Export KPIs
+            </button>
+            <button
+              className="secondary"
+              disabled={mon.companies.length === 0}
+              onClick={() => {
+                setReqOpen((v) => !v);
+                if (!rInvId && mon.companies[0]) setRInvId(mon.companies[0].investment_id);
+              }}
+              title="Ask the company's reporting contact to submit KPIs from their portal"
+            >
+              {reqOpen ? "Close request" : "Request KPIs"}
+            </button>
+            <button
+              className="secondary"
+              disabled={mon.companies.length === 0}
+              onClick={() => {
+                setOpen((v) => !v);
+                if (!invId && mon.companies[0]) setInvId(mon.companies[0].investment_id);
+              }}
+            >
+              {open ? "Close" : "Report KPIs"}
+            </button>
+          </>
+        }
+      />
       <p className="muted" style={{ marginTop: 0 }}>
         Track each portfolio company's operating KPIs over time. Runway = cash ÷ monthly burn;
         companies under 6 months are flagged.

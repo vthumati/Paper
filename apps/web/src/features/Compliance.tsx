@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import EmptyState from "../components/EmptyState";
+import PageHeader from "../components/PageHeader";
 import { api, type Obligation, type TaxRecord } from "../api";
 import ProgressRing from "../components/ProgressRing";
 
@@ -87,8 +88,12 @@ export default function Compliance({
   return (
     <div>
       {error && <p className="error">{error}</p>}
+      <PageHeader
+        icon="🗂️"
+        title="Compliance calendar"
+        subtitle="Statutory ROC, GST and TDS obligations and filings"
+      />
       <div className="card">
-        <h2>Compliance calendar</h2>
         <p className="muted">
           Generate statutory ROC obligations from the financial-year end (assumes a 31-March FY).
         </p>

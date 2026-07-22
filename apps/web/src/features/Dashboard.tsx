@@ -24,13 +24,13 @@ export default function Dashboard({ entityId }: { entityId: string }) {
   const usage =
     cap.authorized_shares !== null
       ? [
-          { label: "Shares issued", value: cap.issued, color: "#2f6b52" },
+          { label: "Shares issued", value: cap.issued, color: "#0f9d6b" },
           { label: "Options granted", value: cap.esop_granted, color: "#c9a227" },
           { label: "Pool remaining", value: poolFree, color: "#e6d795" },
           { label: "Unissued (authorized)", value: cap.available ?? 0, color: "#d3ddd0" },
         ].filter((s) => s.value > 0)
       : [
-          { label: "Shares issued", value: cap.issued, color: "#2f6b52" },
+          { label: "Shares issued", value: cap.issued, color: "#0f9d6b" },
           { label: "Options granted", value: cap.esop_granted, color: "#c9a227" },
           { label: "Pool remaining", value: poolFree, color: "#e6d795" },
         ].filter((s) => s.value > 0);

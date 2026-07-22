@@ -17,7 +17,7 @@ export default function ProgressRing({
   const stroke = 10;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
-  const auto = pct < 40 ? "#b42318" : pct < 70 ? "#c9a227" : "#2f6b52";
+  const auto = pct < 40 ? "#dc2626" : pct < 70 ? "#f0b429" : "#0f9d6b";
   const col = color ?? auto;
   return (
     <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 6 }}>

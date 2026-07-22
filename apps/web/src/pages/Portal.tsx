@@ -68,6 +68,7 @@ export default function Portal() {
         </a>
       </p>
       <h1>Investor portal</h1>
+      <p className="muted" style={{ marginTop: 4 }}>Your holdings, capital accounts, documents and updates across every company and fund.</p>
       {error && <p className="error">{error}</p>}
 
       {!loaded && (

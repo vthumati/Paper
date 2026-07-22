@@ -4,6 +4,7 @@ import EmptyState from "../components/EmptyState";
 import { toast } from "../components/Toast";
 import { api, type CurrentFmv, type Valuation, type ValuationEstimate } from "../api";
 import LineChart from "../components/LineChart";
+import PageHeader from "../components/PageHeader";
 import StartupValuation from "./StartupValuation";
 
 const METHODS = [
@@ -87,6 +88,11 @@ export default function Valuations({ entityId }: { entityId: string }) {
   return (
     <div>
       {error && <p className="error">{error}</p>}
+      <PageHeader
+        icon="📈"
+        title="Valuations"
+        subtitle="Registered FMV reports and indicative estimates"
+      />
       <div className="tabs subtabs">
         {SUBTABS.map((t) => (
           <button key={t.key} className={sub === t.key ? "active" : ""} onClick={() => setSub(t.key)}>
@@ -100,7 +106,6 @@ export default function Valuations({ entityId }: { entityId: string }) {
       ) : (
         <>
           <div className="card">
-            <h2>Valuations</h2>
             <p className="muted">
               Current FMV:{" "}
               {current?.fmv_per_share ? (

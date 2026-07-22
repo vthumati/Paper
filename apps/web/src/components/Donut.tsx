@@ -4,16 +4,16 @@ export interface DonutSegment {
   color?: string;
 }
 
-/** Warm-theme palette for chart segments, strongest first. */
+/** Emerald-forward chart palette, strongest first. */
 export const CHART_COLORS = [
-  "#2f6b52",
-  "#c9a227",
-  "#7fa88f",
+  "#0f9d6b",
+  "#0ea5a4",
+  "#f0b429",
+  "#3f9d7a",
   "#8a6d3b",
-  "#4a7a63",
-  "#b5651d",
+  "#5eb89a",
   "#94a3b8",
-  "#d3ddd0",
+  "#cdd8d1",
 ];
 
 /** Dependency-free SVG donut chart with a legend (Eqvista-style overview

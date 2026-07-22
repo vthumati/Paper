@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type Dashboard } from "../api";
 import Stat from "../components/Stat";
+import PageHeader from "../components/PageHeader";
 import { fmtMoney } from "../lib/format";
 
 /** Fund-first home for AIF/fund entities — a fund summary and quick actions
@@ -29,6 +30,11 @@ export default function FundDashboard({
 
   return (
     <div>
+      <PageHeader
+        icon="🏦"
+        title="Fund"
+        subtitle="Commitments, NAV and portfolio at a glance."
+      />
       <p className="muted" style={{ marginTop: 0 }}>
         SEBI Cat {f.sebi_category} · carry {pct(f.carry_pct)} · hurdle {pct(f.hurdle_pct)} · fee{" "}
         {pct(f.mgmt_fee_pct, 1)} on committed

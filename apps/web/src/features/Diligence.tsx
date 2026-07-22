@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, type DiligenceResult } from "../api";
 import { useGuard } from "../hooks";
 import EmptyState from "../components/EmptyState";
+import PageHeader from "../components/PageHeader";
 import ProgressRing from "../components/ProgressRing";
 
 const SEV_LABEL: Record<string, string> = { high: "High", medium: "Medium", low: "Low" };
@@ -33,8 +34,8 @@ export default function Diligence({
   return (
     <div>
       {error && <p className="error">{error}</p>}
+      <PageHeader icon="🔍" title="Diligence readiness" subtitle="Automated pre-investment checks on your records" />
       <div className="card">
-        <h2>Diligence readiness</h2>
         <p className="muted">
           {d.checks_run} automated checks over your own records — what an investor's lawyers
           will look for, before they look.

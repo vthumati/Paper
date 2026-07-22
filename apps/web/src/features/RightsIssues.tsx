@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fmtMoney } from "../lib/format";
 import { useGuard } from "../hooks";
 import { api, type Entitlement, type RightsIssue, type SecurityClass } from "../api";
+import PageHeader from "../components/PageHeader";
 
 export default function RightsIssues({
   entityId,
@@ -49,7 +50,7 @@ export default function RightsIssues({
 
   return (
     <div className="card">
-      <h3>Rights issue</h3>
+      <PageHeader icon="📜" title="Rights issue" subtitle="Offer new shares pro-rata to existing holders" />
       {error && <p className="error">{error}</p>}
       {note && <p className="muted">{note}</p>}
 

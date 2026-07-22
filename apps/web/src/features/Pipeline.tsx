@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fmtMoney } from "../lib/format";
 import { useGuard } from "../hooks";
 import { api, type Prospect, type Round } from "../api";
+import PageHeader from "../components/PageHeader";
 
 const STAGES = ["contacted", "meeting", "diligence", "term_sheet", "committed", "passed"];
 const STAGE_COLORS: Record<string, string> = {
@@ -56,7 +57,7 @@ export default function Pipeline({
 
   return (
     <div className="card">
-      <h3>Fundraising pipeline (investor CRM)</h3>
+      <PageHeader icon="📇" title="Fundraising pipeline" subtitle="Investor CRM — prospects from first contact to commitment" />
       {error && <p className="error">{error}</p>}
       {note && <p className="muted">{note}</p>}
       {summary && (

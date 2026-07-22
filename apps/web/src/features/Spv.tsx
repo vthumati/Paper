@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fmtMoney } from "../lib/format";
 import EmptyState from "../components/EmptyState";
+import PageHeader from "../components/PageHeader";
 import Stepper from "../components/Stepper";
 import { useGuard } from "../hooks";
 import {
@@ -65,9 +66,14 @@ export default function Spv({ entityId }: { entityId: string }) {
 
   if (!spv) {
     return (
-      <div className="card">
+      <div>
+        <PageHeader
+          icon="🤝"
+          title="Set up SPV"
+          subtitle="Pool co-investors into one vehicle"
+        />
+        <div className="card">
         {error && <p className="error">{error}</p>}
-        <h2>Set up SPV</h2>
         <label>Sponsor</label>
         <input value={sponsor} onChange={(e) => setSponsor(e.target.value)} />
         <label>Target company (name)</label>
@@ -93,6 +99,7 @@ export default function Spv({ entityId }: { entityId: string }) {
             Create SPV
           </button>
         </div>
+        </div>
       </div>
     );
   }
@@ -100,10 +107,13 @@ export default function Spv({ entityId }: { entityId: string }) {
   return (
     <div>
       {error && <p className="error">{error}</p>}
+      <PageHeader
+        icon="🤝"
+        title={`SPV — ${spv.target_company}`}
+        subtitle="Co-investment vehicle"
+        right={<span className="badge">{spv.structure}</span>}
+      />
       <div className="card">
-        <h2>
-          SPV — {spv.target_company} <span className="badge">{spv.structure}</span>
-        </h2>
         {summary && (
           <p className="muted">
             {summary.co_investor_count} co-investors ({summary.by_status.invited} invited ·{" "}

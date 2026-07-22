@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import EmptyState from "../components/EmptyState";
+import PageHeader from "../components/PageHeader";
 import { api, type TimelineEvent } from "../api";
 
 const KIND_LABEL: Record<string, string> = {
@@ -42,9 +43,14 @@ export default function CapTableTimeline({ entityId }: { entityId: string }) {
   }, [entityId]);
 
   return (
-    <div className="card">
-      <h2>Timeline</h2>
-      <p className="muted">
+    <div>
+      <PageHeader
+        icon="🧭"
+        title="Timeline"
+        subtitle="The cap-table story as plain-language events"
+      />
+      <div className="card">
+        <p className="muted">
         Every equity event in plain language — issuances, transfers, SAFEs, grants,
         exercises, valuations and rounds, newest first.
       </p>
@@ -62,6 +68,7 @@ export default function CapTableTimeline({ entityId }: { entityId: string }) {
           </div>
         ))
       )}
+      </div>
     </div>
   );
 }

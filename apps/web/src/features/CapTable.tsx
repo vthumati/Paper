@@ -11,6 +11,7 @@ import {
 } from "../api";
 import Avatar from "../components/Avatar";
 import EmptyState from "../components/EmptyState";
+import PageHeader from "../components/PageHeader";
 import SecChip from "../components/SecChip";
 import StackedBar from "../components/StackedBar";
 import DownRoundCalc from "./DownRoundCalc";
@@ -108,45 +109,50 @@ export default function CapTable({
     <div>
       {error && <p className="error">{error}</p>}
 
+      <PageHeader
+        icon="📊"
+        title="Cap table"
+        subtitle="Holdings, positions and ownership by holder or class"
+        right={
+          <>
+            {feat("fully_diluted") && (
+              <>
+                <button
+                  className={view === "issued" ? "" : "secondary"}
+                  onClick={() => setView("issued")}
+                >
+                  Issued
+                </button>{" "}
+                <button
+                  className={view === "fd" ? "" : "secondary"}
+                  onClick={() => setView("fd")}
+                >
+                  Fully diluted
+                </button>
+              </>
+            )}
+            <details className="actions-menu">
+              <summary>Actions ▾</summary>
+              <div className="actions-list">
+                <button
+                  className="secondary"
+                  onClick={() => downloadFile(`/entities/${entityId}/cap-table.csv`, "cap-table.csv")}
+                >
+                  Download cap table (CSV)
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => api.downloadImportTemplate(entityId)}
+                >
+                  Import template (CSV)
+                </button>
+              </div>
+            </details>
+          </>
+        }
+      />
+
       <div className="card">
-        <h2>
-          Cap table
-          {feat("fully_diluted") && (
-            <>
-              {" "}
-              <button
-                className={view === "issued" ? "" : "secondary"}
-                style={{ marginLeft: 8 }}
-                onClick={() => setView("issued")}
-              >
-                Issued
-              </button>{" "}
-              <button
-                className={view === "fd" ? "" : "secondary"}
-                onClick={() => setView("fd")}
-              >
-                Fully diluted
-              </button>
-            </>
-          )}
-          <details className="actions-menu">
-            <summary>Actions ▾</summary>
-            <div className="actions-list">
-              <button
-                className="secondary"
-                onClick={() => downloadFile(`/entities/${entityId}/cap-table.csv`, "cap-table.csv")}
-              >
-                Download cap table (CSV)
-              </button>
-              <button
-                className="secondary"
-                onClick={() => api.downloadImportTemplate(entityId)}
-              >
-                Import template (CSV)
-              </button>
-            </div>
-          </details>
-        </h2>
         {view === "issued" ? (
           !capTable || capTable.holders.length === 0 ? (
             <EmptyState

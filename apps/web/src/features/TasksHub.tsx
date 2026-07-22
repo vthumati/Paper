@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import PageHeader from "../components/PageHeader";
 import { api, type EntityTasks } from "../api";
 
 const SEV_BADGE: Record<string, string> = { red: "danger", amber: "active", ok: "complete" };
@@ -25,17 +26,18 @@ export default function TasksHub({ entityId }: { entityId: string }) {
   if (!data) return <p className="muted">Loading…</p>;
 
   return (
-    <div className="card">
-      <h2>
-        Tasks{" "}
-        <span className={`badge ${data.counts.overdue > 0 ? "danger" : ""}`}>
-          {data.counts.total} open{data.counts.overdue > 0 ? ` · ${data.counts.overdue} overdue` : ""}
-        </span>
-      </h2>
-      <p className="muted">
-        Everything awaiting action across this company — pending e-signatures, option-exercise
-        requests, overdue filings and outstanding investor consents.
-      </p>
+    <div>
+      <PageHeader
+        icon="✅"
+        title="Tasks"
+        subtitle="Pending e-signatures, filings, exercises and consents"
+        right={
+          <span className={`badge ${data.counts.overdue > 0 ? "danger" : ""}`}>
+            {data.counts.total} open{data.counts.overdue > 0 ? ` · ${data.counts.overdue} overdue` : ""}
+          </span>
+        }
+      />
+      <div className="card">
       {data.tasks.length === 0 ? (
         <p className="muted">Nothing needs your attention. 🎉</p>
       ) : (
@@ -60,6 +62,7 @@ export default function TasksHub({ entityId }: { entityId: string }) {
           </div>
         ))
       )}
+      </div>
     </div>
   );
 }
