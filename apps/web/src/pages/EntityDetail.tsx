@@ -59,11 +59,26 @@ type Tab =
 // Two-level navigation: tabs live in groups; the group row is always visible
 // and the sub-tab row shows the active group's tabs.
 // scope: which entity types see the tab at all (stage then filters companies)
-type Group = "home" | "ownership" | "raise" | "govern" | "operate" | "partners" | "fundadmin";
+// group keys and tab keys are separate namespaces (a def carries both a `key`
+// (Tab) and a `group` (Group)); fund work is split into three groups.
+type Group =
+  | "home"
+  | "fundmgmt"
+  | "portfolio"
+  | "monitoring"
+  | "spv"
+  | "ownership"
+  | "raise"
+  | "govern"
+  | "operate"
+  | "partners";
 
 const GROUPS: { key: Group; label: string }[] = [
   { key: "home", label: "Home" },
-  { key: "fundadmin", label: "Fund" },
+  { key: "fundmgmt", label: "Fund management" },
+  { key: "portfolio", label: "Portfolio" },
+  { key: "monitoring", label: "Monitoring" },
+  { key: "spv", label: "SPV" },
   { key: "ownership", label: "Ownership" },
   { key: "raise", label: "Fundraise" },
   { key: "govern", label: "Governance" },
@@ -79,15 +94,19 @@ const TAB_DEFS: {
 }[] = [
   { key: "dashboard", label: "Dashboard", group: "home", scope: "all" },
   { key: "tasks", label: "Tasks", group: "home", scope: "all" },
-  // the fund workspace — promoted to primary tabs for a fund entity
-  { key: "capital", label: "Capital & LPs", group: "fundadmin", scope: "fundonly" },
-  { key: "fundraise", label: "LP fundraise", group: "fundadmin", scope: "fundonly" },
-  { key: "portfolio", label: "Portfolio", group: "fundadmin", scope: "fundonly" },
-  { key: "monitoring", label: "Monitoring", group: "fundadmin", scope: "fundonly" },
-  { key: "deals", label: "Deal pipeline", group: "fundadmin", scope: "fundonly" },
-  { key: "plan", label: "Plan & forecast", group: "fundadmin", scope: "fundonly" },
-  { key: "reports", label: "Financials", group: "fundadmin", scope: "fundonly" },
-  { key: "spv", label: "SPV", group: "fundadmin", scope: "spvonly" },
+  // the fund workspace — promoted to primary tabs, grouped by what they do
+  // Fund management: the fund vehicle + LP relations (LP updates is added
+  // dynamically for funds, see `defs` below)
+  { key: "capital", label: "Capital & LPs", group: "fundmgmt", scope: "fundonly" },
+  { key: "fundraise", label: "LP fundraise", group: "fundmgmt", scope: "fundonly" },
+  { key: "plan", label: "Plan & forecast", group: "fundmgmt", scope: "fundonly" },
+  { key: "reports", label: "Financials", group: "fundmgmt", scope: "fundonly" },
+  // Portfolio: sourcing and holdings
+  { key: "deals", label: "Deal pipeline", group: "portfolio", scope: "fundonly" },
+  { key: "portfolio", label: "Holdings", group: "portfolio", scope: "fundonly" },
+  // Monitoring: portfolio-company performance
+  { key: "monitoring", label: "Monitoring", group: "monitoring", scope: "fundonly" },
+  { key: "spv", label: "SPV", group: "spv", scope: "spvonly" },
   { key: "captable", label: "Cap Table", group: "ownership", scope: "company" },
   { key: "esop", label: "ESOP", group: "ownership", scope: "company" },
   { key: "valuations", label: "Valuations", group: "ownership", scope: "company" },
@@ -165,7 +184,7 @@ export default function EntityDetail() {
     entity.type === "fund"
       ? TAB_DEFS.map((t) =>
           t.key === "investors"
-            ? { ...t, label: "LP updates", group: "fundadmin" as Group }
+            ? { ...t, label: "LP updates", group: "fundmgmt" as Group }
             : t
         )
       : TAB_DEFS;
