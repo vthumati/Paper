@@ -252,37 +252,6 @@ export interface FullyDiluted {
   rows: FullyDilutedRow[];
   excluded_instruments: string[];
 }
-export interface StepDef {
-  key: string;
-  title: string;
-  type: string;
-  assignee_role: string | null;
-}
-export interface WorkflowDefinition {
-  key: string;
-  version: number;
-  title: string;
-  steps: StepDef[];
-}
-export interface StepInstance {
-  step_key: string;
-  title: string;
-  type: string;
-  order_index: number;
-  status: "pending" | "active" | "complete" | "skipped";
-  assignee_role: string | null;
-  output: Record<string, unknown> | null;
-}
-export interface WorkflowRun {
-  id: string;
-  entity_id: string;
-  definition_key: string;
-  definition_version: number;
-  title: string;
-  status: "running" | "completed" | "cancelled";
-  context: Record<string, unknown>;
-  steps: StepInstance[];
-}
 export interface DocTemplate {
   key: string;
   name: string;
@@ -1768,7 +1737,6 @@ export const api = {
 
   listTenants: () => get<Tenant[]>("/tenants"),
   createTenant: (b: { name: string; type: string }) => post<Tenant>("/tenants", b),
-  deleteTenant: (tid: string) => del<void>(`/tenants/${tid}`),
   workspaceTeardownPreview: (tid: string) =>
     get<TeardownPreview>(`/tenants/${tid}/teardown-preview`),
   workspaceTeardown: (tid: string, confirm_name: string) =>
@@ -1841,14 +1809,6 @@ export const api = {
     post<{ issued_shares: number; amount_raised: string }>(`/rights-issues/${rid}/close`),
   waterfall: (eid: string, exitAmount: string) =>
     get<WaterfallResult>(`/entities/${eid}/waterfall?exit_amount=${encodeURIComponent(exitAmount)}`),
-
-  listDefinitions: () => get<WorkflowDefinition[]>("/workflow-definitions"),
-  listRuns: (eid: string) => get<WorkflowRun[]>(`/entities/${eid}/workflows`),
-  startRun: (eid: string, b: { definition_key: string; context?: object }) =>
-    post<WorkflowRun>(`/entities/${eid}/workflows`, b),
-  getRun: (rid: string) => get<WorkflowRun>(`/workflows/${rid}`),
-  completeStep: (rid: string, stepKey: string, output: object) =>
-    post<WorkflowRun>(`/workflows/${rid}/steps/${stepKey}/complete`, { output }),
 
   listTemplates: () => get<DocTemplate[]>("/document-templates"),
   listDocuments: (eid: string) => get<Document[]>(`/entities/${eid}/documents`),

@@ -418,7 +418,7 @@ export default function EntityDetail() {
       {tab === "diligence" && <Diligence entityId={entityId} onNavigate={goTab} />}
       {tab === "compliance" && <Compliance entityId={entityId} entityType={entity.type} />}
       {["capital", "fundraise", "portfolio", "monitoring", "deals", "plan", "reports"].includes(tab) && (
-        <Fund entityId={entityId} initialSub={tab} hideSubtabs />
+        <Fund entityId={entityId} initialSub={tab} />
       )}
       {tab === "esop" && (
         <>

@@ -34,36 +34,28 @@ import {
 
 // Fund workspace sub-tabs (CapTableHub pattern) — the header summary card
 // stays visible above them.
-const SUBTABS = [
-  { key: "capital", label: "Capital & LPs" },
-  { key: "fundraise", label: "LP fundraise" },
-  { key: "portfolio", label: "Portfolio" },
-  { key: "monitoring", label: "Monitoring" },
-  { key: "deals", label: "Deal pipeline" },
-  { key: "plan", label: "Plan & forecast" },
-  { key: "reports", label: "Financials" },
+// which sub-view to show — driven by the parent workspace nav via initialSub
+const SUB_KEYS = [
+  "capital", "fundraise", "portfolio", "monitoring", "deals", "plan", "reports",
 ] as const;
-type SubTab = (typeof SUBTABS)[number]["key"];
+type SubTab = (typeof SUB_KEYS)[number];
 
 export default function Fund({
   entityId,
   initialSub,
-  hideSubtabs,
 }: {
   entityId: string;
   /** which sub-tab to show; also the deep-link key from the workspace nav */
   initialSub?: string | null;
-  /** hide the internal sub-tab row when the parent workspace nav drives it */
-  hideSubtabs?: boolean;
 }) {
   const [fund, setFund] = useState<FundT | null>(null);
   const [sub, setSub] = useState<SubTab>(
-    initialSub && SUBTABS.some((t) => t.key === initialSub)
+    initialSub && SUB_KEYS.includes(initialSub as SubTab)
       ? (initialSub as SubTab)
       : "capital"
   );
   useEffect(() => {
-    if (initialSub && SUBTABS.some((t) => t.key === initialSub)) {
+    if (initialSub && SUB_KEYS.includes(initialSub as SubTab)) {
       setSub(initialSub as SubTab);
     }
   }, [initialSub]);
@@ -249,20 +241,6 @@ export default function Fund({
           </button>
         )}
       </div>
-
-      {!hideSubtabs && (
-        <div className="tabs subtabs">
-          {SUBTABS.map((t) => (
-            <button
-              key={t.key}
-              className={sub === t.key ? "active" : ""}
-              onClick={() => setSub(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      )}
 
       {sub === "capital" && (
         <>
