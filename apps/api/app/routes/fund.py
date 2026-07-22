@@ -34,7 +34,9 @@ from ..models.fund import (
     PortfolioKPI,
 )
 from ..services.money import q
-from ..models.identity import User
+from ..models.entity import EntityType
+from ..models.finance import FinancialSnapshot
+from ..models.identity import Membership, User
 from decimal import Decimal, InvalidOperation
 
 from ..schemas import (
@@ -307,13 +309,38 @@ def capital_accounts(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get
     return svc.capital_accounts(db, ctx.fund)
 
 
+_COMPANY_TYPES = (EntityType.PVT_LTD, EntityType.LLP, EntityType.OPC)
+
+
+def _accessible_company(db: Session, user: User, entity_id: str) -> LegalEntity:
+    """The company entity `entity_id`, but only if the caller is a member of its
+    workspace — a fund can only link to companies its GP can already see."""
+    ent = db.get(LegalEntity, entity_id)
+    if ent is None or ent.type not in _COMPANY_TYPES:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Company not found")
+    member = (
+        db.query(Membership).filter_by(user_id=user.id, tenant_id=ent.tenant_id).first()
+    )
+    if member is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "No access to that company's workspace")
+    return ent
+
+
 # --- portfolio ---
 @router.post("/funds/{fund_id}/portfolio", response_model=PortfolioOut, status_code=201)
 def add_investment(
-    body: PortfolioIn, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+    body: PortfolioIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     require_write(ctx.role)
-    inv = PortfolioInvestment(fund_id=ctx.fund.id, **body.model_dump())
+    data = body.model_dump()
+    if data.get("company_entity_id"):
+        # linking to a Paper company keeps the name in sync with the source
+        ent = _accessible_company(db, user, data["company_entity_id"])
+        data["company_name"] = ent.name
+    inv = PortfolioInvestment(fund_id=ctx.fund.id, **data)
     db.add(inv)
     db.commit()
     db.refresh(inv)
@@ -323,6 +350,72 @@ def add_investment(
 @router.get("/funds/{fund_id}/portfolio", response_model=list[PortfolioOut])
 def list_portfolio(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
     return db.query(PortfolioInvestment).filter_by(fund_id=ctx.fund.id).all()
+
+
+@router.get("/funds/{fund_id}/linkable-companies")
+def linkable_companies(
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Companies in workspaces the GP belongs to — candidates to link a holding
+    to (so the fund can reuse the company's own data)."""
+    rows = (
+        db.query(LegalEntity)
+        .join(Membership, Membership.tenant_id == LegalEntity.tenant_id)
+        .filter(Membership.user_id == user.id, LegalEntity.type.in_(_COMPANY_TYPES))
+        .all()
+    )
+    return [{"id": e.id, "name": e.name} for e in rows]
+
+
+@router.post("/funds/{fund_id}/portfolio/{investment_id}/pull-financials")
+def pull_financials(
+    investment_id: str,
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Pull the linked company's latest self-reported financials (revenue / cash
+    / burn from its Finance module) in as a portfolio KPI period — no separate
+    KPI request round-trip. Requires the holding to be linked and the GP to have
+    access to that company's workspace."""
+    require_write(ctx.role)
+    inv = _get_investment(db, ctx.fund.id, investment_id)
+    if not inv.company_entity_id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Holding is not linked to a company")
+    _accessible_company(db, user, inv.company_entity_id)
+    snap = (
+        db.query(FinancialSnapshot)
+        .filter_by(entity_id=inv.company_entity_id)
+        .order_by(FinancialSnapshot.period.desc())
+        .first()
+    )
+    if snap is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "The linked company has no financial snapshots yet"
+        )
+    label = snap.period.strftime("%b %Y")
+    existing = (
+        db.query(PortfolioKPI)
+        .filter_by(investment_id=inv.id, period_label=label)
+        .first()
+    )
+    values = {
+        "revenue": snap.revenue,
+        "cash": snap.cash_balance,
+        "monthly_burn": snap.monthly_burn,
+    }
+    if existing:
+        for k, v in values.items():
+            setattr(existing, k, v)
+        db.commit()
+        db.refresh(existing)
+        return svc._kpi_view(existing)
+    kpi = svc.add_kpi(
+        db, inv, {"period_label": label, "as_of": snap.period, "note": "Pulled from company Finance", **values}
+    )
+    return svc._kpi_view(kpi)
 
 
 @router.get("/funds/{fund_id}/soi")

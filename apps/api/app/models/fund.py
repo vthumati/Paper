@@ -369,6 +369,11 @@ class PortfolioInvestment(Base, TimestampMixin):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
     fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), index=True)
     company_name: Mapped[str] = mapped_column(String(255))
+    # optional link to the portfolio company's own Paper entity — lets the fund
+    # reuse the company's reported financials and open its workspace
+    company_entity_id: Mapped[str | None] = mapped_column(
+        ForeignKey("legal_entities.id"), nullable=True, index=True
+    )
     sector: Mapped[str | None] = mapped_column(String(64), nullable=True)  # segment tag
     instrument: Mapped[str] = mapped_column(String(32), default="equity")
     amount: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
