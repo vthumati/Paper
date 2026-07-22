@@ -50,7 +50,7 @@ describe("Dashboard", () => {
         <Dashboard entityId="e1" />
       </MemoryRouter>
     );
-    expect(await screen.findByText("Overview")).toBeTruthy();
+    expect(await screen.findByText("Ownership breakdown")).toBeTruthy();
     expect(screen.getAllByText("Shares issued").length).toBeGreaterThan(0);
     expect(screen.getByText("280000.00")).toBeTruthy();
     // donut legends show both security classes
