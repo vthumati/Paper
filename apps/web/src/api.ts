@@ -409,6 +409,7 @@ export interface CapitalAccounts {
 export interface PortfolioInvestment {
   id: string;
   company_name: string;
+  company_entity_id: string | null;
   sector: string | null;
   instrument: string;
   amount: string;
@@ -1965,6 +1966,10 @@ export const api = {
     post<PortfolioInvestment>(`/funds/${fid}/portfolio`, b),
   markInvestment: (fid: string, iid: string, b: unknown) =>
     put<PortfolioInvestment>(`/funds/${fid}/portfolio/${iid}/mark`, b),
+  linkableCompanies: (fid: string) =>
+    get<{ id: string; name: string }[]>(`/funds/${fid}/linkable-companies`),
+  pullFinancials: (fid: string, iid: string) =>
+    post<{ id: string; period_label: string }>(`/funds/${fid}/portfolio/${iid}/pull-financials`),
   scheduleOfInvestments: (fid: string) =>
     get<ScheduleOfInvestments>(`/funds/${fid}/soi`),
   soiReport: (fid: string) => post<Document>(`/funds/${fid}/soi/report`),

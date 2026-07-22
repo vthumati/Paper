@@ -159,6 +159,16 @@ export default function EntityDetail() {
   if (!entity) return <p>Loading…</p>;
 
   const isCompany = entity.type !== "fund" && entity.type !== "spv";
+  // for a fund, "Investors" is really the LP-update channel — relabel it and
+  // move it under the Fund group so it sits with the rest of fund admin
+  const defs =
+    entity.type === "fund"
+      ? TAB_DEFS.map((t) =>
+          t.key === "investors"
+            ? { ...t, label: "LP updates", group: "fundadmin" as Group }
+            : t
+        )
+      : TAB_DEFS;
   const scopeOk = (scope: string) =>
     scope === "all" ||
     (scope === "company" && isCompany) ||
@@ -167,9 +177,9 @@ export default function EntityDetail() {
     (scope === "spvonly" && entity.type === "spv");
   const stageOk = (key: Tab) =>
     !isCompany || showAll || !guide || guide.tabs.includes(key);
-  const visibleTabs = TAB_DEFS.filter((t) => scopeOk(t.scope) && stageOk(t.key));
+  const visibleTabs = defs.filter((t) => scopeOk(t.scope) && stageOk(t.key));
   const visibleGroups = GROUPS.filter((g) => visibleTabs.some((t) => t.group === g.key));
-  const activeGroup = TAB_DEFS.find((t) => t.key === tab)?.group ?? "home";
+  const activeGroup = defs.find((t) => t.key === tab)?.group ?? "home";
   const groupTabs = visibleTabs.filter((t) => t.group === activeGroup);
   const feat = (k: string) => !isCompany || showAll || !guide || guide.features[k] !== false;
 

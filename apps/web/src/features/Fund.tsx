@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import EmptyState from "../components/EmptyState";
 import { uiPrompt } from "../components/Prompt";
 import ColumnChart from "../components/ColumnChart";
@@ -89,13 +90,17 @@ export default function Fund({
   const [coName, setCoName] = useState("");
   const [coAmt, setCoAmt] = useState("");
   const [coSector, setCoSector] = useState("");
+  const [coEntity, setCoEntity] = useState(""); // optional link to a Paper company
+  const [linkable, setLinkable] = useState<{ id: string; name: string }[]>([]);
   const [openTear, setOpenTear] = useState<string | null>(null);
+  const nav = useNavigate();
   const [reportView, setReportView] = useState<LpReportData | null>(null);
 
   async function loadFund() {
     try {
       const f = await api.getFund(entityId);
       setFund(f);
+      api.linkableCompanies(f.id).then(setLinkable).catch(() => {});
       await refresh(f.id);
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) setFund(null);
@@ -552,7 +557,28 @@ export default function Fund({
           <div className="card">
             <h3>Portfolio</h3>
             <div className="row">
-              <input placeholder="Company" value={coName} onChange={(e) => setCoName(e.target.value)} />
+              {linkable.length > 0 && (
+                <select
+                  title="Link to a company you manage in Paper to reuse its data"
+                  value={coEntity}
+                  onChange={(e) => {
+                    setCoEntity(e.target.value);
+                    const m = linkable.find((c) => c.id === e.target.value);
+                    if (m) setCoName(m.name);
+                  }}
+                >
+                  <option value="">— link a Paper company (optional) —</option>
+                  {linkable.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              )}
+              <input
+                placeholder="Company"
+                value={coName}
+                disabled={!!coEntity}
+                onChange={(e) => setCoName(e.target.value)}
+              />
               <input placeholder="Amount ₹" value={coAmt} onChange={(e) => setCoAmt(e.target.value)} />
               <input placeholder="Sector (segment)" value={coSector} onChange={(e) => setCoSector(e.target.value)} />
               <button
@@ -561,10 +587,12 @@ export default function Fund({
                 onClick={guard(async () => {
                   await api.addInvestment(fund.id, {
                     company_name: coName, amount: coAmt || "0", sector: coSector || null,
+                    company_entity_id: coEntity || null,
                   });
                   setCoName("");
                   setCoAmt("");
                   setCoSector("");
+                  setCoEntity("");
                 }, "Investment added")}
               >
                 Add investment
@@ -587,7 +615,21 @@ export default function Fund({
                 <tbody>
                   {portfolio.map((p) => (
                     <tr key={p.id}>
-                      <td>{p.company_name}</td>
+                      <td>
+                        {p.company_name}
+                        {p.company_entity_id && (
+                          <>
+                            {" "}
+                            <a
+                              href="#"
+                              title="Open this company's workspace"
+                              onClick={(e) => { e.preventDefault(); nav(`/entities/${p.company_entity_id}`); }}
+                            >
+                              ↗
+                            </a>
+                          </>
+                        )}
+                      </td>
                       <td>{p.instrument}</td>
                       <td>{fmtMoney(p.amount)}</td>
                       <td>{p.ownership_pct}%</td>
@@ -614,6 +656,21 @@ export default function Fund({
                         >
                           {openTear === p.id ? "Close" : "Tear sheet"}
                         </button>
+                        {p.company_entity_id && (
+                          <>
+                            {" "}
+                            <button
+                              className="secondary"
+                              title="Pull the company's latest reported revenue / cash / burn into Monitoring"
+                              onClick={guard(
+                                () => api.pullFinancials(fund.id, p.id),
+                                "Pulled the company's latest financials into Monitoring"
+                              )}
+                            >
+                              Pull financials
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}
