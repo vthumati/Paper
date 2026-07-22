@@ -35,10 +35,32 @@ export default function Dashboard({ entityId }: { entityId: string }) {
           { label: "Pool remaining", value: poolFree, color: "#e6d795" },
         ].filter((s) => s.value > 0);
 
+  const heroKpi = (label: string, value: string) => (
+    <div style={{ minWidth: 96 }}>
+      <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05 }}>{value}</div>
+      <div style={{ fontSize: 12, opacity: 0.82, marginTop: 3 }}>{label}</div>
+    </div>
+  );
+
   return (
     <div>
+      <div className="hero">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 20, flexWrap: "wrap" }}>
+          <div>
+            <h2 style={{ margin: 0 }}>📊 Company overview</h2>
+            <p className="hero-sub">Ownership, capital and valuation at a glance.</p>
+          </div>
+          <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
+            {heroKpi("Shares issued", cap.issued.toLocaleString())}
+            {heroKpi("Capital raised", fmtMoney(d.cap_table.total_invested))}
+            {heroKpi("Stakeholders", String(d.cap_table.holders))}
+            {heroKpi("FMV / share", val.status === "active" ? fmtMoney(val.fmv_per_share) : "—")}
+          </div>
+        </div>
+      </div>
+
       <div className="card">
-        <h2>Overview</h2>
+        <h2>Ownership breakdown</h2>
         <div className="row" style={{ gap: 24, alignItems: "flex-start" }}>
           <div style={{ flex: 1.2, minWidth: 260 }}>
             <label>Class ownership</label>

@@ -1,8 +1,19 @@
 import { useEffect, useState } from "react";
 import { api, type Dashboard } from "../api";
 import Stat from "../components/Stat";
-import PageHeader from "../components/PageHeader";
 import { fmtMoney } from "../lib/format";
+
+/** headline metric rendered white-on-gradient inside the hero */
+function HeroKpi({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ minWidth: 90 }}>
+      <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05 }}>
+        {value}
+      </div>
+      <div style={{ fontSize: 12, opacity: 0.82, marginTop: 3 }}>{label}</div>
+    </div>
+  );
+}
 
 /** Fund-first home for AIF/fund entities — a fund summary and quick actions
  * instead of the startup cap-table dashboard. */
@@ -30,24 +41,28 @@ export default function FundDashboard({
 
   return (
     <div>
-      <PageHeader
-        icon="🏦"
-        title="Fund"
-        subtitle="Commitments, NAV and portfolio at a glance."
-      />
-      <p className="muted" style={{ marginTop: 0 }}>
-        SEBI Cat {f.sebi_category} · carry {pct(f.carry_pct)} · hurdle {pct(f.hurdle_pct)} · fee{" "}
-        {pct(f.mgmt_fee_pct, 1)} on committed
-      </p>
+      <div className="hero">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 20, flexWrap: "wrap" }}>
+          <div>
+            <h2 style={{ margin: 0 }}>🏦 Fund overview</h2>
+            <p className="hero-sub">
+              SEBI Cat {f.sebi_category} · carry {pct(f.carry_pct)} · hurdle {pct(f.hurdle_pct)} · fee{" "}
+              {pct(f.mgmt_fee_pct, 1)} on committed
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
+            <HeroKpi label="Committed" value={fmtMoney(f.committed)} />
+            <HeroKpi label="NAV" value={fmtMoney(f.nav)} />
+            <HeroKpi label="TVPI" value={`${f.tvpi}×`} />
+            <HeroKpi label="DPI" value={`${f.dpi}×`} />
+          </div>
+        </div>
+      </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-        <Stat label="Committed" value={fmtMoney(f.committed)} big />
         <Stat label="Drawn" value={fmtMoney(f.drawn)} />
         <Stat label="Uncalled" value={fmtMoney(f.uncalled)} />
         <Stat label="Distributed" value={fmtMoney(f.distributed)} />
-        <Stat label="NAV" value={fmtMoney(f.nav)} />
-        <Stat label="TVPI" value={`${f.tvpi}×`} />
-        <Stat label="DPI" value={`${f.dpi}×`} />
         <Stat label="LPs" value={f.lps} />
         <Stat label="Portfolio companies" value={f.portfolio_count} />
       </div>
