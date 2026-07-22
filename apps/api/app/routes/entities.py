@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..deps import EntityCtx, TenantCtx, entity_ctx, require_write, tenant_ctx
+from ..deps import EntityCtx, TenantCtx, entity_ctx, require_admin, require_write, tenant_ctx
 from ..models.entity import EntityType, LegalEntity
 from ..models.identity import Role
 from ..schemas import EntityIn, EntityOut, PackIn, StageIn, TeardownIn
@@ -69,7 +69,8 @@ def set_stage(
 def set_pack(
     body: PackIn, ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)
 ):
-    require_write(ctx.role)
+    # the pack is the commercial tier — owner/admin only, not any member
+    require_admin(ctx.role)
     if ctx.entity.type not in STAGED_TYPES:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Feature packs apply to companies only")
     ctx.entity.pack = body.pack

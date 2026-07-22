@@ -100,6 +100,16 @@ def test_csv_exports(client):
         assert must_contain in r.text
 
 
+def test_csv_export_neutralises_formula_injection(client):
+    """A company name that starts with a formula char must be quoted so Excel
+    doesn't execute it on open."""
+    h = auth_headers(client)
+    fid = _fund(client, h)
+    _inv(client, h, fid, name="=HYPERLINK(0)")
+    text = client.get(f"/funds/{fid}/export/holdings", headers=h).text
+    assert "'=HYPERLINK(0)" in text and "\n=HYPERLINK" not in text
+
+
 def test_update_audience_scopes_visibility(client):
     owner = auth_headers(client, email="founder@acme.in")
     tid = client.post("/tenants", json={"name": "Acme", "type": "company"}, headers=owner).json()["id"]

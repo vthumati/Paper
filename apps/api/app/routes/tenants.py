@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import TenantCtx, get_current_user, tenant_ctx
-from ..models.entity import LegalEntity
+from ..models.entity import Incorporation, LegalEntity
 from ..models.identity import Membership, Role, Tenant, User
 from ..schemas import TenantIn, TenantOut, TeardownIn
 from ..services import teardown
@@ -56,6 +56,9 @@ def delete_tenant(ctx: TenantCtx = Depends(tenant_ctx), db: Session = Depends(ge
             status.HTTP_409_CONFLICT,
             "Workspace still has entities — remove them before deleting the workspace",
         )
+    # an empty workspace can still hold draft incorporations (created before
+    # the entity exists) — clear them so the delete doesn't orphan / FK-fail
+    db.query(Incorporation).filter_by(tenant_id=ctx.tenant.id).delete()
     db.query(Membership).filter_by(tenant_id=ctx.tenant.id).delete()
     db.delete(ctx.tenant)
     db.commit()

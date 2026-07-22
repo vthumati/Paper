@@ -1002,11 +1002,20 @@ def delete_company_note(
 
 
 # --- CSV exports (Rundit-style data out) ---
+def _csv_safe(v):
+    """Neutralise spreadsheet formula injection: a cell an attacker controls
+    (e.g. a linked company's name) that starts with = + - @ (or a control
+    char) is executed by Excel/Sheets on open — prefix it with a quote."""
+    if isinstance(v, str) and v and v[0] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + v
+    return v
+
+
 def _csv_response(filename: str, header: list[str], rows: list[list]) -> Response:
     out = io.StringIO()
     w = csv.writer(out)
     w.writerow(header)
-    w.writerows(rows)
+    w.writerows([[_csv_safe(c) for c in row] for row in rows])
     return Response(
         content=out.getvalue(),
         media_type="text/csv",

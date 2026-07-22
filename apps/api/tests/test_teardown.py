@@ -105,3 +105,39 @@ def test_teardown_owner_only(client):
     assert client.post(
         f"/tenants/{tid}/teardown", json={"confirm_name": "Private"}, headers=outsider
     ).status_code == 403
+
+
+def test_teardown_does_not_delete_linked_fund_holdings(client):
+    """A holding links to a portfolio company via a cross-tenant FK. Tearing
+    down that company must NOT delete the fund's investment record (which lives
+    in another tenant) — the link is cleared, the record survives."""
+    h = auth_headers(client)
+    ftid = client.post("/tenants", json={"name": "GP", "type": "fund"}, headers=h).json()["id"]
+    feid = client.post(
+        f"/tenants/{ftid}/entities", json={"name": "Fund I", "type": "fund"}, headers=h
+    ).json()["id"]
+    fid = client.post(f"/entities/{feid}/fund", json={"sebi_category": "II"}, headers=h).json()["id"]
+    # a company in its own workspace, linked as a holding
+    ctid = client.post("/tenants", json={"name": "C Grp", "type": "company"}, headers=h).json()["id"]
+    ceid = client.post(
+        f"/tenants/{ctid}/entities", json={"name": "C Co", "type": "pvt_ltd"}, headers=h
+    ).json()["id"]
+    inv = client.post(
+        f"/funds/{fid}/portfolio",
+        json={"company_name": "x", "company_entity_id": ceid, "amount": "5000000"},
+        headers=h,
+    ).json()
+
+    # the company teardown preview must not count the other tenant's holding
+    pv = client.get(f"/entities/{ceid}/teardown-preview", headers=h).json()
+    assert "Portfolio investments" not in pv["breakdown"]
+
+    assert client.post(
+        f"/entities/{ceid}/teardown", json={"confirm_name": "C Co"}, headers=h
+    ).status_code == 200
+    assert client.get(f"/entities/{ceid}", headers=h).status_code == 404
+
+    # the fund's holding survives, with the link cleared
+    port = client.get(f"/funds/{fid}/portfolio", headers=h).json()
+    assert len(port) == 1 and port[0]["id"] == inv["id"]
+    assert port[0]["company_entity_id"] is None

@@ -11,7 +11,7 @@ UI shows before asking the user to type the name to confirm.
 """
 from collections import defaultdict
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 import app.models  # noqa: F401 — ensure every model is registered on the metadata
@@ -19,6 +19,16 @@ from app.models.base import Base
 
 # child rows are deleted in chunks to stay under SQLite's parameter limit
 _CHUNK = 400
+
+# Cross-tenant *link* FKs: a fund / SPV in one tenant may reference a company
+# entity owned by ANOTHER tenant. These are references, not ownership edges —
+# the closure must NOT delete the referencing row (it belongs to a different
+# tenant). We skip them when walking, and null them out when their target is
+# deleted so the other tenant keeps its record, just unlinked.
+_LINK_FKS = {
+    ("portfolio_investments", "company_entity_id"),
+    ("spvs", "portco_entity_id"),
+}
 
 # friendly labels for the preview breakdown; unmapped tables fall back to a
 # prettified table name
@@ -44,12 +54,32 @@ _LABELS = {
 
 
 def _children_index():
-    """parent-table-name -> [(child_table, child_fk_column, parent_column)]."""
+    """parent-table-name -> [(child_table, child_fk_column, parent_column)].
+    Cross-tenant link FKs are excluded — following them would delete another
+    tenant's rows (see _LINK_FKS / _nullify_links)."""
     idx = defaultdict(list)
     for table in Base.metadata.tables.values():
         for fk in table.foreign_keys:
+            if (table.name, fk.parent.name) in _LINK_FKS:
+                continue  # a reference, not an ownership edge
             idx[fk.column.table.name].append((table, fk.parent, fk.column))
     return idx
+
+
+def _nullify_links(db: Session, doomed: dict[str, set]) -> None:
+    """Null any cross-tenant link FK that points at an entity being deleted, so
+    a fund/SPV in another tenant keeps its record (with the link cleared)
+    instead of dangling or blocking the delete on FK-enforcing databases."""
+    ent_ids = list(doomed.get("legal_entities", set()))
+    if not ent_ids:
+        return
+    for table_name, col_name in _LINK_FKS:
+        table = Base.metadata.tables.get(table_name)
+        if table is None:
+            continue
+        col = table.c[col_name]
+        for i in range(0, len(ent_ids), _CHUNK):
+            db.execute(update(table).where(col.in_(ent_ids[i : i + _CHUNK])).values({col_name: None}))
 
 
 def _pk(table):
@@ -129,6 +159,7 @@ def preview_entity_teardown(db: Session, entity) -> dict:
 
 def teardown_entity(db: Session, entity) -> int:
     doomed = _closure(db, "legal_entities", {entity.id})
+    _nullify_links(db, doomed)
     deleted = _delete_closure(db, doomed)
     db.commit()
     return deleted
@@ -142,6 +173,7 @@ def preview_workspace_teardown(db: Session, tenant) -> dict:
 
 def teardown_workspace(db: Session, tenant) -> int:
     doomed = _closure(db, "tenants", {tenant.id})
+    _nullify_links(db, doomed)
     deleted = _delete_closure(db, doomed)
     db.commit()
     return deleted
