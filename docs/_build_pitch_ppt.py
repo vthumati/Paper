@@ -202,7 +202,8 @@ def build():
     s = new_slide(prs)
     eyebrow(s, M, 0.6, "02", "The product")
     section_title(s, M, 1.0, "The system of record for the whole company lifecycle.",
-                  "Not a point tool bolted on — the workflow itself. Every artifact reads from one source of truth.")
+                  "Not a point tool bolted on — the workflow itself. Every artifact reads from one "
+                  "source of truth; a company on Paper feeds its own numbers to the fund that backs it.")
     stages = [("STAGE 01", "Incorporate", "Wizard-driven Pvt Ltd / LLP / OPC formation with the full incorporation set drafted."),
               ("STAGE 02", "Own", "Cap table, ESOP pools & grants, founder vesting, fully-diluted & scenario views."),
               ("STAGE 03", "Raise", "Rounds & SAFEs, data room, term-sheet scanner, PAS-4 & FC-GPR on close."),
@@ -215,7 +216,7 @@ def build():
         text(s, x + 0.24, 2.92, rw - 0.4, 0.4, [[(h, 17, BRAND, False, False, SERIF)]])
         text(s, x + 0.24, 3.36, rw - 0.45, 0.9, [[(b, 11.5, MUTED)]], line_spacing=1.16)
 
-    pillars = [("For founders", ["Stage-aware guidance — only what matters now",
+    pillars = [("For founders", ["Plan-based workspace — Starter → Growth → Scale",
                                  "Cap table, ESOP & 409A-style valuations",
                                  "Diligence readiness score before you raise"]),
                ("For funds & SPVs", ["Capital accounts, waterfall, NAV & 64C/64D",
