@@ -224,7 +224,7 @@ export default function EntityDetail() {
   const nextTodos = guide ? guide.checklist.filter((c) => !c.done) : [];
 
   return (
-    <div>
+    <div className={isCompany ? "startup-skin" : undefined}>
       <p className="muted">
         <a
           href="#"

@@ -585,3 +585,25 @@ mark.ok { background: #d1fae5; color: #115e45; border-radius: 4px; padding: 0 3p
   th, td { padding: 9px; }
   h1 { font-size: 26px; }
 }
+
+/* ── Startup workspace: airier spacing (Vestbee-inspired) ──────────────────
+   Spacing only — font family, weight and letter-spacing are unchanged.
+   Scoped to company workspaces via the .startup-skin wrapper on EntityDetail,
+   so the fund/investor sides and the shared shell keep their current density. */
+.startup-skin { line-height: 1.65; }
+.startup-skin p, .startup-skin li, .startup-skin td { line-height: 1.65; }
+.startup-skin .card { padding: 26px 28px; border-radius: 20px; margin-bottom: 22px; }
+.startup-skin .hero { padding: 30px 34px; border-radius: 24px; margin-bottom: 24px; }
+.startup-skin h2 { margin-bottom: 6px; }
+.startup-skin .row { gap: 16px; }
+.startup-skin th, .startup-skin td { padding: 13px 15px; }
+.startup-skin .stat-tile { padding: 22px 20px; border-radius: 18px; }
+.startup-skin .tabs { margin-bottom: 22px; gap: 6px; }
+.startup-skin .subtabs { margin-bottom: 18px; padding-bottom: 10px; }
+.startup-skin .list-item { padding: 14px 16px; margin-bottom: 10px; border-radius: 14px; }
+.startup-skin .doc-grid, .startup-skin .qa-row, .startup-skin .pkg-cards { gap: 16px; }
+@media (max-width: 860px) {
+  .startup-skin .card { padding: 18px; }
+  .startup-skin .hero { padding: 22px; }
+  .startup-skin th, .startup-skin td { padding: 10px; }
+}
