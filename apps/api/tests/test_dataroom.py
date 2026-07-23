@@ -45,6 +45,11 @@ def test_data_room_flow(client):
 
     eng = client.get(f"/data-rooms/{rid}/engagement", headers=h).json()
     assert eng and eng[0]["views"] == 2
+    # engagement now carries the "who accessed, when" signal
+    row = eng[0]
+    assert row["document_name"]  # resolved title, not a raw id
+    assert row["first_viewed"] and row["last_viewed"]
+    assert row["last_viewed"] >= row["first_viewed"]
 
 
 def test_data_room_rejects_foreign_document(client):

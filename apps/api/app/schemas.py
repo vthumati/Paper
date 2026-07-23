@@ -450,8 +450,11 @@ class DataRoomOut(BaseModel):
 
 class EngagementOut(BaseModel):
     document_id: str | None
+    document_name: str | None = None
     actor: str
     views: int
+    first_viewed: datetime.datetime | None = None
+    last_viewed: datetime.datetime | None = None
 
 
 # --- compliance ---
