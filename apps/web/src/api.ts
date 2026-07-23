@@ -301,8 +301,11 @@ export interface DataRoom {
 }
 export interface Engagement {
   document_id: string | null;
+  document_name: string | null;
   actor: string;
   views: number;
+  first_viewed: string | null;
+  last_viewed: string | null;
 }
 export interface Obligation {
   id: string;

@@ -9,6 +9,7 @@ import {
   type Engagement,
 } from "../api";
 import EmptyState from "../components/EmptyState";
+import { timeAgo } from "../lib/format";
 
 export default function DataRoom({ entityId }: { entityId: string }) {
   const [rooms, setRooms] = useState<DataRoomT[]>([]);
@@ -158,23 +159,38 @@ export default function DataRoom({ entityId }: { entityId: string }) {
                 Access: {selected.grants.map((g) => g.email).join(", ") || "none"}
               </p>
 
-              {engagement.length > 0 && (
+              <h3>Investor engagement</h3>
+              {engagement.length === 0 ? (
+                <p className="muted">No opens yet — engagement appears here once an investor views a shared document.</p>
+              ) : (
                 <>
-                  <h3>Engagement</h3>
+                  <p className="muted">
+                    {new Set(engagement.map((e) => e.actor)).size} viewer
+                    {new Set(engagement.map((e) => e.actor)).size === 1 ? "" : "s"} ·{" "}
+                    {engagement.reduce((n, e) => n + e.views, 0)} total opens
+                  </p>
                   <table>
                     <thead>
                       <tr>
-                        <th>Actor</th>
+                        <th>Investor</th>
                         <th>Document</th>
-                        <th>Views</th>
+                        <th>Opens</th>
+                        <th>Last opened</th>
+                        <th>First opened</th>
                       </tr>
                     </thead>
                     <tbody>
                       {engagement.map((e, i) => (
                         <tr key={i}>
                           <td>{e.actor}</td>
-                          <td className="muted">{e.document_id}</td>
+                          <td>{e.document_name || <span className="muted">document</span>}</td>
                           <td>{e.views}</td>
+                          <td title={e.last_viewed ? new Date(e.last_viewed).toLocaleString() : ""}>
+                            {timeAgo(e.last_viewed)}
+                          </td>
+                          <td className="muted" title={e.first_viewed ? new Date(e.first_viewed).toLocaleString() : ""}>
+                            {timeAgo(e.first_viewed)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
