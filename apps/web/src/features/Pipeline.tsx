@@ -13,6 +13,7 @@ const STAGE_COLORS: Record<string, string> = {
   committed: "#1e6b3f",
   passed: "#b3423a",
 };
+const label = (s: string) => s.replace(/_/g, " ");
 
 export default function Pipeline({
   entityId,
@@ -31,6 +32,9 @@ export default function Pipeline({
   } | null>(null);
   const { error, setError, guard } = useGuard(() => load());
   const [note, setNote] = useState("");
+  const [view, setView] = useState<"board" | "table">("board");
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overStage, setOverStage] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [firm, setFirm] = useState("");
@@ -55,26 +59,86 @@ export default function Pipeline({
     load();
   }, [entityId]);
 
+  const moveStage = (p: Prospect, stage: string) => {
+    if (p.commitment_id || p.stage === stage) return;
+    guard(() => api.updateProspectStage(p.id, { stage }))();
+  };
+
+  const convert = (p: Prospect) =>
+    guard(async () => {
+      await api.convertProspect(p.id);
+      setNote(`${p.name} converted to a round commitment.`);
+      onChanged?.();
+    })();
+
+  const roundName = (id: string | null) =>
+    id ? rounds.find((r) => r.id === id)?.name : null;
+
+  const card = (p: Prospect) => (
+    <div
+      key={p.id}
+      className="deal-card"
+      draggable={!p.commitment_id}
+      onDragStart={(e) => {
+        setDragId(p.id);
+        e.dataTransfer.effectAllowed = "move";
+        try {
+          e.dataTransfer.setData("text/plain", p.id);
+        } catch {
+          /* some browsers restrict setData outside user gesture */
+        }
+      }}
+      onDragEnd={() => {
+        setDragId(null);
+        setOverStage(null);
+      }}
+      style={{ cursor: p.commitment_id ? "default" : "grab" }}
+    >
+      <strong>{p.name}</strong>
+      {p.firm && <div className="muted" style={{ fontSize: 12 }}>{p.firm}</div>}
+      {p.check_size && <div style={{ margin: "2px 0" }}>{fmtMoney(p.check_size)}</div>}
+      {roundName(p.round_id) && (
+        <div style={{ margin: "2px 0" }}>
+          <span className="badge">{roundName(p.round_id)}</span>
+        </div>
+      )}
+      {p.commitment_id ? (
+        <span className="badge complete">committed → round</span>
+      ) : p.round_id && p.check_size ? (
+        <button className="secondary" style={{ marginTop: 4 }} onClick={() => convert(p)}>
+          Convert to commitment
+        </button>
+      ) : (
+        <span className="muted" style={{ fontSize: 11 }}>
+          link a round + check size to convert
+        </span>
+      )}
+    </div>
+  );
+
   return (
     <div className="card">
-      <PageHeader icon="📇" title="Fundraising pipeline" subtitle="Investor CRM — prospects from first contact to commitment" />
+      <PageHeader
+        icon="📇"
+        title="Fundraising pipeline"
+        subtitle="Investor CRM — drag prospects from first contact to commitment"
+        right={
+          <>
+            <button className={view === "board" ? "" : "secondary"} onClick={() => setView("board")}>
+              Board
+            </button>{" "}
+            <button className={view === "table" ? "" : "secondary"} onClick={() => setView("table")}>
+              Table
+            </button>
+          </>
+        }
+      />
       {error && <p className="error">{error}</p>}
       {note && <p className="muted">{note}</p>}
       {summary && (
         <p className="muted">
           {summary.total} prospects · Open value {fmtMoney(summary.open_value)} · Committed {fmtMoney(summary.committed_value)}
         </p>
-      )}
-      {summary && Object.keys(summary.by_stage ?? {}).length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-          {STAGES.filter((s) => summary.by_stage[s]).map((s) => (
-            <span key={s} className="badge" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: STAGE_COLORS[s] }} />
-              {s.replace(/_/g, " ")} · {fmtMoney(summary.by_stage[s].value)}{" "}
-              <span className="muted">({summary.by_stage[s].count})</span>
-            </span>
-          ))}
-        </div>
       )}
 
       <div className="row">
@@ -102,7 +166,53 @@ export default function Pipeline({
         </button>
       </div>
 
-      {prospects.length > 0 && (
+      {prospects.length === 0 ? (
+        <p className="muted" style={{ marginTop: 12 }}>
+          No prospects yet — add the investors you're raising from above.
+        </p>
+      ) : view === "board" ? (
+        <div className="kanban">
+          {STAGES.map((s) => {
+            const inStage = prospects.filter((p) => p.stage === s);
+            const value = summary?.by_stage?.[s]?.value;
+            return (
+              <div
+                key={s}
+                className="kanban-col"
+                style={{
+                  ...(s === "passed" ? { opacity: 0.7 } : {}),
+                  outline: overStage === s && dragId ? "2px dashed var(--accent)" : "none",
+                }}
+                onDragOver={(e) => {
+                  if (dragId) {
+                    e.preventDefault();
+                    setOverStage(s);
+                  }
+                }}
+                onDragLeave={() => setOverStage((cur) => (cur === s ? null : cur))}
+                onDrop={() => {
+                  const p = prospects.find((x) => x.id === dragId);
+                  if (p) moveStage(p, s);
+                  setDragId(null);
+                  setOverStage(null);
+                }}
+              >
+                <div className="kanban-col-title">
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: STAGE_COLORS[s] }} />
+                    {label(s)}
+                  </span>
+                  <span className="muted">
+                    {inStage.length}
+                    {value && Number(value) > 0 ? ` · ${fmtMoney(value)}` : ""}
+                  </span>
+                </div>
+                {inStage.map(card)}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
         <table style={{ marginTop: 10 }}>
           <thead>
             <tr><th>Investor</th><th>Firm</th><th>Check (₹)</th><th>Stage</th><th></th></tr>
@@ -112,7 +222,7 @@ export default function Pipeline({
               <tr key={p.id}>
                 <td>{p.name}</td>
                 <td>{p.firm || "—"}</td>
-                <td>{p.check_size || "—"}</td>
+                <td>{p.check_size ? fmtMoney(p.check_size) : "—"}</td>
                 <td>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <span style={{ width: 8, height: 8, borderRadius: "50%", flex: "0 0 auto", background: STAGE_COLORS[p.stage] ?? "#8a8f98" }} />
@@ -121,7 +231,7 @@ export default function Pipeline({
                       disabled={!!p.commitment_id}
                       onChange={(ev) => guard(() => api.updateProspectStage(p.id, { stage: ev.target.value }))()}
                     >
-                      {STAGES.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
+                      {STAGES.map((s) => <option key={s} value={s}>{label(s)}</option>)}
                     </select>
                   </span>
                 </td>
@@ -129,14 +239,7 @@ export default function Pipeline({
                   {p.commitment_id ? (
                     <span className="badge complete">committed →round</span>
                   ) : p.round_id && p.check_size ? (
-                    <button
-                      className="secondary"
-                      onClick={guard(async () => {
-                        await api.convertProspect(p.id);
-                        setNote(`${p.name} converted to a round commitment.`);
-                        onChanged?.();
-                      })}
-                    >
+                    <button className="secondary" onClick={() => convert(p)}>
                       Convert to commitment
                     </button>
                   ) : (
