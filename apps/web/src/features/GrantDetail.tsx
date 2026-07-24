@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api, type GrantDetail as GrantDetailT } from "../api";
 import StackedBar from "../components/StackedBar";
+import LineChart from "../components/LineChart";
+import ViewToggle from "../components/ViewToggle";
 import { fmtMoney } from "../lib/format";
 
 const TYPE_LABEL: Record<string, string> = { option: "Options", rsu: "RSUs", rsa: "RSAs" };
@@ -21,6 +23,7 @@ export default function GrantDetail({ grantId, onClose }: { grantId: string; onC
   const [d, setD] = useState<GrantDetailT | null>(null);
   const [error, setError] = useState("");
   const [showPast, setShowPast] = useState(false);
+  const [tlView, setTlView] = useState<"chart" | "timeline">("chart");
 
   useEffect(() => {
     api.grantDetail(grantId).then(setD).catch((e) => setError(e.message));
@@ -79,7 +82,42 @@ export default function GrantDetail({ grantId, onClose }: { grantId: string; onC
         ].filter((s) => s.value > 0)}
       />
 
-      <label style={{ marginTop: 16, display: "block" }}>Vesting timeline</label>
+      <label style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 10 }}>
+        <span>Vesting timeline</span>
+        <span style={{ marginLeft: "auto" }}>
+          <ViewToggle
+            value={tlView}
+            onChange={setTlView}
+            options={[
+              { value: "chart", label: "Curve" },
+              { value: "timeline", label: "Timeline" },
+            ]}
+          />
+        </span>
+      </label>
+      {tlView === "chart" ? (
+        <div>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+            Cumulative units vested — the flat stretch is the cliff, then it ramps to the full
+            {" "}{d.granted.toLocaleString()} by {d.full_vest_date}. {d.vesting_pct}% vested today.
+          </div>
+          <LineChart
+            height={200}
+            yPrefix=""
+            series={[
+              {
+                label: "Units vested",
+                color: "#0f9d6b",
+                points: [
+                  { x: d.grant_date, y: 0 },
+                  ...d.schedule.map((e) => ({ x: e.date, y: e.cumulative })),
+                ],
+              },
+            ]}
+          />
+        </div>
+      ) : (
+      <>
       <div className="timeline-row">
         <span className="tl-date">{d.grant_date}</span>
         <span>Vesting start</span>
@@ -126,6 +164,8 @@ export default function GrantDetail({ grantId, onClose }: { grantId: string; onC
         <span className="tl-date">{d.full_vest_date}</span>
         <span>Fully vested</span>
       </div>
+      </>
+      )}
 
       {d.documents.length > 0 && (
         <>
