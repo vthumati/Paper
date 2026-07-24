@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from ..clock import today_ist
 from ..db import get_db
-from ..deps import EntityCtx, entity_ctx, get_owned, require_write
+from ..deps import EntityCtx, PageCtx, entity_ctx, get_owned, page, require_write
 from ..models.captable import (
     BuybackTransaction,
     ConversionEvent,
@@ -101,9 +101,18 @@ def create_stakeholder(
 
 @router.get("/stakeholders", response_model=list[StakeholderOut])
 def list_stakeholders(
-    ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)
+    ctx: EntityCtx = Depends(entity_ctx),
+    p: PageCtx = Depends(page),
+    db: Session = Depends(get_db),
 ):
-    return db.query(Stakeholder).filter_by(entity_id=ctx.entity.id).all()
+    return (
+        db.query(Stakeholder)
+        .filter_by(entity_id=ctx.entity.id)
+        .order_by(Stakeholder.created_at)
+        .offset(p.offset)
+        .limit(p.limit)
+        .all()
+    )
 
 
 # --- issuances (append-only ledger) ---

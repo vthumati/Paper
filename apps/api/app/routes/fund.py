@@ -10,10 +10,12 @@ from ..deps import (
     DealCtx,
     EntityCtx,
     FundCtx,
+    PageCtx,
     deal_ctx,
     entity_ctx,
     fund_ctx,
     get_current_user,
+    page,
     require_write,
 )
 from ..models.fund import (
@@ -256,8 +258,19 @@ def add_lp(body: LPIn, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(g
 
 
 @router.get("/funds/{fund_id}/lps", response_model=list[LPOut])
-def list_lps(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
-    return db.query(LP).filter_by(fund_id=ctx.fund.id).all()
+def list_lps(
+    ctx: FundCtx = Depends(fund_ctx),
+    p: PageCtx = Depends(page),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(LP)
+        .filter_by(fund_id=ctx.fund.id)
+        .order_by(LP.created_at)
+        .offset(p.offset)
+        .limit(p.limit)
+        .all()
+    )
 
 
 # --- capital calls / drawdowns ---
@@ -348,8 +361,19 @@ def add_investment(
 
 
 @router.get("/funds/{fund_id}/portfolio", response_model=list[PortfolioOut])
-def list_portfolio(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
-    return db.query(PortfolioInvestment).filter_by(fund_id=ctx.fund.id).all()
+def list_portfolio(
+    ctx: FundCtx = Depends(fund_ctx),
+    p: PageCtx = Depends(page),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(PortfolioInvestment)
+        .filter_by(fund_id=ctx.fund.id)
+        .order_by(PortfolioInvestment.created_at)
+        .offset(p.offset)
+        .limit(p.limit)
+        .all()
+    )
 
 
 @router.get("/funds/{fund_id}/linkable-companies")
@@ -1189,8 +1213,19 @@ def create_deal(body: DealIn, ctx: FundCtx = Depends(fund_ctx), db: Session = De
 
 
 @router.get("/funds/{fund_id}/deals", response_model=list[DealOut])
-def list_deals(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
-    return db.query(Deal).filter_by(fund_id=ctx.fund.id).order_by(Deal.created_at.desc()).all()
+def list_deals(
+    ctx: FundCtx = Depends(fund_ctx),
+    p: PageCtx = Depends(page),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(Deal)
+        .filter_by(fund_id=ctx.fund.id)
+        .order_by(Deal.created_at.desc())
+        .offset(p.offset)
+        .limit(p.limit)
+        .all()
+    )
 
 
 @router.post("/deals/{deal_id}/stage", response_model=DealOut)

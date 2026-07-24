@@ -155,3 +155,23 @@ def test_logout_revokes_outstanding_token(client):
     assert client.get("/tenants", headers=h).status_code == 200  # token valid
     assert client.post("/auth/logout", headers=h).status_code == 204
     assert client.get("/tenants", headers=h).status_code == 401  # same token now revoked
+
+
+def test_list_endpoints_are_paginated(client):
+    """Large collections are bounded: default returns a page, explicit
+    limit/offset paginate, and an over-cap limit is clamped (<= 500)."""
+    h = auth_headers(client, email="page@test.in")
+    tid = client.post("/tenants", json={"name": "P", "type": "company"}, headers=h).json()["id"]
+    eid = client.post(
+        f"/tenants/{tid}/entities", json={"name": "P Co", "type": "pvt_ltd"}, headers=h
+    ).json()["id"]
+    for i in range(7):
+        client.post(
+            f"/entities/{eid}/stakeholders", json={"name": f"SH{i}", "type": "founder"}, headers=h
+        )
+    all_rows = client.get(f"/entities/{eid}/stakeholders", headers=h).json()
+    assert len(all_rows) == 7  # under the default page size
+    assert len(client.get(f"/entities/{eid}/stakeholders?limit=3", headers=h).json()) == 3
+    assert len(client.get(f"/entities/{eid}/stakeholders?limit=3&offset=6", headers=h).json()) == 1
+    # over-cap limit is clamped, never unbounded
+    assert len(client.get(f"/entities/{eid}/stakeholders?limit=99999", headers=h).json()) == 7

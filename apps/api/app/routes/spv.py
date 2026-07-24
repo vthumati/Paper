@@ -4,7 +4,16 @@ from sqlalchemy.orm import Session
 
 from ..clock import today_ist
 from ..db import get_db
-from ..deps import EntityCtx, SPVCtx, entity_ctx, get_current_user, require_write, spv_ctx
+from ..deps import (
+    EntityCtx,
+    PageCtx,
+    SPVCtx,
+    entity_ctx,
+    get_current_user,
+    page,
+    require_write,
+    spv_ctx,
+)
 from ..models.entity import LegalEntity
 from ..models.identity import User
 from ..models.spv import CoInvestor, SPV
@@ -90,8 +99,19 @@ def add_co_investor(
 
 
 @router.get("/spvs/{spv_id}/co-investors", response_model=list[CoInvestorOut])
-def list_co_investors(ctx: SPVCtx = Depends(spv_ctx), db: Session = Depends(get_db)):
-    return db.query(CoInvestor).filter_by(spv_id=ctx.spv.id).all()
+def list_co_investors(
+    ctx: SPVCtx = Depends(spv_ctx),
+    p: PageCtx = Depends(page),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(CoInvestor)
+        .filter_by(spv_id=ctx.spv.id)
+        .order_by(CoInvestor.created_at)
+        .offset(p.offset)
+        .limit(p.limit)
+        .all()
+    )
 
 
 @router.post("/spvs/{spv_id}/co-investors/{co_investor_id}/contribute", response_model=CoInvestorOut)
