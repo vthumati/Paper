@@ -3,7 +3,10 @@ import { useNavigate } from "react-router-dom";
 import EmptyState from "../components/EmptyState";
 import { uiPrompt } from "../components/Prompt";
 import ColumnChart from "../components/ColumnChart";
+import LineChart from "../components/LineChart";
 import Sankey from "../components/Sankey";
+import Treemap from "../components/Treemap";
+import ViewToggle from "../components/ViewToggle";
 import Stepper, { type StepState } from "../components/Stepper";
 import LpReportView from "../components/LpReportView";
 import Stat from "../components/Stat";
@@ -70,6 +73,10 @@ export default function Fund({
   const [perf, setPerf] = useState<FundPerformance | null>(null);
   const [series, setSeries] = useState<PerformancePoint[]>([]);
   const [note, setNote] = useState("");
+  const [flowView, setFlowView] = useState<"chart" | "table">("chart");
+  const [distView, setDistView] = useState<"chart" | "table">("chart");
+  const [jView, setJView] = useState<"chart" | "table">("chart");
+  const [soiView, setSoiView] = useState<"chart" | "table">("chart");
   const { error, setError, guard } = useGuard(async () => {
     if (fund) await refresh(fund.id);
   });
@@ -361,12 +368,100 @@ export default function Fund({
 
           {accounts && Number(accounts.totals.committed) > 0 && (
             <div className="card">
-              <h3>Capital flow</h3>
+              <h3 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span>Capital flow</span>
+                <span style={{ marginLeft: "auto" }}>
+                  <ViewToggle
+                    value={flowView}
+                    onChange={setFlowView}
+                    options={[
+                      { value: "chart", label: "Chart" },
+                      { value: "table", label: "Table" },
+                    ]}
+                  />
+                </span>
+              </h3>
               <p className="muted" style={{ marginTop: 0 }}>
                 How committed capital moves through the fund — drawn vs. still uncalled,
                 then deployed into holdings, net of fees and reserve cash.
               </p>
-              <Sankey format={(v) => fmtMoney(v)} links={capitalFlow.links} nodes={capitalFlow.nodes} />
+              {flowView === "chart" ? (
+                <Sankey format={(v) => fmtMoney(v)} links={capitalFlow.links} nodes={capitalFlow.nodes} />
+              ) : (
+                <table>
+                  <thead>
+                    <tr><th>From</th><th>To</th><th>Amount</th></tr>
+                  </thead>
+                  <tbody>
+                    {capitalFlow.links.map((l, i) => {
+                      const name = (id: string) => capitalFlow.nodes.find((n) => n.id === id)?.label ?? id;
+                      return (
+                        <tr key={i}>
+                          <td>{name(l.source)}</td>
+                          <td>{name(l.target)}</td>
+                          <td>{fmtMoney(l.value)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          {series.length > 0 && (
+            <div className="card">
+              <h3 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span>Fund value over time (J-curve)</span>
+                <span style={{ marginLeft: "auto" }}>
+                  <ViewToggle
+                    value={jView}
+                    onChange={setJView}
+                    options={[
+                      { value: "chart", label: "Chart" },
+                      { value: "table", label: "Table" },
+                    ]}
+                  />
+                </span>
+              </h3>
+              <p className="muted" style={{ marginTop: 0 }}>
+                Cumulative capital paid in vs. total value (NAV + distributions). The value line
+                pulling above paid-in is the classic J-curve turning positive.
+              </p>
+              {jView === "chart" ? (
+                <LineChart
+                  height={220}
+                  series={[
+                    {
+                      label: "Paid-in",
+                      color: "#94a3b8",
+                      points: series.map((p) => ({ x: p.date, y: Number(p.paid_in) })),
+                    },
+                    {
+                      label: "Total value (NAV + distributions)",
+                      color: "#0f9d6b",
+                      points: series.map((p) => ({ x: p.date, y: Number(p.tvpi) * Number(p.paid_in) })),
+                    },
+                  ]}
+                />
+              ) : (
+                <table>
+                  <thead>
+                    <tr><th>Date</th><th>Paid-in</th><th>NAV</th><th>DPI</th><th>TVPI</th></tr>
+                  </thead>
+                  <tbody>
+                    {series.map((p) => (
+                      <tr key={p.date}>
+                        <td>{p.date}</td>
+                        <td>{fmtMoney(p.paid_in)}</td>
+                        <td>{fmtMoney(p.nav)}</td>
+                        <td>{p.dpi}×</td>
+                        <td>{p.tvpi}×</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
 
@@ -530,8 +625,8 @@ export default function Fund({
 
           {dists.length > 0 && (
             <div className="card">
-              <h3>
-                Distributions (waterfall){" "}
+              <h3 style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span>Distributions (waterfall)</span>
                 <button
                   className="secondary"
                   onClick={guard(async () => {
@@ -542,7 +637,7 @@ export default function Fund({
                   })}
                 >
                   Generate 64C/64D
-                </button>{" "}
+                </button>
                 <button
                   className="secondary"
                   onClick={guard(async () => {
@@ -554,64 +649,76 @@ export default function Fund({
                 >
                   Audited financials
                 </button>
+                <span style={{ marginLeft: "auto" }}>
+                  <ViewToggle
+                    value={distView}
+                    onChange={setDistView}
+                    options={[
+                      { value: "chart", label: "Chart" },
+                      { value: "table", label: "Table" },
+                    ]}
+                  />
+                </span>
               </h3>
               <p className="muted">
                 Return of capital → preferred return ({(Number(fund.hurdle_pct) * 100).toFixed(0)}%) →
                 GP catch-up → {(Number(fund.carry_pct) * 100).toFixed(0)}% carry.
               </p>
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Kind</th>
-                    <th>Gross</th>
-                    <th>Return of capital</th>
-                    <th>Pref return</th>
-                    <th>GP catch-up</th>
-                    <th>GP total (carry)</th>
-                    <th>Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dists.map((d) => (
-                    <tr key={d.id}>
-                      <td>{d.dist_no}</td>
-                      <td>{d.kind}</td>
-                      <td>{fmtMoney(d.gross_amount)}</td>
-                      <td>{fmtMoney(d.roc_amount)}</td>
-                      <td>{fmtMoney(d.pref_amount)}</td>
-                      <td>{fmtMoney(d.catchup_amount)}</td>
-                      <td>{fmtMoney(d.carry_amount)}</td>
-                      <td>{d.date ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div style={{ marginTop: 14 }}>
-                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                  Waterfall by distribution — where each payout went
+              {distView === "chart" ? (
+                <div>
+                  <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                    Waterfall by distribution — where each payout went
+                  </div>
+                  <ColumnChart
+                    height={160}
+                    format={(v) => fmtMoney(v)}
+                    columns={dists.map((d) => {
+                      const gross = Number(d.gross_amount);
+                      const roc = Number(d.roc_amount);
+                      const pref = Number(d.pref_amount);
+                      const carry = Number(d.carry_amount);
+                      return {
+                        label: `#${d.dist_no}`,
+                        segments: [
+                          { label: "Return of capital", value: roc, color: "#4caf87" },
+                          { label: "Preferred return", value: pref, color: "#c9a227" },
+                          { label: "LP profit share", value: Math.max(0, gross - roc - pref - carry), color: "#2f6b52" },
+                          { label: "GP carry (incl. catch-up)", value: carry, color: "#8a5a2b" },
+                        ],
+                      };
+                    })}
+                  />
                 </div>
-                <ColumnChart
-                  height={160}
-                  format={(v) => fmtMoney(v)}
-                  columns={dists.map((d) => {
-                    const gross = Number(d.gross_amount);
-                    const roc = Number(d.roc_amount);
-                    const pref = Number(d.pref_amount);
-                    const carry = Number(d.carry_amount);
-                    return {
-                      label: `#${d.dist_no}`,
-                      segments: [
-                        { label: "Return of capital", value: roc, color: "#4caf87" },
-                        { label: "Preferred return", value: pref, color: "#c9a227" },
-                        { label: "LP profit share", value: Math.max(0, gross - roc - pref - carry), color: "#2f6b52" },
-                        { label: "GP carry (incl. catch-up)", value: carry, color: "#8a5a2b" },
-                      ],
-                    };
-                  })}
-                />
-              </div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Kind</th>
+                      <th>Gross</th>
+                      <th>Return of capital</th>
+                      <th>Pref return</th>
+                      <th>GP catch-up</th>
+                      <th>GP total (carry)</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dists.map((d) => (
+                      <tr key={d.id}>
+                        <td>{d.dist_no}</td>
+                        <td>{d.kind}</td>
+                        <td>{fmtMoney(d.gross_amount)}</td>
+                        <td>{fmtMoney(d.roc_amount)}</td>
+                        <td>{fmtMoney(d.pref_amount)}</td>
+                        <td>{fmtMoney(d.catchup_amount)}</td>
+                        <td>{fmtMoney(d.carry_amount)}</td>
+                        <td>{d.date ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
         </>
@@ -774,18 +881,17 @@ export default function Fund({
 
           {soi && soi.holdings.length > 0 && (
             <div className="card">
-              <h3>
-                Schedule of Investments{" "}
+              <h3 style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span>Schedule of Investments</span>
                 <button
                   className="secondary"
-                  style={{ marginLeft: 8 }}
                   onClick={guard(async () => {
                     await api.soiReport(fund.id);
                     setNote("Schedule of Investments statement generated (see Documents).");
                   }, "SoI statement generated")}
                 >
                   Generate statement
-                </button>{" "}
+                </button>
                 <button
                   className="secondary"
                   title="Download the holdings as CSV"
@@ -793,47 +899,85 @@ export default function Fund({
                 >
                   Export CSV
                 </button>
+                <span style={{ marginLeft: "auto" }}>
+                  <ViewToggle
+                    value={soiView}
+                    onChange={setSoiView}
+                    options={[
+                      { value: "chart", label: "Chart" },
+                      { value: "table", label: "Table" },
+                    ]}
+                  />
+                </span>
               </h3>
               <p className="muted">
                 Fair values are the fund's own marks; unmarked positions are held at cost.
               </p>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Company</th>
-                    <th>Cost</th>
-                    <th>Fair value</th>
-                    <th>MOIC</th>
-                    <th>Unrealised gain</th>
-                    <th>% of NAV</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {soi.holdings.map((h) => (
-                    <tr key={h.id}>
-                      <td>
-                        {h.company_name}{" "}
-                        {!h.marked && <span className="badge">at cost</span>}
-                      </td>
-                      <td>{fmtMoney(h.cost)}</td>
-                      <td>{fmtMoney(h.current_value)}</td>
-                      <td>{h.moic ? `${h.moic}×` : "—"}</td>
-                      <td className={Number(h.unrealized_gain) < 0 ? "delta-down" : "delta-up"}>
-                        {fmtMoney(h.unrealized_gain)}
-                      </td>
-                      <td>{h.pct_of_nav}%</td>
+              {soiView === "chart" ? (
+                <div>
+                  <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                    Each tile is a holding — area is its fair value, colour is its MOIC
+                    (green = marked up, amber/red = below cost, grey = held at cost).
+                  </div>
+                  <Treemap
+                    height={280}
+                    format={(v) => fmtMoney(v)}
+                    items={soi.holdings.map((h) => {
+                      const moic = h.moic ? Number(h.moic) : null;
+                      const color = !h.marked || moic === null
+                        ? "#94a3b8"
+                        : moic >= 2 ? "#0b6b48"
+                        : moic >= 1 ? "#0f9d6b"
+                        : moic >= 0.5 ? "#d0982a"
+                        : "#c0552f";
+                      return {
+                        label: h.company_name,
+                        value: Number(h.current_value),
+                        color,
+                        hint: `${h.company_name}: ${fmtMoney(h.current_value)} · ${moic ? `${moic}×` : "at cost"} · ${h.pct_of_nav}% of NAV`,
+                      };
+                    })}
+                  />
+                </div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Company</th>
+                      <th>Cost</th>
+                      <th>Fair value</th>
+                      <th>MOIC</th>
+                      <th>Unrealised gain</th>
+                      <th>% of NAV</th>
                     </tr>
-                  ))}
-                  <tr style={{ fontWeight: 700, borderTop: "2px solid var(--border)" }}>
-                    <td>Total ({soi.totals.count})</td>
-                    <td>{fmtMoney(soi.totals.cost)}</td>
-                    <td>{fmtMoney(soi.totals.current_value)}</td>
-                    <td>{soi.totals.moic ? `${soi.totals.moic}×` : "—"}</td>
-                    <td>{fmtMoney(soi.totals.unrealized_gain)}</td>
-                    <td>100%</td>
-                  </tr>
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {soi.holdings.map((h) => (
+                      <tr key={h.id}>
+                        <td>
+                          {h.company_name}{" "}
+                          {!h.marked && <span className="badge">at cost</span>}
+                        </td>
+                        <td>{fmtMoney(h.cost)}</td>
+                        <td>{fmtMoney(h.current_value)}</td>
+                        <td>{h.moic ? `${h.moic}×` : "—"}</td>
+                        <td className={Number(h.unrealized_gain) < 0 ? "delta-down" : "delta-up"}>
+                          {fmtMoney(h.unrealized_gain)}
+                        </td>
+                        <td>{h.pct_of_nav}%</td>
+                      </tr>
+                    ))}
+                    <tr style={{ fontWeight: 700, borderTop: "2px solid var(--border)" }}>
+                      <td>Total ({soi.totals.count})</td>
+                      <td>{fmtMoney(soi.totals.cost)}</td>
+                      <td>{fmtMoney(soi.totals.current_value)}</td>
+                      <td>{soi.totals.moic ? `${soi.totals.moic}×` : "—"}</td>
+                      <td>{fmtMoney(soi.totals.unrealized_gain)}</td>
+                      <td>100%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
 

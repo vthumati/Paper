@@ -2,6 +2,9 @@ import { useState } from "react";
 import { fmtMoney } from "../lib/format";
 import { api, type Scenario } from "../api";
 import PageHeader from "../components/PageHeader";
+import ColumnChart from "../components/ColumnChart";
+import ViewToggle from "../components/ViewToggle";
+import { CHART_COLORS } from "../components/Donut";
 
 /** Pro-forma round modeling: what the cap table looks like AFTER a
  *  hypothetical round — nothing is written to the ledger. */
@@ -12,6 +15,7 @@ export default function ScenarioModeling({ entityId }: { entityId: string }) {
   const [price, setPrice] = useState("");
   const [topUp, setTopUp] = useState("");
   const [poolTiming, setPoolTiming] = useState<"pre" | "post">("pre");
+  const [stageView, setStageView] = useState<"chart" | "table">("chart");
   const [error, setError] = useState("");
 
   const holders = [...new Set(scenarios.flatMap((s) => s.rows.map((r) => r.name ?? "—")))];
@@ -82,46 +86,85 @@ export default function ScenarioModeling({ entityId }: { entityId: string }) {
         };
         return (
           <div style={{ marginTop: 12 }}>
-            <h4 style={{ margin: "4px 0" }}>
-              Stage breakdown — latest scenario ({fmtMoney(Number(latest.new_money))} @ pre{" "}
-              {fmtMoney(Number(latest.pre_money))})
-              {latest.pool_top_up > 0 && (
-                <span className="muted" style={{ fontWeight: 400 }}>
-                  {" "}· {latest.pool_top_up.toLocaleString()}-share pool created{" "}
-                  {latest.pool_timing === "post" ? "post-money" : "pre-money"}
-                </span>
-              )}
+            <h4 style={{ margin: "4px 0", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span>
+                Stage breakdown — latest scenario ({fmtMoney(Number(latest.new_money))} @ pre{" "}
+                {fmtMoney(Number(latest.pre_money))})
+                {latest.pool_top_up > 0 && (
+                  <span className="muted" style={{ fontWeight: 400 }}>
+                    {" "}· {latest.pool_top_up.toLocaleString()}-share pool created{" "}
+                    {latest.pool_timing === "post" ? "post-money" : "pre-money"}
+                  </span>
+                )}
+              </span>
+              <span style={{ marginLeft: "auto" }}>
+                <ViewToggle
+                  value={stageView}
+                  onChange={setStageView}
+                  options={[
+                    { value: "chart", label: "Chart" },
+                    { value: "table", label: "Table" },
+                  ]}
+                />
+              </span>
             </h4>
-            <table>
-              <thead>
-                <tr>
-                  <th>Holder</th>
-                  <th>Today</th>
-                  {hasSafes && <th>After SAFEs convert</th>}
-                  <th>After the round</th>
-                </tr>
-              </thead>
-              <tbody>
-                {latest.rows.map((r) => (
-                  <tr key={r.name ?? "—"}>
-                    <td>{r.name ?? "—"}</td>
-                    <td>
-                      {r.before_pct}%
-                      <div className="muted">{r.before.toLocaleString()} shares</div>
-                    </td>
-                    {hasSafes && (
-                      <td>
-                        {r.after_safes_pct}%{delta(r.after_safes_pct, r.before_pct)}
-                      </td>
-                    )}
-                    <td>
-                      {r.after_pct}%{delta(r.after_pct, hasSafes ? r.after_safes_pct : r.before_pct)}
-                      <div className="muted">{r.after.toLocaleString()} shares</div>
-                    </td>
+            {stageView === "chart" ? (
+              <div>
+                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                  Ownership shift — each column is the full cap table (100%); watch existing
+                  holders compress as the round dilutes them.
+                </div>
+                <ColumnChart
+                  height={190}
+                  format={(v) => `${v.toFixed(1)}%`}
+                  columns={[
+                    { stage: "Today", pick: (r: (typeof latest.rows)[number]) => r.before_pct },
+                    ...(hasSafes
+                      ? [{ stage: "After SAFEs", pick: (r: (typeof latest.rows)[number]) => r.after_safes_pct }]
+                      : []),
+                    { stage: "After round", pick: (r: (typeof latest.rows)[number]) => r.after_pct },
+                  ].map((col) => ({
+                    label: col.stage,
+                    segments: latest.rows.map((r, i) => ({
+                      label: r.name ?? "—",
+                      value: col.pick(r),
+                      color: CHART_COLORS[i % CHART_COLORS.length],
+                    })),
+                  }))}
+                />
+              </div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Holder</th>
+                    <th>Today</th>
+                    {hasSafes && <th>After SAFEs convert</th>}
+                    <th>After the round</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {latest.rows.map((r) => (
+                    <tr key={r.name ?? "—"}>
+                      <td>{r.name ?? "—"}</td>
+                      <td>
+                        {r.before_pct}%
+                        <div className="muted">{r.before.toLocaleString()} shares</div>
+                      </td>
+                      {hasSafes && (
+                        <td>
+                          {r.after_safes_pct}%{delta(r.after_safes_pct, r.before_pct)}
+                        </td>
+                      )}
+                      <td>
+                        {r.after_pct}%{delta(r.after_pct, hasSafes ? r.after_safes_pct : r.before_pct)}
+                        <div className="muted">{r.after.toLocaleString()} shares</div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         );
       })()}

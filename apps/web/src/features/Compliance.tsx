@@ -3,6 +3,8 @@ import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
 import { api, type FemaTracker, type Obligation, type TaxRecord } from "../api";
 import ProgressRing from "../components/ProgressRing";
+import CalendarHeatmap from "../components/CalendarHeatmap";
+import ViewToggle from "../components/ViewToggle";
 
 const STATUSES = ["due", "in_prep", "filed", "acknowledged"];
 // obligations whose statutory form we can pre-fill from the ledger/governance
@@ -25,6 +27,7 @@ export default function Compliance({
   const [obs, setObs] = useState<Obligation[]>([]);
   const [health, setHealth] = useState<{ total: number; filed: number; overdue: number; score: number } | null>(null);
   const [fyEnd, setFyEnd] = useState("2026-03-31");
+  const [obView, setObView] = useState<"chart" | "table">("chart");
   const [error, setError] = useState("");
 
   // tax-filing archive
@@ -150,9 +153,41 @@ export default function Compliance({
       </div>
 
       <div className="card">
-        <h3>Obligations</h3>
+        <h3 style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span>Obligations</span>
+          {obs.length > 0 && (
+            <span style={{ marginLeft: "auto" }}>
+              <ViewToggle
+                value={obView}
+                onChange={setObView}
+                options={[
+                  { value: "chart", label: "Calendar" },
+                  { value: "table", label: "Table" },
+                ]}
+              />
+            </span>
+          )}
+        </h3>
         {obs.length === 0 ? (
           <EmptyState icon="🗂️" title="No obligations yet" hint="Generate the ROC and GST/TDS calendar above to populate statutory due dates and track filing status." />
+        ) : obView === "chart" ? (
+          <div>
+            <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+              Statutory due dates by month — red months have something overdue, amber is open,
+              green is filed. Hover a month for the list.
+            </div>
+            <CalendarHeatmap
+              items={obs.map((o) => ({
+                date: o.due_date,
+                tone: o.overdue
+                  ? "bad"
+                  : o.status === "filed" || o.status === "acknowledged"
+                  ? "ok"
+                  : "warn",
+                label: `${o.form_code} · ${o.title} (${o.status})`,
+              }))}
+            />
+          </div>
         ) : (
           <table>
             <thead>
