@@ -8,6 +8,26 @@ Legend: **[P1]** blocks real-world use · **[P2]** high-leverage prod fix · **[
 
 ---
 
+## 0. Recently resolved (2026-07-24)
+
+- ✅ **Email case-sensitivity** — every email address field is normalised (trim + lower) at
+  the schema boundary; signup/login and the advisor cross-tenant match are case-insensitive.
+  No more duplicate accounts or case-based access misses.
+- ✅ **JWT revocation** — `User.token_version` embedded in the token and checked per request;
+  `POST /auth/logout` bumps it, revoking all outstanding tokens. *(Refresh tokens and a
+  startup assertion for a non-default secret are still open — see §1.)*
+- ✅ **Unbounded queries** — stakeholders, LPs, deals, portfolio holdings and SPV co-investors
+  now paginate (shared `page` dep, default 100 / max 500). *(Other lists can adopt it as
+  needed — see §3.)*
+- ✅ **E-sign bypass (interim)** — completing a signature now requires a one-time completion
+  token issued at request time, not generic workspace write access. *(Still a simulated
+  provider; real Digio/Aadhaar eSign integration remains a P1 — see §1.)*
+- ✅ **`fund.py` monolith decomposed** — `services/fund.py` (1,945 ln) and `routes/fund.py`
+  (1,690 ln) split into subdomain packages (`profile / accounting / prospects / deals /
+  monitoring / ddq`), behavior-preserving (public API + route paths unchanged).
+
+---
+
 ## 1. Production-readiness gaps (fix before real customers)
 
 - **[P1] No binary file upload / storage.** There is no `UploadFile` anywhere in the API.
@@ -23,19 +43,19 @@ Legend: **[P1]** blocks real-world use · **[P2]** high-leverage prod fix · **[
   and founders see nothing unless they log in. Needs: an email provider wired to the existing
   notification records (+ digest/scheduling).
 
-- **[P1] E-sign is simulated.** `apps/api/app/services/document.py` explicitly fakes the
-  provider callback (`Simulate the verified provider callback`). "Signed" documents are not
-  legally executed. Needs: a real provider (Digio / NSDL/Protean Aadhaar eSign / DocuSign).
+- **[P1] E-sign is simulated.** Completion is now token-gated (interim hardening, §0), but it
+  is still a **simulated** provider — "signed" documents are not legally executed. Needs: a
+  real provider (Digio / NSDL/Protean Aadhaar eSign / DocuSign) whose verified callback
+  replaces the token shim in `apps/api/app/services/document.py`.
 
 - **[P2] Rate limiting is in-memory.** `apps/api/app/ratelimit.py` is an in-process sliding
   window. On Cloud Run (horizontal scaling + cold starts) it is per-instance and resets on
   restart, so it is easily bypassed. Move to Redis / shared store for prod.
 
-- **[P2] JWT / session hardening.** Default secret is `dev-insecure-change-me...`
-  (`apps/api/app/config.py`) — safe only if `PAPER_JWT_SECRET` is set in deploy. No
-  server-side revocation (logout is client-only) and no refresh tokens; a leaked 12h token
-  cannot be killed. Consider refresh tokens + a revocation list, and assert a non-default
-  secret at startup in prod.
+- **[P2] JWT / session hardening.** Server-side revocation now exists (`token_version`, §0).
+  Still open: **refresh tokens** (access token lives 12h), and a **startup assertion** that
+  `PAPER_JWT_SECRET` is not the `dev-insecure-change-me...` default (`apps/api/app/config.py`)
+  in prod.
 
 - **[P2] PDF Unicode.** `apps/api/app/services/pdf.py` uses fpdf2 **core fonts** (Latin-1),
   so the ₹ glyph and non-Latin stakeholder names likely will not render in generated PDFs.
@@ -46,7 +66,7 @@ Legend: **[P1]** blocks real-world use · **[P2]** high-leverage prod fix · **[
 The financial engines are honest about this in-code and it is acceptable for an MVP, but they
 need hardening before customers rely on them for statutory filings / audits.
 
-- **Fund accounting** (`services/fund.py`, `services/fund_perf.py`): uninvested fund cash is
+- **Fund accounting** (`services/fund/accounting.py`, `services/fund_perf.py`): uninvested fund cash is
   not tracked in NAV; preferred return keeps accruing on all paid-in capital; waterfall is
   simplified; XIRR needs dated cashflows to populate.
 - **Cap table** (`services/captable.py`): as-converted election for non-participating
@@ -60,9 +80,10 @@ need hardening before customers rely on them for statutory filings / audits.
   well covered — 84 test files). No component/interaction/e2e tests, so UI regressions rely
   on manual checking. Add component tests for the high-traffic surfaces (Dashboard, Cap Table,
   Fund, Portal, EntityDetail nav) and a smoke e2e for the founder + fund journeys.
-- **[P3] Partial pagination.** activity/compliance/documents/workspace paginate; cap-table,
-  stakeholders, LPs, holdings and deal lists appear to return all rows unbounded. Fine at demo
-  scale, a problem at portfolio scale.
+- **[P3] Partial pagination.** The largest collections now paginate (activity, compliance,
+  documents, workspace, **stakeholders, LPs, deals, portfolio holdings, SPV co-investors** —
+  §0). A few smaller list endpoints still return all rows; adopt the shared `page` dep there
+  too as data grows. No "load more" UI yet (frontend requests the 500 cap).
 - **[P3] Permission granularity.** Owner-only teardown and a membership model exist, but
   fine-grained roles (viewer/editor/admin, per-tab scoping) were not found — audit before
   multi-user firms rely on it.
@@ -82,8 +103,9 @@ need hardening before customers rely on them for statutory filings / audits.
 ## Suggested priority order
 
 1. **File upload/storage** + **email delivery** — these two block genuine day-to-day usage
-   more than anything else.
-2. **Rate-limit + JWT/session hardening** + **PDF Unicode font** — small, high-leverage prod fixes.
+   more than anything else. (Real e-sign provider pairs with file upload.)
+2. **Rate-limit → shared store** + **refresh tokens / non-default-secret assertion** +
+   **PDF Unicode font** — small, high-leverage prod fixes.
 3. **Frontend test coverage** — pay down before the next big feature push.
 4. Fidelity work (fund accounting → audit-grade) as customers demand it; the AI layer once an
    LLM key is available.
