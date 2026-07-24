@@ -47,3 +47,36 @@ jobs:
         run: npm test
       - name: Type-check and build
         run: npm run build
+
+  api-types:
+    name: API types in sync with schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/api/requirements.txt
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+        working-directory: apps/api
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: apps/web
+      - name: Regenerate API types from the OpenAPI schema
+        run: |
+          python apps/api/scripts/dump_openapi.py
+          cd apps/web && npm run gen:api
+      - name: Fail if committed types are stale
+        run: |
+          if ! git diff --exit-code apps/web/src/api-types.ts; then
+            echo "::error::apps/web/src/api-types.ts is out of date with the backend schema."
+            echo "Run: python apps/api/scripts/dump_openapi.py && (cd apps/web && npm run gen:api), then commit."
+            exit 1
+          fi
