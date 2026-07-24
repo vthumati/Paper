@@ -1773,7 +1773,7 @@ export const api = {
     get<SecurityClass[]>(`/entities/${eid}/security-classes`),
   createSecurityClass: (eid: string, b: unknown) =>
     post<SecurityClass>(`/entities/${eid}/security-classes`, b),
-  listStakeholders: (eid: string) => get<Stakeholder[]>(`/entities/${eid}/stakeholders`),
+  listStakeholders: (eid: string) => get<Stakeholder[]>(`/entities/${eid}/stakeholders?limit=500`),
   createStakeholder: (eid: string, b: unknown) =>
     post<Stakeholder>(`/entities/${eid}/stakeholders`, b),
   createIssuance: (eid: string, b: unknown) => post(`/entities/${eid}/issuances`, b),
@@ -1848,7 +1848,7 @@ export const api = {
 
   getFund: (eid: string) => get<Fund>(`/entities/${eid}/fund`),
   createFund: (eid: string, b: unknown) => post<Fund>(`/entities/${eid}/fund`, b),
-  listLPs: (fid: string) => get<LP[]>(`/funds/${fid}/lps`),
+  listLPs: (fid: string) => get<LP[]>(`/funds/${fid}/lps?limit=500`),
   addLP: (fid: string, b: unknown) => post<LP>(`/funds/${fid}/lps`, b),
   listCalls: (fid: string) => get<CapitalCall[]>(`/funds/${fid}/capital-calls`),
   createCall: (fid: string, b: unknown) => post<CapitalCall>(`/funds/${fid}/capital-calls`, b),
@@ -1859,7 +1859,7 @@ export const api = {
   capitalAccounts: (fid: string) => get<CapitalAccounts>(`/funds/${fid}/capital-accounts`),
   fundPlan: (fid: string) => get<FundPlan>(`/funds/${fid}/plan`),
   saveFundPlan: (fid: string, b: FundPlanInput) => put<FundPlan>(`/funds/${fid}/plan`, b),
-  listPortfolio: (fid: string) => get<PortfolioInvestment[]>(`/funds/${fid}/portfolio`),
+  listPortfolio: (fid: string) => get<PortfolioInvestment[]>(`/funds/${fid}/portfolio?limit=500`),
   portfolioMonitoring: (fid: string) =>
     get<PortfolioMonitoring>(`/funds/${fid}/portfolio-monitoring`),
   portfolioSignals: (fid: string) => get<PortfolioSignals>(`/funds/${fid}/signals`),
@@ -1990,7 +1990,7 @@ export const api = {
     post<{ charged: string; charges: { lp_id: string; amount: string }[] }>(
       `/funds/${fid}/fees/charge`
     ),
-  listDeals: (fid: string) => get<Deal[]>(`/funds/${fid}/deals`),
+  listDeals: (fid: string) => get<Deal[]>(`/funds/${fid}/deals?limit=500`),
   createDeal: (fid: string, b: unknown) => post<Deal>(`/funds/${fid}/deals`, b),
   setDealStage: (did: string, stage: string) => post<Deal>(`/deals/${did}/stage`, { stage }),
   investDeal: (did: string, b: unknown) => post<Deal>(`/deals/${did}/invest`, b),
@@ -2093,7 +2093,7 @@ export const api = {
 
   getSPV: (eid: string) => get<SPV>(`/entities/${eid}/spv`),
   createSPV: (eid: string, b: unknown) => post<SPV>(`/entities/${eid}/spv`, b),
-  listCoInvestors: (sid: string) => get<CoInvestor[]>(`/spvs/${sid}/co-investors`),
+  listCoInvestors: (sid: string) => get<CoInvestor[]>(`/spvs/${sid}/co-investors?limit=500`),
   addCoInvestor: (sid: string, b: unknown) => post<CoInvestor>(`/spvs/${sid}/co-investors`, b),
   contributeCoInvestor: (sid: string, cid: string) =>
     post<CoInvestor>(`/spvs/${sid}/co-investors/${cid}/contribute`),
