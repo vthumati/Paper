@@ -1,3 +1,15 @@
+import type { components } from "./api-types";
+
+// `api-types.ts` is generated from the backend's OpenAPI schema, so response
+// types map straight from the Pydantic models — no hand-maintained duplicates.
+// Regenerate after changing a backend schema:
+//   1. cd ../api && python scripts/dump_openapi.py   # writes ../web/openapi.json
+//   2. npm run gen:api                                # rewrites src/api-types.ts
+// New/changed response types should alias these (below) rather than be
+// re-typed by hand. A few interfaces stay hand-written where the client needs
+// a richer/looser shape than the wire schema (e.g. InvestorUpdate, Entity).
+type Schemas = components["schemas"];
+
 const API = (import.meta.env.VITE_API_URL as string) || "http://127.0.0.1:8000";
 const TOKEN_KEY = "paper_token";
 
@@ -80,17 +92,8 @@ const put = <T>(p: string, body?: unknown) =>
 const del = <T>(p: string) => req<T>(p, { method: "DELETE" });
 
 // --- types ---
-export interface User {
-  id: string;
-  email: string;
-  full_name: string;
-  email_verified: boolean;
-}
-export interface Tenant {
-  id: string;
-  name: string;
-  type: "company" | "fund" | "firm";
-}
+export type User = Schemas["UserOut"];
+export type Tenant = Schemas["TenantOut"];
 export interface Entity {
   id: string;
   tenant_id: string;
@@ -155,17 +158,7 @@ export interface StageGuide {
   checklist: ChecklistItem[];
   progress: { done: number; total: number };
 }
-export interface SecurityClass {
-  id: string;
-  name: string;
-  kind: string;
-  par_value: string;
-  pref_multiple: string;
-  participating: boolean;
-  seniority: number;
-  anti_dilution: string;
-  orig_issue_price: string | null;
-}
+export type SecurityClass = Schemas["SecurityClassOut"];
 export interface AntiDilutionHolder {
   stakeholder_id: string;
   stakeholder_name: string | null;
@@ -192,15 +185,7 @@ export interface WaterfallResult {
   distributed: string;
   payouts: WaterfallPayout[];
 }
-export interface RightsIssue {
-  id: string;
-  security_class_id: string;
-  ratio_num: number;
-  ratio_den: number;
-  price_per_unit: string;
-  record_date: string;
-  status: string;
-}
+export type RightsIssue = Schemas["RightsIssueOut"];
 export interface Entitlement {
   stakeholder_id: string;
   stakeholder_name: string | null;
@@ -208,12 +193,7 @@ export interface Entitlement {
   entitled: number;
   subscribed: number;
 }
-export interface Stakeholder {
-  id: string;
-  name: string;
-  type: string;
-  email: string | null;
-}
+export type Stakeholder = Schemas["StakeholderOut"];
 export interface CapTableRow {
   stakeholder_id: string;
   stakeholder_name: string;
@@ -258,18 +238,7 @@ export interface DocTemplate {
   doc_type: string;
   body: string;
 }
-export interface Document {
-  id: string;
-  entity_id: string;
-  type: string;
-  title: string;
-  status: "draft" | "generated" | "signed";
-  template_key: string | null;
-  current_version: number;
-  subject_type: string | null;
-  subject_id: string | null;
-  content: string | null;
-}
+export type Document = Schemas["DocumentOut"];
 export interface SignatureRequest {
   id: string;
   document_id: string;
@@ -279,91 +248,16 @@ export interface SignatureRequest {
   completed_at: string | null;
   completion_token?: string | null; // returned only when the request is created
 }
-export interface DataRoomItem {
-  id: string;
-  document_id: string;
-  document_title: string | null;
-  folder: string;
-  order_index: number;
-}
-export interface Grant {
-  id: string;
-  email: string;
-  permissions: string;
-  expiry: string | null;
-}
-export interface DataRoom {
-  id: string;
-  entity_id: string;
-  name: string;
-  scope: string;
-  items: DataRoomItem[];
-  grants: Grant[];
-}
-export interface Engagement {
-  document_id: string | null;
-  document_name: string | null;
-  actor: string;
-  views: number;
-  first_viewed: string | null;
-  last_viewed: string | null;
-}
-export interface Obligation {
-  id: string;
-  form_code: string;
-  title: string;
-  category: string;
-  period_label: string;
-  due_date: string;
-  status: "due" | "in_prep" | "filed" | "acknowledged";
-  assignee: string | null;
-  srn: string | null;
-  overdue: boolean;
-}
-export interface Fund {
-  id: string;
-  entity_id: string;
-  sebi_category: string;
-  structure: string;
-  currency: string;
-  target_corpus: string;
-  carry_pct: string;
-  hurdle_pct: string;
-  mgmt_fee_pct: string;
-  fee_basis: string;
-}
-export interface LP {
-  id: string;
-  name: string;
-  email: string | null;
-  commitment: string;
-}
-export interface DrawdownNotice {
-  id: string;
-  lp_id: string;
-  amount: string;
-  paid: boolean;
-  acknowledged_at: string | null;
-}
-export interface CapitalCall {
-  id: string;
-  call_no: number;
-  pct: string;
-  purpose: string | null;
-  due_date: string | null;
-  notices: DrawdownNotice[];
-}
-export interface Distribution {
-  id: string;
-  dist_no: number;
-  gross_amount: string;
-  kind: string;
-  carry_amount: string;
-  roc_amount: string;
-  pref_amount: string;
-  catchup_amount: string;
-  date: string | null;
-}
+export type DataRoomItem = Schemas["DataRoomItemOut"];
+export type Grant = Schemas["GrantOut"];
+export type DataRoom = Schemas["DataRoomOut"];
+export type Engagement = Schemas["EngagementOut"];
+export type Obligation = Schemas["ObligationOut"];
+export type Fund = Schemas["FundOut"];
+export type LP = Schemas["LPOut"];
+export type DrawdownNotice = Schemas["DrawdownNoticeOut"];
+export type CapitalCall = Schemas["CapitalCallOut"];
+export type Distribution = Schemas["DistributionOut"];
 export interface CapitalAccount {
   lp_id: string;
   lp_name: string;
@@ -397,52 +291,11 @@ export interface EsopScheme {
   name: string;
   pool_size: number;
 }
-export interface EsopGrant {
-  id: string;
-  scheme_id: string;
-  stakeholder_id: string;
-  stakeholder_name: string | null;
-  grant_type: "option" | "rsu" | "rsa";
-  quantity: number;
-  exercise_price: string;
-  grant_date: string;
-  cliff_months: number;
-  total_months: number;
-  vested: number;
-  exercised: number;
-  exercisable: number;
-  unvested: number;
-}
-export interface AdvisorAccess {
-  id: string;
-  entity_id: string;
-  email: string;
-  firm_name: string;
-  role: string;
-}
-export interface AdvisorEntity {
-  entity_id: string;
-  entity_name: string;
-  entity_type: string;
-  tenant_name: string;
-  firm_name: string;
-  role: string;
-}
-export interface Valuation {
-  id: string;
-  method: string;
-  fmv_per_share: string;
-  valuation_date: string;
-  valuer_name: string | null;
-  valid_until: string | null;
-  basis: string | null;
-  status: string;
-}
-export interface CurrentFmv {
-  fmv_per_share: string | null;
-  valuation_id: string | null;
-  valuation_date: string | null;
-}
+export type EsopGrant = Schemas["EsopGrantOut"];
+export type AdvisorAccess = Schemas["AdvisorAccessOut"];
+export type AdvisorEntity = Schemas["AdvisorEntityOut"];
+export type Valuation = Schemas["ValuationOut"];
+export type CurrentFmv = Schemas["CurrentFmvOut"];
 export interface ScorecardFactor {
   key: string;
   label: string;
@@ -471,67 +324,13 @@ export interface Smartfill {
   months_of_data: number;
   projections: { year: number; revenue: string; expenses: string }[];
 }
-export interface Provider {
-  id: string;
-  name: string;
-  category: string;
-  firm: string | null;
-  email: string | null;
-  profile: string | null;
-  active: boolean;
-  verified: boolean;
-}
-export interface ServiceEngagement {
-  id: string;
-  entity_id: string;
-  provider_id: string;
-  provider_name: string | null;
-  provider_category: string | null;
-  scope: string | null;
-  status: string;
-  deliverable_doc_id: string | null;
-}
-export interface Touchpoint {
-  id: string;
-  date: string;
-  attendee: string | null;
-  summary: string | null;
-}
-export interface AuditEngagement {
-  id: string;
-  type: string;
-  period_label: string;
-  status: string;
-  findings: string | null;
-}
-export interface AdminSubscription {
-  id: string;
-  entity_id: string;
-  tier: string;
-  status: string;
-  provider_id: string | null;
-  touchpoints: Touchpoint[];
-  audits: AuditEngagement[];
-}
-export interface SPV {
-  id: string;
-  entity_id: string;
-  sponsor: string;
-  target_company: string;
-  structure: string;
-  portco_entity_id: string | null;
-  carry_pct: string;
-  min_ticket: string;
-}
-export interface CoInvestor {
-  id: string;
-  name: string;
-  email: string | null;
-  commitment: string;
-  contributed: string;
-  paid: boolean;
-  status: string;
-}
+export type Provider = Schemas["ProviderOut"];
+export type ServiceEngagement = Schemas["ServiceEngagementOut"];
+export type Touchpoint = Schemas["TouchpointOut"];
+export type AuditEngagement = Schemas["AuditEngagementOut"];
+export type AdminSubscription = Schemas["AdminSubscriptionOut"];
+export type SPV = Schemas["SPVOut"];
+export type CoInvestor = Schemas["CoInvestorOut"];
 export interface SPVSummary {
   spv_id: string;
   co_investor_count: number;
@@ -539,29 +338,8 @@ export interface SPVSummary {
   contributed: string;
   by_status: Record<string, number>;
 }
-export interface Round {
-  id: string;
-  entity_id: string;
-  name: string;
-  instrument: string;
-  pre_money: string;
-  target_amount: string;
-  price_per_share: string;
-  security_class_id: string | null;
-  valuation_id: string | null;
-  status: string;
-}
-export interface RoundCommitment {
-  id: string;
-  investor_name: string;
-  investor_email: string | null;
-  investor_kind: string;
-  amount: string;
-  shares: number | null;
-  is_foreign: boolean;
-  status: string;
-  stakeholder_id: string | null;
-}
+export type Round = Schemas["RoundOut"];
+export type RoundCommitment = Schemas["RoundCommitmentOut"];
 export interface RoundSummary {
   round_id: string;
   status: string;
@@ -576,52 +354,11 @@ export interface RoundSummary {
   implied_new_ownership_pct: number;
   commitment_count: number;
 }
-export interface Resolution {
-  id: string;
-  meeting_id: string | null;
-  type: string;
-  title: string;
-  text: string;
-  status: string;
-  passed_date: string | null;
-  document_id: string | null;
-}
-export interface AgendaItem {
-  id: string;
-  order_index: number;
-  title: string;
-}
-export interface Meeting {
-  id: string;
-  entity_id: string;
-  type: string;
-  title: string;
-  date: string;
-  location: string | null;
-  quorum: number | null;
-  status: string;
-  minutes: string | null;
-  notice_document_id: string | null;
-  resolutions: Resolution[];
-  agenda_items: AgendaItem[];
-}
-export interface Director {
-  id: string;
-  name: string;
-  din: string | null;
-  designation: string;
-  appointed_on: string;
-  resigned_on: string | null;
-  status: string;
-}
-export interface AuditEntry {
-  id: string;
-  actor_email: string | null;
-  method: string;
-  path: string;
-  status_code: number;
-  created_at: string;
-}
+export type Resolution = Schemas["ResolutionOut"];
+export type AgendaItem = Schemas["AgendaItemOut"];
+export type Meeting = Schemas["MeetingOut"];
+export type Director = Schemas["DirectorOut"];
+export type AuditEntry = Schemas["AuditEntryOut"];
 export interface AppNotification {
   id: string;
   type: string;
@@ -712,39 +449,10 @@ export interface FileItem {
   subject_type: string | null;
   created_at: string;
 }
-export interface TaxRecord {
-  id: string;
-  type: string;
-  period_label: string;
-  reference: string | null;
-  amount: string | null;
-  filed_on: string | null;
-  document_id: string | null;
-}
-export interface TeamMember {
-  id: string;
-  name: string;
-  email: string | null;
-  title: string | null;
-  employment_type: string;
-  joined_on: string | null;
-  left_on: string | null;
-  stakeholder_id: string | null;
-  status: string;
-}
-export interface Counterparty {
-  id: string;
-  name: string;
-  kind: string;
-  contact_name: string | null;
-  contact_email: string | null;
-}
-export interface InvestorAccess {
-  id: string;
-  email: string;
-  stakeholder_id: string | null;
-  status: string;
-}
+export type TaxRecord = Schemas["TaxRecordOut"];
+export type TeamMember = Schemas["TeamMemberOut"];
+export type Counterparty = Schemas["CounterpartyOut"];
+export type InvestorAccess = Schemas["InvestorAccessOut"];
 export interface UpdateViewer {
   email: string;
   view_count: number;
@@ -875,20 +583,7 @@ export interface ConsentTally {
   tally: { approved: number; rejected: number; pending: number };
   consents: { id: string; email: string; status: string; decided_at: string | null }[];
 }
-export interface Deal {
-  id: string;
-  fund_id: string;
-  company_name: string;
-  sector: string | null;
-  stage: string;
-  amount: string;
-  notes: string | null;
-  investment_id: string | null;
-  source: string | null;
-  next_followup_on: string | null;
-  stage_changed_at: string | null;
-  created_at: string;
-}
+export type Deal = Schemas["DealOut"];
 export interface DealContact {
   id: string;
   name: string;
@@ -1534,14 +1229,7 @@ export interface DiligenceResult {
   findings: DiligenceFinding[];
   counts: Record<string, number>;
 }
-export interface FunnelLink {
-  id: string;
-  entity_id: string;
-  round_id: string;
-  data_room_id: string | null;
-  token: string;
-  active: boolean;
-}
+export type FunnelLink = Schemas["FunnelLinkOut"];
 export interface FunnelProspect {
   id: string;
   name: string;
@@ -1603,37 +1291,14 @@ export interface PortalDashboard {
   liquidity_events: PortalLiquidityEvent[];
   kpi_requests: PortalKPIRequest[];
 }
-export interface Prospect {
-  id: string;
-  name: string;
-  firm: string | null;
-  email: string | null;
-  stage: string;
-  check_size: string | null;
-  notes: string | null;
-  round_id: string | null;
-  last_contact: string | null;
-  commitment_id: string | null;
-}
+export type Prospect = Schemas["ProspectOut"];
 export interface Eligibility {
   eligible: boolean;
   entity_type: string;
   reasons: string[];
 }
-export interface Recognition {
-  id: string;
-  entity_id: string;
-  status: string;
-  dpiit_number: string | null;
-  recognised_on: string | null;
-  valid_until: string | null;
-}
-export interface Benefit {
-  id: string;
-  type: string;
-  status: string;
-  reference: string | null;
-}
+export type Recognition = Schemas["RecognitionOut"];
+export type Benefit = Schemas["BenefitOut"];
 export interface Runway {
   snapshots: { period: string; cash_balance: string; monthly_burn: string; revenue: string }[];
   latest_cash: string | null;
@@ -1641,28 +1306,9 @@ export interface Runway {
   avg_monthly_burn: string | null;
   runway_months: number | null;
 }
-export interface SBO {
-  id: string;
-  name: string;
-  pan: string | null;
-  percentage: string;
-  nature: string | null;
-}
-export interface Charge {
-  id: string;
-  holder: string;
-  amount: string;
-  charge_type: string;
-  created_on: string;
-  satisfied: boolean;
-}
-export interface Registration {
-  id: string;
-  kind: string;
-  state: string;
-  number: string | null;
-  status: string;
-}
+export type SBO = Schemas["SBOOut"];
+export type Charge = Schemas["ChargeOut"];
+export type Registration = Schemas["RegistrationOut"];
 export interface Alert {
   entity_id: string;
   entity_name: string;
@@ -1671,19 +1317,7 @@ export interface Alert {
   due_date: string;
   overdue: boolean;
 }
-export interface Instrument {
-  id: string;
-  investor_name: string;
-  investor_kind: string;
-  instrument_type: string;
-  principal: string;
-  valuation_cap: string | null;
-  discount_pct: string;
-  interest_pct: string;
-  issue_date: string;
-  status: string;
-  converted_shares: number | null;
-}
+export type Instrument = Schemas["InstrumentOut"];
 export interface DematRec {
   id: string;
   security_class_id: string;
@@ -1691,18 +1325,7 @@ export interface DematRec {
   depository: string;
   status: string;
 }
-export interface FounderVesting {
-  id: string;
-  stakeholder_id: string;
-  security_class_id: string;
-  total_shares: number;
-  vested: number;
-  unvested: number;
-  cliff_months: number;
-  total_months: number;
-  start_date: string;
-  repurchased: boolean;
-}
+export type FounderVesting = Schemas["FounderVestingOut"];
 export interface DataRoomQuestion {
   id: string;
   asker: string;
@@ -1710,24 +1333,7 @@ export interface DataRoomQuestion {
   answer: string | null;
   answered_by: string | null;
 }
-export interface Contract {
-  id: string;
-  counterparty_id: string;
-  counterparty_name: string | null;
-  counterparty_kind: string | null;
-  title: string;
-  type: string;
-  value: string | null;
-  currency: string;
-  start_date: string | null;
-  end_date: string | null;
-  renewal_date: string | null;
-  auto_renew: boolean;
-  status: string;
-  document_id: string | null;
-  days_to_renewal: number | null;
-  renewal_overdue: boolean;
-}
+export type Contract = Schemas["ContractOut"];
 
 // --- endpoints ---
 export const api = {
