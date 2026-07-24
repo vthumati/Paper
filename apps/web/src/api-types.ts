@@ -7233,6 +7233,12 @@ export interface components {
              * @enum {string}
              */
             severity: "high" | "warn";
+            /**
+             * Basis
+             * @default value
+             * @enum {string}
+             */
+            basis: "value" | "pct_change";
         };
         /** MinutesIn */
         MinutesIn: {

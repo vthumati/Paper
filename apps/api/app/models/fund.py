@@ -372,6 +372,9 @@ class MetricAlertRule(Base, TimestampMixin):
     comparator: Mapped[str] = mapped_column(String(2))  # lt | gt
     threshold: Mapped[Decimal] = mapped_column(Numeric(20, 2))
     severity: Mapped[str] = mapped_column(String(8), default="warn")  # high | warn
+    # what the threshold compares: the latest value, or the % change vs the
+    # prior period (e.g. monthly burn rises >20%). value | pct_change
+    basis: Mapped[str] = mapped_column(String(12), default="value")
     created_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 

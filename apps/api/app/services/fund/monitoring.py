@@ -321,6 +321,9 @@ def portfolio_benchmarks(db: Session, fund: Fund) -> dict:
 # --- metric alert rules (Visible-style thresholds) -----------------------------
 ALERT_COMPARATORS = ("lt", "gt")
 ALERT_SEVERITIES = ("high", "warn")
+# what the threshold compares: the latest absolute value, or the % change
+# vs the prior reported period (e.g. monthly burn rises > 20%)
+ALERT_BASES = ("value", "pct_change")
 
 
 def _rule_view(r: MetricAlertRule) -> dict:
@@ -330,6 +333,7 @@ def _rule_view(r: MetricAlertRule) -> dict:
         "comparator": r.comparator,
         "threshold": str(r.threshold),
         "severity": r.severity,
+        "basis": r.basis,
     }
 
 
@@ -348,6 +352,8 @@ def create_alert_rule(db: Session, fund: Fund, data: dict, user_id: str) -> dict
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"comparator must be one of {ALERT_COMPARATORS}")
     if data.get("severity", "warn") not in ALERT_SEVERITIES:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"severity must be one of {ALERT_SEVERITIES}")
+    if data.get("basis", "value") not in ALERT_BASES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"basis must be one of {ALERT_BASES}")
     known = {m["key"] for m in metric_options(db, fund)}
     if data["metric"] not in known:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"unknown metric '{data['metric']}'")
@@ -357,6 +363,7 @@ def create_alert_rule(db: Session, fund: Fund, data: dict, user_id: str) -> dict
         comparator=data["comparator"],
         threshold=Decimal(str(data["threshold"])),
         severity=data.get("severity", "warn"),
+        basis=data.get("basis", "value"),
         created_by=user_id,
     )
     db.add(r)
@@ -911,23 +918,49 @@ def portfolio_signals(db: Session, fund: Fund) -> dict:
 
         # fund-defined metric alerts against the latest period
         if alert_rules:
-            values: dict[str, float | None] = {
-                "revenue": float(latest.revenue) if latest and latest.revenue is not None else None,
-                "revenue_growth_pct": growth,
-                "monthly_burn": float(latest.monthly_burn) if latest and latest.monthly_burn is not None else None,
-                "runway_months": runway,
-                "headcount": latest.headcount if latest else None,
-            }
-            for k, v in ((latest.custom or {}).items() if latest else ()):
-                if v is not None:
-                    values[f"custom.{k}"] = float(v)
+            def _metric_values(kpi) -> dict[str, float | None]:
+                if kpi is None:
+                    return {}
+                out: dict[str, float | None] = {
+                    "revenue": float(kpi.revenue) if kpi.revenue is not None else None,
+                    "monthly_burn": float(kpi.monthly_burn) if kpi.monthly_burn is not None else None,
+                    "runway_months": _runway_months(kpi.cash, kpi.monthly_burn),
+                    "headcount": kpi.headcount,
+                }
+                for k, cv in (kpi.custom or {}).items():
+                    if cv is not None:
+                        out[f"custom.{k}"] = float(cv)
+                return out
+
+            values = _metric_values(latest)
+            values["revenue_growth_pct"] = growth  # only meaningful on the latest
+            prev_values = _metric_values(prev)
             for r in alert_rules:
-                v = values.get(r.metric)
                 meta = metric_meta.get(r.metric)
-                if v is None or meta is None:
+                if meta is None:
+                    continue
+                v = values.get(r.metric)
+                if v is None:
                     continue
                 threshold = float(r.threshold)
-                if (r.comparator == "lt" and v < threshold) or (r.comparator == "gt" and v > threshold):
+                if r.basis == "pct_change":
+                    # period-over-period % change (e.g. burn rises > 20%)
+                    pv = prev_values.get(r.metric)
+                    if pv in (None, 0):
+                        continue
+                    change = (v - pv) / abs(pv) * 100
+                    if (r.comparator == "lt" and change < threshold) or (
+                        r.comparator == "gt" and change > threshold
+                    ):
+                        dirn = "up" if change >= 0 else "down"
+                        add(
+                            "metric_alert",
+                            r.severity,
+                            f"{meta['label']} {dirn} {abs(round(change, 1))}% vs prior period "
+                            f"({_fmt_metric(pv, meta['unit'])} → {_fmt_metric(v, meta['unit'])}) — "
+                            f"{'above' if r.comparator == 'gt' else 'below'} the {round(threshold, 1)}% change alert",
+                        )
+                elif (r.comparator == "lt" and v < threshold) or (r.comparator == "gt" and v > threshold):
                     word = "below" if r.comparator == "lt" else "above"
                     add(
                         "metric_alert",

@@ -81,6 +81,7 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
   const [aComp, setAComp] = useState<"lt" | "gt">("lt");
   const [aThreshold, setAThreshold] = useState("");
   const [aSeverity, setASeverity] = useState<"high" | "warn">("warn");
+  const [aBasis, setABasis] = useState<"value" | "pct_change">("value");
 
   const load = () =>
     Promise.all([
@@ -229,7 +230,8 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
       {alertsOpen && alerts && (
         <div style={{ margin: "10px 0" }}>
           <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-            Alert when a company's latest reported value crosses a threshold — breaches appear in
+            Alert when a company's latest reported value crosses a threshold, or when a metric
+            changes more than a % vs the prior period (e.g. burn rises &gt;20%) — breaches appear in
             the signals panel with the chosen severity.
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
@@ -238,8 +240,11 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
               const m = alerts.metrics.find((x) => x.key === r.metric);
               return (
                 <span key={r.id} className={`badge ${r.severity === "high" ? "danger" : ""}`}>
-                  {m?.label ?? r.metric} {r.comparator === "lt" ? "<" : ">"}{" "}
-                  {fmtMetric(Number(r.threshold), m?.unit ?? "number")}{" "}
+                  {m?.label ?? r.metric}{r.basis === "pct_change" ? " Δ" : ""}{" "}
+                  {r.comparator === "lt" ? "<" : ">"}{" "}
+                  {r.basis === "pct_change"
+                    ? `${r.threshold}%`
+                    : fmtMetric(Number(r.threshold), m?.unit ?? "number")}{" "}
                   <a
                     href="#"
                     title="Remove this alert rule"
@@ -266,6 +271,13 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
               </select>
             </div>
             <div>
+              <label>Basis</label>
+              <select value={aBasis} onChange={(e) => setABasis(e.target.value as "value" | "pct_change")}>
+                <option value="value">latest value</option>
+                <option value="pct_change">% change vs prior</option>
+              </select>
+            </div>
+            <div>
               <label>Condition</label>
               <select value={aComp} onChange={(e) => setAComp(e.target.value as "lt" | "gt")}>
                 <option value="lt">falls below</option>
@@ -273,8 +285,8 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
               </select>
             </div>
             <div>
-              <label>Threshold</label>
-              <input placeholder="e.g. 6" value={aThreshold} onChange={(e) => setAThreshold(e.target.value)} />
+              <label>{aBasis === "pct_change" ? "% change" : "Threshold"}</label>
+              <input placeholder={aBasis === "pct_change" ? "e.g. 20" : "e.g. 6"} value={aThreshold} onChange={(e) => setAThreshold(e.target.value)} />
             </div>
             <div>
               <label>Severity</label>
@@ -288,7 +300,8 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
               disabled={!aThreshold.trim() || isNaN(Number(aThreshold))}
               onClick={guard(async () => {
                 await api.addAlertRule(fundId, {
-                  metric: aMetric, comparator: aComp, threshold: aThreshold, severity: aSeverity,
+                  metric: aMetric, comparator: aComp, threshold: aThreshold,
+                  severity: aSeverity, basis: aBasis,
                 });
                 setAThreshold("");
               }, "Alert rule added")}

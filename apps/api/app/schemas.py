@@ -719,6 +719,8 @@ class MetricAlertRuleIn(BaseModel):
     comparator: Literal["lt", "gt"]
     threshold: Decimal
     severity: Literal["high", "warn"] = "warn"
+    # 'value' = latest absolute value; 'pct_change' = % change vs prior period
+    basis: Literal["value", "pct_change"] = "value"
 
 
 class InvestmentRoundIn(BaseModel):

@@ -951,6 +951,7 @@ export interface MetricAlertRule {
   comparator: "lt" | "gt";
   threshold: string;
   severity: "high" | "warn";
+  basis: "value" | "pct_change";
 }
 export interface MetricAlertRuleList {
   rules: MetricAlertRule[];

@@ -66,6 +66,40 @@ def test_multi_currency_fx_translation(client):
     assert perf["nav"] == "12450000.00"
 
 
+def test_metric_alert_pct_change_trigger(client):
+    """A period-over-period % change trigger: alert when monthly burn rises
+    more than 20% vs the prior period."""
+    h = auth_headers(client)
+    _, fid = _fund(client, h)
+    inv = client.post(
+        f"/funds/{fid}/portfolio", json={"company_name": "BurnCo", "amount": "1000000"}, headers=h
+    ).json()
+    # two reported periods: burn 100k → 130k (+30%)
+    client.post(f"/funds/{fid}/portfolio/{inv['id']}/kpis",
+        json={"period_label": "Q1", "as_of": "2026-01-31", "monthly_burn": "100000", "cash": "600000"}, headers=h)
+    client.post(f"/funds/{fid}/portfolio/{inv['id']}/kpis",
+        json={"period_label": "Q2", "as_of": "2026-04-30", "monthly_burn": "130000", "cash": "400000"}, headers=h)
+
+    # rule: monthly burn increases (pct_change) by more than 20%
+    rule = client.post(f"/funds/{fid}/alert-rules",
+        json={"metric": "monthly_burn", "comparator": "gt", "threshold": "20",
+              "severity": "high", "basis": "pct_change"}, headers=h).json()
+    assert rule["basis"] == "pct_change"
+
+    sig = client.get(f"/funds/{fid}/signals", headers=h).json()
+    company = next(c for c in sig["companies"] if c["company_name"] == "BurnCo")
+    alerts = [s for s in company["signals"] if s["kind"] == "metric_alert"]
+    assert any("up 30.0%" in s["message"] for s in alerts)
+
+    # a >50% threshold would NOT fire (30% change is below it)
+    client.post(f"/funds/{fid}/alert-rules",
+        json={"metric": "monthly_burn", "comparator": "gt", "threshold": "50", "basis": "pct_change"}, headers=h)
+    sig2 = client.get(f"/funds/{fid}/signals", headers=h).json()
+    company2 = next(c for c in sig2["companies"] if c["company_name"] == "BurnCo")
+    fired = [s for s in company2["signals"] if s["kind"] == "metric_alert"]
+    assert len(fired) == 1  # only the >20% rule fired
+
+
 def test_single_currency_fund_unaffected_by_fx(client):
     h = auth_headers(client)
     _, fid = _fund(client, h)
