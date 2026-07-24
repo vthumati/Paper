@@ -1,6 +1,7 @@
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -22,7 +23,9 @@ def signup(body: SignupIn, request: Request, db: Session = Depends(get_db)):
             status.HTTP_429_TOO_MANY_REQUESTS, "Too many signups; try again later"
         )
     signup_limiter.record_failure(ip)  # every attempt counts toward the window
-    if db.query(User).filter_by(email=body.email).first():
+    # body.email is already normalised (lower-cased) by the schema; match
+    # case-insensitively so a differently-cased legacy row still collides.
+    if db.query(User).filter(func.lower(User.email) == body.email).first():
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
     required = settings.email_verification_required
     token = secrets.token_urlsafe(24) if required else None
@@ -59,13 +62,13 @@ def verify_email(body: VerifyEmailIn, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenOut)
 def login(body: LoginIn, db: Session = Depends(get_db)):
-    key = body.email.lower()
+    key = body.email  # already normalised by the schema
     if login_limiter.blocked(key):
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
             "Too many failed attempts; try again later",
         )
-    user = db.query(User).filter_by(email=body.email).first()
+    user = db.query(User).filter(func.lower(User.email) == body.email).first()
     if not user or not verify_password(body.password, user.password_hash):
         login_limiter.record_failure(key)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")

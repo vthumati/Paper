@@ -110,3 +110,39 @@ def test_import_row_cap(client):
     )
     r = client.post(f"/entities/{eid}/cap-table/import", json={"csv": csv_text}, headers=h).json()
     assert not r["valid"] and "Too many rows" in r["errors"][0]["error"]
+
+def test_email_case_insensitive_registration_and_login(client):
+    """Registration + login normalise the email, so casing/whitespace can't
+    create duplicate accounts or lock a user out."""
+    r = client.post(
+        "/auth/signup",
+        json={"email": "  Casey@Example.IN ", "full_name": "Casey", "password": "pw12345678"},
+    )
+    assert r.status_code == 201
+    assert r.json()["email"] == "casey@example.in"  # stored normalised
+    # a differently-cased duplicate cannot create a second account
+    dup = client.post(
+        "/auth/signup",
+        json={"email": "CASEY@example.in", "full_name": "Casey2", "password": "pw12345678"},
+    )
+    assert dup.status_code == 409
+    # login succeeds whatever case is typed
+    tok = client.post("/auth/login", json={"email": "CASEY@EXAMPLE.IN", "password": "pw12345678"})
+    assert tok.status_code == 200 and tok.json()["access_token"]
+
+
+def test_advisor_grant_email_normalised(client):
+    """Cross-tenant advisor grants store a normalised email, so the match to the
+    advisor's login identity is deterministic (no case-based bypass/miss)."""
+    h = auth_headers(client, email="owner@advtest.in")
+    tid = client.post("/tenants", json={"name": "Adv Co", "type": "company"}, headers=h).json()["id"]
+    eid = client.post(
+        f"/tenants/{tid}/entities", json={"name": "Adv Co Pvt Ltd", "type": "pvt_ltd"}, headers=h
+    ).json()["id"]
+    g = client.post(
+        f"/entities/{eid}/advisor-access",
+        json={"email": "Advisor@Firm.IN", "firm_name": "Trilegal", "role": "viewer"},
+        headers=h,
+    )
+    assert g.status_code == 201
+    assert g.json()["email"] == "advisor@firm.in"

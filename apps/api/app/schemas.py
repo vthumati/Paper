@@ -1,8 +1,8 @@
 import datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, EmailStr, Field
 
 from .models.captable import (
     CorporateActionType,
@@ -36,6 +36,21 @@ from .models.valuation import ValuationMethod, ValuationStatus
 from .models.workflow import RunStatus, StepStatus, StepType
 
 
+def _norm_email(v):
+    """Normalise an email to its canonical form (trimmed, lower-cased) so it is a
+    stable cross-tenant identity key. Non-strings (e.g. None) pass through."""
+    return v.strip().lower() if isinstance(v, str) else v
+
+
+# Applied to every email *address* field so registration, login, and all
+# email-matched access grants (advisor, investor/LP portal, data rooms) compare
+# normalised values — no case-sensitivity duplicates or bypasses.
+NormEmail = Annotated[EmailStr, BeforeValidator(_norm_email)]
+NormEmailOpt = Annotated[Optional[EmailStr], BeforeValidator(_norm_email)]
+NormStr = Annotated[str, BeforeValidator(_norm_email)]
+NormStrOpt = Annotated[Optional[str], BeforeValidator(_norm_email)]
+
+
 class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -46,13 +61,13 @@ InvestorKind = Literal["friend_family", "angel", "institutional"]
 
 # --- auth ---
 class SignupIn(BaseModel):
-    email: EmailStr
+    email: NormEmail
     full_name: str
     password: str = Field(min_length=8)
 
 
 class LoginIn(BaseModel):
-    email: EmailStr
+    email: NormEmail
     password: str
 
 
@@ -67,7 +82,7 @@ class TokenOut(BaseModel):
 
 class UserOut(ORMModel):
     id: str
-    email: str
+    email: NormStr
     full_name: str
     email_verified: bool
 
@@ -95,7 +110,7 @@ class EntityIn(BaseModel):
 
 class IncorporationFounder(BaseModel):
     name: str
-    email: EmailStr | None = None
+    email: NormEmailOpt = None
     din: str | None = None
     shares: int = Field(gt=0)
     is_director: bool = True
@@ -194,14 +209,14 @@ class SecurityClassOut(ORMModel):
 class StakeholderIn(BaseModel):
     name: str
     type: StakeholderType
-    email: EmailStr | None = None
+    email: NormEmailOpt = None
 
 
 class StakeholderOut(ORMModel):
     id: str
     name: str
     type: StakeholderType
-    email: str | None
+    email: NormStrOpt
 
 
 class IssuanceIn(BaseModel):
@@ -419,7 +434,7 @@ class DataRoomItemIn(BaseModel):
 
 
 class GrantIn(BaseModel):
-    email: EmailStr
+    email: NormEmail
     permissions: str = "view"
     expiry: datetime.date | None = None
 
@@ -434,7 +449,7 @@ class DataRoomItemOut(BaseModel):
 
 class GrantOut(BaseModel):
     id: str
-    email: str
+    email: NormStr
     permissions: str
     expiry: datetime.date | None
 
@@ -520,14 +535,14 @@ class FundPlanIn(BaseModel):
 
 class LPIn(BaseModel):
     name: str
-    email: EmailStr | None = None
+    email: NormEmailOpt = None
     commitment: Decimal = Field(default=Decimal("0"), ge=0)
 
 
 class LPOut(ORMModel):
     id: str
     name: str
-    email: str | None
+    email: NormStrOpt
     commitment: Decimal
 
 
@@ -593,7 +608,7 @@ class PortfolioOut(ORMModel):
     invested_on: datetime.date | None
     current_value: Decimal | None
     marked_on: datetime.date | None
-    contact_email: str | None = None
+    contact_email: NormStrOpt = None
 
 
 class PortfolioMarkIn(BaseModel):
@@ -605,7 +620,7 @@ class LPProspectIn(BaseModel):
     name: str
     firm: str | None = None
     kind: str = "institutional"
-    email: EmailStr | None = None
+    email: NormEmailOpt = None
     stage: LPProspectStage = LPProspectStage.PROSPECT
     target_commitment: Decimal = Field(default=Decimal("0"), ge=0)
     notes: str | None = None
@@ -698,7 +713,7 @@ class KPIRequestIn(BaseModel):
     period_label: str
     as_of: datetime.date
     due_date: datetime.date | None = None
-    contact_email: EmailStr
+    contact_email: NormEmail
 
 
 class KPIRequestSubmitIn(BaseModel):
@@ -711,7 +726,7 @@ class KPIRequestSubmitIn(BaseModel):
 
 class KPIScheduleIn(BaseModel):
     cadence: Literal["monthly", "quarterly"]
-    contact_email: EmailStr | None = None  # optionally (re)sets the reporting contact
+    contact_email: NormEmailOpt = None  # optionally (re)sets the reporting contact
 
 
 class DealIn(BaseModel):
@@ -744,7 +759,7 @@ class DealInvestIn(BaseModel):
 class DealContactIn(BaseModel):
     name: str
     role: str | None = None
-    email: EmailStr | None = None
+    email: NormEmailOpt = None
     note: str | None = None
 
 
@@ -1038,7 +1053,7 @@ class ProviderIn(BaseModel):
     name: str
     category: ProviderCategory
     firm: str | None = None
-    email: EmailStr | None = None
+    email: NormEmailOpt = None
     profile: str | None = None
 
 
@@ -1047,7 +1062,7 @@ class ProviderOut(ORMModel):
     name: str
     category: ProviderCategory
     firm: str | None
-    email: str | None
+    email: NormStrOpt
     profile: str | None
     active: bool
     verified: bool
@@ -1147,14 +1162,14 @@ class SPVTermsIn(BaseModel):
 
 class CoInvestorIn(BaseModel):
     name: str
-    email: EmailStr | None = None
+    email: NormEmailOpt = None
     commitment: Decimal = Field(default=Decimal("0"), ge=0)
 
 
 class CoInvestorOut(ORMModel):
     id: str
     name: str
-    email: str | None
+    email: NormStrOpt
     commitment: Decimal
     contributed: Decimal
     paid: bool
@@ -1182,7 +1197,7 @@ class FunnelLinkOut(ORMModel):
 
 class FunnelInterestIn(BaseModel):
     name: str = Field(min_length=1, max_length=255)
-    email: EmailStr
+    email: NormEmail
     firm: str | None = Field(default=None, max_length=255)
     check_size: Decimal | None = Field(default=None, gt=0)
     notes: str | None = Field(default=None, max_length=2000)
@@ -1244,7 +1259,7 @@ class RoundOut(ORMModel):
 
 class RoundCommitmentIn(BaseModel):
     investor_name: str
-    investor_email: EmailStr | None = None
+    investor_email: NormEmailOpt = None
     investor_kind: InvestorKind = "institutional"
     amount: Decimal = Field(gt=0)
     shares: int | None = Field(default=None, gt=0)
@@ -1259,7 +1274,7 @@ class RoundCommitmentStatusIn(BaseModel):
 class RoundCommitmentOut(ORMModel):
     id: str
     investor_name: str
-    investor_email: str | None
+    investor_email: NormStrOpt
     investor_kind: str
     amount: Decimal
     shares: int | None
@@ -1354,7 +1369,7 @@ class ResolutionStatusIn(BaseModel):
 # --- activity: audit log + notifications ---
 class AuditEntryOut(ORMModel):
     id: str
-    actor_email: str | None
+    actor_email: NormStrOpt
     method: str
     path: str
     status_code: int
@@ -1403,7 +1418,7 @@ class TaxRecordOut(ORMModel):
 # --- team & HR-legal ---
 class TeamMemberIn(BaseModel):
     name: str
-    email: EmailStr | None = None
+    email: NormEmailOpt = None
     title: str | None = None
     employment_type: EmploymentType = EmploymentType.EMPLOYEE
     joined_on: datetime.date | None = None
@@ -1412,7 +1427,7 @@ class TeamMemberIn(BaseModel):
 class TeamMemberOut(ORMModel):
     id: str
     name: str
-    email: str | None
+    email: NormStrOpt
     title: str | None
     employment_type: EmploymentType
     joined_on: datetime.date | None
@@ -1435,7 +1450,7 @@ class CounterpartyIn(BaseModel):
     name: str
     kind: CounterpartyKind
     contact_name: str | None = None
-    contact_email: EmailStr | None = None
+    contact_email: NormEmailOpt = None
 
 
 class CounterpartyOut(ORMModel):
@@ -1443,7 +1458,7 @@ class CounterpartyOut(ORMModel):
     name: str
     kind: CounterpartyKind
     contact_name: str | None
-    contact_email: str | None
+    contact_email: NormStrOpt
 
 
 class ContractIn(BaseModel):
@@ -1468,7 +1483,7 @@ class ContractDocIn(BaseModel):
 
 # --- advisor (external professional) access ---
 class AdvisorAccessIn(BaseModel):
-    email: EmailStr
+    email: NormEmail
     firm_name: str = Field(min_length=1, max_length=255)
     # advisors get read-only (viewer) or acting (member) access; never owner/admin
     role: Literal["viewer", "member"] = "viewer"
@@ -1477,7 +1492,7 @@ class AdvisorAccessIn(BaseModel):
 class AdvisorAccessOut(ORMModel):
     id: str
     entity_id: str
-    email: str
+    email: NormStr
     firm_name: str
     role: Role
 
@@ -1493,13 +1508,13 @@ class AdvisorEntityOut(BaseModel):
 
 # --- investor portal ---
 class InvestorAccessIn(BaseModel):
-    email: EmailStr
+    email: NormEmail
     stakeholder_id: str | None = None
 
 
 class InvestorAccessOut(ORMModel):
     id: str
-    email: str
+    email: NormStr
     stakeholder_id: str | None
     status: str
 
@@ -1534,7 +1549,7 @@ class InvestorUpdateOut(ORMModel):
 class ProspectIn(BaseModel):
     name: str
     firm: str | None = None
-    email: EmailStr | None = None
+    email: NormEmailOpt = None
     stage: PipelineStage = PipelineStage.CONTACTED
     check_size: Decimal | None = None
     notes: str | None = None
@@ -1551,7 +1566,7 @@ class ProspectOut(ORMModel):
     id: str
     name: str
     firm: str | None
-    email: str | None
+    email: NormStrOpt
     stage: PipelineStage
     check_size: Decimal | None
     notes: str | None
@@ -1651,7 +1666,7 @@ class RegistrationOut(ORMModel):
 # --- convertible instruments (SAFE / note) ---
 class InstrumentIn(BaseModel):
     investor_name: str
-    investor_email: EmailStr | None = None
+    investor_email: NormEmailOpt = None
     investor_kind: InvestorKind = "angel"
     instrument_type: InstrumentType = InstrumentType.SAFE
     principal: Decimal = Field(gt=0)

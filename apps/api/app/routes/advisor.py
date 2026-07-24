@@ -3,6 +3,7 @@ CA / CS scoped access to its entity; the advisor sees a cross-tenant console of
 every client entity they can act on. Access is enforced in deps._entity_role,
 so an advisor reaches the normal entity workspace with their granted role."""
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..db import get_db
@@ -79,7 +80,9 @@ def my_advised_entities(
 ):
     """Cross-tenant console: every client entity this advisor can act on."""
     out = []
-    for adv in db.query(AdvisorAccess).filter_by(email=user.email):
+    for adv in db.query(AdvisorAccess).filter(
+        func.lower(AdvisorAccess.email) == func.lower(user.email)
+    ):
         entity = db.get(LegalEntity, adv.entity_id)
         if entity is None:
             continue
