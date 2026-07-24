@@ -136,3 +136,29 @@ def test_liquidation_waterfall_participating(client):
     payout = {p["stakeholder_name"]: p["payout"] for p in w["payouts"]}
     assert payout["Founder"] == "800000.00"
     assert payout["Series A"] == "2200000.00"
+
+
+def test_positions_memo_invalidated_by_new_issuance(client):
+    """The per-request positions memo must never serve stale numbers: a fresh
+    issuance is reflected on the next read (write flush clears the memo)."""
+    h = auth_headers(client)
+    tid = client.post("/tenants", json={"name": "Memo", "type": "company"}, headers=h).json()["id"]
+    eid = client.post(
+        f"/tenants/{tid}/entities", json={"name": "Memo Co", "type": "pvt_ltd"}, headers=h
+    ).json()["id"]
+    sc = client.post(
+        f"/entities/{eid}/security-classes", json={"name": "Equity", "kind": "equity"}, headers=h
+    ).json()["id"]
+    sh = client.post(
+        f"/entities/{eid}/stakeholders", json={"name": "Founder", "type": "founder"}, headers=h
+    ).json()["id"]
+    iss = lambda q, d: client.post(  # noqa: E731
+        f"/entities/{eid}/issuances",
+        json={"security_class_id": sc, "stakeholder_id": sh, "quantity": q,
+              "price_per_unit": "1", "issue_date": d},
+        headers=h,
+    )
+    iss(1000, "2025-01-01")
+    assert client.get(f"/entities/{eid}/cap-table", headers=h).json()["total_shares"] == 1000
+    iss(500, "2025-02-01")
+    assert client.get(f"/entities/{eid}/cap-table", headers=h).json()["total_shares"] == 1500

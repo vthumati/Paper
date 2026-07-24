@@ -6,6 +6,7 @@ event in chronological order, carrying a cost basis that follows the shares
 (so liquidation preference is correct after secondary transfers)."""
 from decimal import ROUND_HALF_UP, Decimal
 
+from sqlalchemy import event
 from sqlalchemy.orm import Session
 
 from ..models.captable import (
@@ -46,7 +47,30 @@ def _ordered_events(db: Session, entity_id: str):
     return events
 
 
+_POS_CACHE = "_captable_positions"  # per-Session memo of replayed positions
+
+
 def _positions(db: Session, entity_id: str) -> dict:
+    """Live positions for an entity, replayed from the ledger.
+
+    Memoised per request: the same entity's positions are replayed once, even
+    when several call sites need them (dashboard, portal loops, fully-diluted,
+    holding checks). The memo is skipped whenever the session has pending
+    writes (so a write path that appends events mid-operation always sees fresh
+    numbers — autoflush surfaces the pending rows) and is cleared on every flush
+    (see `_clear_positions_cache`). The append-only ledger stays the source of
+    truth — this only avoids redundant replays within one read request.
+
+    Consumers must treat the result as read-only (it may be a shared object)."""
+    if db.new or db.dirty or db.deleted:
+        return _compute_positions(db, entity_id)
+    cache = db.info.setdefault(_POS_CACHE, {})
+    if entity_id not in cache:
+        cache[entity_id] = _compute_positions(db, entity_id)
+    return cache[entity_id]
+
+
+def _compute_positions(db: Session, entity_id: str) -> dict:
     """{(stakeholder_id, class_id): {'quantity': int, 'amount': Decimal}}"""
     pos: dict[tuple[str, str], dict] = {}
 
@@ -227,3 +251,11 @@ def liquidation_waterfall(db: Session, entity_id: str, exit_amount: Decimal) -> 
         "distributed": str(sum((Decimal(r["payout"]) for r in rows), Decimal("0"))),
         "payouts": rows,
     }
+
+
+@event.listens_for(Session, "after_flush")
+def _clear_positions_cache(session: Session, flush_context) -> None:
+    """Any write flush invalidates the memoised positions, so the next read
+    replays the (now changed) ledger. Reads never flush, so the memo survives
+    across the many position lookups in a single read request."""
+    session.info.pop(_POS_CACHE, None)
