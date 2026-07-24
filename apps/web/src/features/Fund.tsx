@@ -518,6 +518,7 @@ export default function Fund({
                     <th>LP</th>
                     <th>Committed</th>
                     <th>Drawn</th>
+                    <th>Called</th>
                     <th>Remaining</th>
                     <th>Distributed</th>
                     <th>Fees</th>
@@ -531,6 +532,20 @@ export default function Fund({
                       <td>{a.lp_name}</td>
                       <td>{fmtMoney(a.committed)}</td>
                       <td>{fmtMoney(a.drawn)}</td>
+                      <td style={{ minWidth: 118 }}>
+                        {(() => {
+                          const c = Number(a.committed);
+                          const pct = c > 0 ? Math.min(100, Math.round((Number(a.drawn) / c) * 100)) : 0;
+                          return (
+                            <div title={`${pct}% of commitment called`}>
+                              <div style={{ height: 8, borderRadius: 4, background: "var(--light)", border: "1px solid var(--border)", overflow: "hidden" }}>
+                                <div style={{ width: `${pct}%`, height: "100%", background: "var(--grad-accent, #0f9d6b)" }} />
+                              </div>
+                              <span className="muted" style={{ fontSize: 11 }}>{pct}% called</span>
+                            </div>
+                          );
+                        })()}
+                      </td>
                       <td>{fmtMoney(a.remaining)}</td>
                       <td>{fmtMoney(a.distributed)}</td>
                       <td>{fmtMoney(a.fees_charged)}</td>

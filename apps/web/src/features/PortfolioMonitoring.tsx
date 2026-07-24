@@ -16,6 +16,7 @@ import { CHART_COLORS } from "../components/Donut";
 import EmptyState from "../components/EmptyState";
 import LineChart from "../components/LineChart";
 import PageHeader from "../components/PageHeader";
+import Sparkline from "../components/Sparkline";
 import Stat from "../components/Stat";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -593,7 +594,15 @@ export default function PortfolioMonitoring({ fundId }: { fundId: string }) {
                       );
                     })()}
                   </td>
-                  <td>{c.latest?.revenue ? fmtMoney(c.latest.revenue) : <span className="muted">—</span>}</td>
+                  <td>
+                    {c.latest?.revenue ? fmtMoney(c.latest.revenue) : <span className="muted">—</span>}
+                    {c.revenue_series.length > 1 && (
+                      <Sparkline
+                        points={c.revenue_series.map((p) => p.y)}
+                        color={(c.revenue_growth_pct ?? 0) >= 0 ? "var(--ok, #0f9d6b)" : "#c0552f"}
+                      />
+                    )}
+                  </td>
                   <td>
                     {c.revenue_growth_pct === null ? (
                       <span className="muted">—</span>

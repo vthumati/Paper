@@ -27,7 +27,7 @@ export default function Compliance({
   const [obs, setObs] = useState<Obligation[]>([]);
   const [health, setHealth] = useState<{ total: number; filed: number; overdue: number; score: number } | null>(null);
   const [fyEnd, setFyEnd] = useState("2026-03-31");
-  const [obView, setObView] = useState<"chart" | "table">("chart");
+  const [obView, setObView] = useState<"chart" | "board" | "table">("chart");
   const [error, setError] = useState("");
 
   // tax-filing archive
@@ -162,6 +162,7 @@ export default function Compliance({
                 onChange={setObView}
                 options={[
                   { value: "chart", label: "Calendar" },
+                  { value: "board", label: "Board" },
                   { value: "table", label: "Table" },
                 ]}
               />
@@ -187,6 +188,41 @@ export default function Compliance({
                 label: `${o.form_code} · ${o.title} (${o.status})`,
               }))}
             />
+          </div>
+        ) : obView === "board" ? (
+          <div>
+            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
+              Filing pipeline — drag each obligation through the workflow with its status control.
+            </div>
+            <div className="kanban">
+              {STATUSES.map((s) => {
+                const col = obs.filter((o) => o.status === s);
+                return (
+                  <div key={s} className="kanban-col">
+                    <div className="kanban-col-title">
+                      <span>{s.replace("_", " ")}</span>
+                      <span className="muted">{col.length}</span>
+                    </div>
+                    {col.map((o) => (
+                      <div key={o.id} className="deal-card">
+                        <strong>{o.form_code}</strong>{" "}
+                        {o.overdue && s !== "filed" && s !== "acknowledged" && (
+                          <span className="badge active">overdue</span>
+                        )}
+                        <div className="muted" style={{ fontSize: 12 }}>{o.title}</div>
+                        <div className="muted" style={{ fontSize: 12 }}>due {o.due_date}</div>
+                        <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)}>
+                          {STATUSES.map((st) => (
+                            <option key={st} value={st}>{st.replace("_", " ")}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                    {col.length === 0 && <div className="muted" style={{ fontSize: 12, padding: "4px" }}>—</div>}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ) : (
           <table>
