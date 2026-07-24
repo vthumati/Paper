@@ -16,27 +16,25 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "portfolio_investments",
-        sa.Column("company_entity_id", sa.String(length=32), nullable=True),
-    )
-    op.create_index(
-        "ix_portfolio_investments_company_entity_id",
-        "portfolio_investments",
-        ["company_entity_id"],
-    )
-    op.create_foreign_key(
-        "fk_portfolio_investments_company_entity_id",
-        "portfolio_investments",
-        "legal_entities",
-        ["company_entity_id"],
-        ["id"],
-    )
+    # batch mode so this applies on SQLite too (which can't ALTER-add an FK);
+    # transparent (direct ALTER) on Postgres. Matches the other migrations.
+    with op.batch_alter_table("portfolio_investments", schema=None) as batch_op:
+        batch_op.add_column(sa.Column("company_entity_id", sa.String(length=32), nullable=True))
+        batch_op.create_index(
+            "ix_portfolio_investments_company_entity_id", ["company_entity_id"]
+        )
+        batch_op.create_foreign_key(
+            "fk_portfolio_investments_company_entity_id",
+            "legal_entities",
+            ["company_entity_id"],
+            ["id"],
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "fk_portfolio_investments_company_entity_id", "portfolio_investments", type_="foreignkey"
-    )
-    op.drop_index("ix_portfolio_investments_company_entity_id", "portfolio_investments")
-    op.drop_column("portfolio_investments", "company_entity_id")
+    with op.batch_alter_table("portfolio_investments", schema=None) as batch_op:
+        batch_op.drop_constraint(
+            "fk_portfolio_investments_company_entity_id", type_="foreignkey"
+        )
+        batch_op.drop_index("ix_portfolio_investments_company_entity_id")
+        batch_op.drop_column("company_entity_id")
