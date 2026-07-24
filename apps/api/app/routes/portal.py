@@ -328,12 +328,16 @@ def portal_document_pdf(
 ):
     from ..models.document import Document
     from ..models.esop import ExerciseTransaction, Grant
-    from ..models.fund import LP
+    from ..models.fund import LP, DrawdownNotice
     from ..models.spv import CoInvestor
     from .documents import document_pdf_response
 
     doc = db.get(Document, document_id)
-    allowed = ("lp_statement", "form_64c", "co_investor", "esop_grant", "esop_exercise")
+    # per-LP docs (subject = lp.id), fund-wide docs (subject = fund.id) any LP of
+    # that fund may see, the LP's own drawdown notice, and employee ESOP docs
+    per_lp = ("lp_statement", "form_64c")
+    fund_wide = ("lp_report", "form_64d", "fund_financials", "audited_financials")
+    allowed = per_lp + fund_wide + ("co_investor", "drawdown_notice", "esop_grant", "esop_exercise")
     if doc is None or doc.subject_type not in allowed:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
 
@@ -354,7 +358,21 @@ def portal_document_pdf(
         sh = db.get(Stakeholder, grant.stakeholder_id) if grant else None
         if sh is None or sh.email != user.email:
             deny()
-    else:
+    elif doc.subject_type == "drawdown_notice":
+        notice = db.get(DrawdownNotice, doc.subject_id) if doc.subject_id else None
+        lp = db.get(LP, notice.lp_id) if notice else None
+        if lp is None or lp.email != user.email:
+            deny()
+    elif doc.subject_type in fund_wide:
+        # any LP of the fund may download fund-wide reports/financials
+        lp = (
+            db.query(LP).filter_by(fund_id=doc.subject_id, email=user.email).first()
+            if doc.subject_id
+            else None
+        )
+        if lp is None:
+            deny()
+    else:  # per-LP statements / Form 64C
         lp = db.get(LP, doc.subject_id) if doc.subject_id else None
         if lp is None or lp.email != user.email:
             deny()

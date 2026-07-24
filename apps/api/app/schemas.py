@@ -537,6 +537,9 @@ class FundOut(ORMModel):
     hurdle_pct: Decimal
     mgmt_fee_pct: Decimal
     fee_basis: str
+    bank_name: str | None = None
+    bank_account: str | None = None
+    bank_ifsc: str | None = None
 
 
 class FundPlanIn(BaseModel):
@@ -554,6 +557,9 @@ class LPIn(BaseModel):
     name: str
     email: NormEmailOpt = None
     commitment: Decimal = Field(default=Decimal("0"), ge=0)
+    bank_name: str | None = None
+    bank_account: str | None = None
+    bank_ifsc: str | None = None
 
 
 class LPOut(ORMModel):
@@ -561,6 +567,23 @@ class LPOut(ORMModel):
     name: str
     email: NormStrOpt
     commitment: Decimal
+    bank_name: str | None = None
+    bank_account: str | None = None
+    bank_ifsc: str | None = None
+
+
+class BankDetailsIn(BaseModel):
+    bank_name: str | None = None
+    bank_account: str | None = None
+    bank_ifsc: str | None = None
+
+
+class PayNoticeIn(BaseModel):
+    payment_ref: str | None = None
+
+
+class AuditedFinancialsIn(BaseModel):
+    auditor_name: str = "Independent Auditor"
 
 
 class CapitalCallIn(BaseModel):
@@ -575,6 +598,7 @@ class DrawdownNoticeOut(ORMModel):
     amount: Decimal
     paid: bool
     acknowledged_at: datetime.datetime | None = None
+    payment_ref: str | None = None
 
 
 class CapitalCallOut(ORMModel):

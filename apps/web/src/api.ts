@@ -1135,8 +1135,15 @@ export interface PortalCallNotice {
   due_date: string | null;
   amount: string;
   paid: boolean;
+  payment_ref: string | null;
   acknowledged_at: string | null;
   overdue: boolean;
+}
+export interface PortalDistribution {
+  dist_no: number;
+  date: string | null;
+  kind: string;
+  amount: string;
 }
 export interface PortalFundEntry {
   fund_id: string;
@@ -1144,6 +1151,8 @@ export interface PortalFundEntry {
   sebi_category: string;
   account: { committed: string; drawn: string; remaining: string; distributed: string } | null;
   capital_calls: PortalCallNotice[];
+  distributions: PortalDistribution[];
+  bank: { bank_name: string | null; bank_account: string | null; bank_ifsc: string | null } | null;
   look_through: LookThrough;
   performance: FundPerformance;
   statements: { id: string; title: string; created_at: string }[];
@@ -1558,8 +1567,16 @@ export const api = {
   addLP: (fid: string, b: unknown) => post<LP>(`/funds/${fid}/lps`, b),
   listCalls: (fid: string) => get<CapitalCall[]>(`/funds/${fid}/capital-calls`),
   createCall: (fid: string, b: unknown) => post<CapitalCall>(`/funds/${fid}/capital-calls`, b),
-  payNotice: (fid: string, nid: string) =>
-    post<DrawdownNotice>(`/funds/${fid}/drawdown-notices/${nid}/pay`),
+  payNotice: (fid: string, nid: string, b?: { payment_ref?: string }) =>
+    post<DrawdownNotice>(`/funds/${fid}/drawdown-notices/${nid}/pay`, b ?? {}),
+  drawdownNoticeDoc: (fid: string, nid: string) =>
+    post<Document>(`/funds/${fid}/drawdown-notices/${nid}/notice`),
+  setFundBank: (fid: string, b: { bank_name?: string; bank_account?: string; bank_ifsc?: string }) =>
+    put<Fund>(`/funds/${fid}/bank`, b),
+  setLpBank: (fid: string, lpId: string, b: { bank_name?: string; bank_account?: string; bank_ifsc?: string }) =>
+    put(`/funds/${fid}/lps/${lpId}/bank`, b),
+  auditedFinancials: (fid: string, b: { auditor_name: string }) =>
+    post<Document>(`/funds/${fid}/audited-financials`, b),
   listDistributions: (fid: string) => get<Distribution[]>(`/funds/${fid}/distributions`),
   distribute: (fid: string, b: unknown) => post<Distribution>(`/funds/${fid}/distributions`, b),
   capitalAccounts: (fid: string) => get<CapitalAccounts>(`/funds/${fid}/capital-accounts`),

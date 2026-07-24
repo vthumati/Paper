@@ -53,6 +53,10 @@ class Fund(Base, TimestampMixin):
     valuer_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     valuation_frequency_months: Mapped[int] = mapped_column(Integer, default=12)
     created_by: Mapped[str] = mapped_column(String(32))
+    # collection / escrow bank account LPs remit drawdowns to (FR-J)
+    bank_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    bank_account: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    bank_ifsc: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     lps: Mapped[list["LP"]] = relationship(back_populates="fund", cascade="all, delete-orphan")
 
@@ -67,6 +71,10 @@ class LP(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255))
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     commitment: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
+    # bank details for receiving distributions (FR-J)
+    bank_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    bank_account: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    bank_ifsc: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     fund: Mapped[Fund] = relationship(back_populates="lps")
 
@@ -145,6 +153,9 @@ class DrawdownNotice(Base, TimestampMixin):
     paid_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
     # LP self-service: the LP saw the notice in their portal and confirmed it
     acknowledged_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    # payment verification: the remittance reference (UTR) + who confirmed receipt
+    payment_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    verified_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class Distribution(Base, TimestampMixin):

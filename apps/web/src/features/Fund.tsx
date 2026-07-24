@@ -395,6 +395,8 @@ export default function Fund({
             )}
           </div>
 
+          <FundBankCard fund={fund} onSaved={loadFund} />
+
           <div className="card">
             <h3>Capital calls</h3>
             {calls.length === 0 && (
@@ -421,17 +423,30 @@ export default function Fund({
                             <span className="muted">not acknowledged</span>
                           )}
                         </td>
-                        <td>
+                        <td style={{ whiteSpace: "nowrap" }}>
                           {n.paid ? (
-                            <span className="badge complete">paid</span>
+                            <span className="badge complete">paid{n.payment_ref ? ` · ${n.payment_ref}` : ""}</span>
                           ) : (
                             <button
                               className="secondary"
-                              onClick={guard(() => api.payNotice(fund.id, n.id), "Notice marked paid")}
+                              onClick={guard(async () => {
+                                const ref = await uiPrompt("Payment reference / UTR (verifies receipt):", "");
+                                await api.payNotice(fund.id, n.id, { payment_ref: ref || undefined });
+                              }, "Payment verified")}
                             >
-                              Mark paid
+                              Verify payment
                             </button>
-                          )}
+                          )}{" "}
+                          <button
+                            className="secondary"
+                            title="Generate the drawdown notice PDF (with remittance details)"
+                            onClick={guard(async () => {
+                              const doc = await api.drawdownNoticeDoc(fund.id, n.id);
+                              api.downloadDocumentPdf(doc.id, doc.title);
+                            })}
+                          >
+                            Notice
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -454,7 +469,18 @@ export default function Fund({
                     setNote(`Generated Form 64D + ${r.form_64c} Form 64C statement(s) — ${fmtMoney(r.total_distributed)} distributed. LPs see their 64C in the portal.`);
                   })}
                 >
-                  Generate 64C / 64D
+                  Generate 64C/64D
+                </button>{" "}
+                <button
+                  className="secondary"
+                  onClick={guard(async () => {
+                    const auditor = await uiPrompt("Independent auditor name:", "");
+                    if (!auditor) return;
+                    await api.auditedFinancials(fund.id, { auditor_name: auditor });
+                    setNote("Audited financials generated — LPs can download it from their portal vault.");
+                  })}
+                >
+                  Audited financials
                 </button>
               </h3>
               <p className="muted">
@@ -752,6 +778,38 @@ export default function Fund({
       )}
 
       {sub === "reports" && <FundFinancials fundId={fund.id} />}
+    </div>
+  );
+}
+
+/** The fund's collection/escrow bank account, shown to LPs on drawdown notices. */
+function FundBankCard({ fund, onSaved }: { fund: FundT; onSaved: () => void }) {
+  const [name, setName] = useState(fund.bank_name ?? "");
+  const [acct, setAcct] = useState(fund.bank_account ?? "");
+  const [ifsc, setIfsc] = useState(fund.bank_ifsc ?? "");
+  const [saved, setSaved] = useState(false);
+  return (
+    <div className="card">
+      <h3>Collection bank account</h3>
+      <p className="muted" style={{ marginTop: 0 }}>
+        The escrow / collection account LPs remit drawdowns to — shown on their notices and portal.
+      </p>
+      <div className="row" style={{ alignItems: "flex-end" }}>
+        <div><label>Bank name</label><input value={name} onChange={(e) => setName(e.target.value)} /></div>
+        <div><label>Account number</label><input value={acct} onChange={(e) => setAcct(e.target.value)} /></div>
+        <div><label>IFSC</label><input value={ifsc} onChange={(e) => setIfsc(e.target.value)} /></div>
+        <button
+          style={{ flex: "0 0 auto" }}
+          onClick={async () => {
+            await api.setFundBank(fund.id, { bank_name: name, bank_account: acct, bank_ifsc: ifsc });
+            setSaved(true);
+            onSaved();
+          }}
+        >
+          Save
+        </button>
+        {saved && <span className="badge complete" style={{ alignSelf: "center" }}>saved</span>}
+      </div>
     </div>
   );
 }

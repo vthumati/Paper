@@ -18,6 +18,8 @@ from ...models.fund import (
 )
 from ...models.identity import User
 from ...schemas import (
+    AuditedFinancialsIn,
+    BankDetailsIn,
     CapitalCallIn,
     CapitalCallOut,
     ComplianceGenerateIn,
@@ -26,7 +28,9 @@ from ...schemas import (
     DocumentOut,
     DrawdownNoticeOut,
     FundExpenseIn,
+    FundOut,
     InvestmentRoundIn,
+    PayNoticeIn,
 )
 from ...services import document as docsvc
 from ...services import fund as svc
@@ -57,13 +61,79 @@ def list_calls(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
 
 @router.post("/funds/{fund_id}/drawdown-notices/{notice_id}/pay", response_model=DrawdownNoticeOut)
 def pay_notice(
-    notice_id: str, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+    notice_id: str,
+    body: PayNoticeIn | None = None,
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    """Verify receipt of a drawdown: mark paid, record the remittance reference
+    (UTR) and who confirmed it."""
     require_write(ctx.role)
     notice = db.get(DrawdownNotice, notice_id)
     if notice is None or notice.fund_id != ctx.fund.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Drawdown notice not found")
-    return svc.mark_paid(db, notice)
+    ref = body.payment_ref if body else None
+    return svc.mark_paid(db, notice, payment_ref=ref, verified_by=user.id)
+
+
+@router.post("/funds/{fund_id}/drawdown-notices/{notice_id}/notice", response_model=DocumentOut, status_code=201)
+def drawdown_notice_doc(
+    notice_id: str,
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generate the LP's drawdown-notice document (with remittance details)."""
+    require_write(ctx.role)
+    notice = db.get(DrawdownNotice, notice_id)
+    if notice is None or notice.fund_id != ctx.fund.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Drawdown notice not found")
+    doc = svc.generate_drawdown_notice(db, notice, user.id)
+    return docsvc.document_view(db, doc)
+
+
+@router.put("/funds/{fund_id}/bank", response_model=FundOut)
+def set_fund_bank(
+    body: BankDetailsIn, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+):
+    """Set the fund's collection/escrow bank account (shown on drawdown notices)."""
+    require_write(ctx.role)
+    ctx.fund.bank_name = body.bank_name
+    ctx.fund.bank_account = body.bank_account
+    ctx.fund.bank_ifsc = body.bank_ifsc
+    db.commit()
+    db.refresh(ctx.fund)
+    return ctx.fund
+
+
+@router.put("/funds/{fund_id}/lps/{lp_id}/bank")
+def set_lp_bank(
+    lp_id: str, body: BankDetailsIn, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)
+):
+    """Set an LP's bank details (for receiving distributions)."""
+    require_write(ctx.role)
+    lp = db.get(LP, lp_id)
+    if lp is None or lp.fund_id != ctx.fund.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "LP not found")
+    lp.bank_name = body.bank_name
+    lp.bank_account = body.bank_account
+    lp.bank_ifsc = body.bank_ifsc
+    db.commit()
+    return {"id": lp.id, "bank_name": lp.bank_name, "bank_account": lp.bank_account, "bank_ifsc": lp.bank_ifsc}
+
+
+@router.post("/funds/{fund_id}/audited-financials", response_model=DocumentOut, status_code=201)
+def audited_financials(
+    body: AuditedFinancialsIn,
+    ctx: FundCtx = Depends(fund_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generate an audited-financials document LPs can download from the vault."""
+    require_write(ctx.role)
+    doc = svc.generate_audited_financials(db, ctx.fund, body.auditor_name, user.id)
+    return docsvc.document_view(db, doc)
 
 
 # --- distributions ---

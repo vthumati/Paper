@@ -662,7 +662,9 @@ export default function Portal() {
                       <td>{fmtMoney(n.amount)}</td>
                       <td>
                         {n.paid ? (
-                          <span className="badge complete">paid</span>
+                          <span className="badge complete" title={n.payment_ref ? `Ref: ${n.payment_ref}` : undefined}>
+                            paid{n.payment_ref ? ` · ${n.payment_ref}` : ""}
+                          </span>
                         ) : n.overdue ? (
                           <span className="badge danger">overdue</span>
                         ) : (
@@ -682,6 +684,31 @@ export default function Portal() {
                           </button>
                         )}
                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {f.bank && (
+                <p className="muted" style={{ fontSize: 12 }}>
+                  Remit drawdowns to: <strong>{f.bank.bank_name ?? "—"}</strong> · A/c {f.bank.bank_account} · IFSC {f.bank.bank_ifsc ?? "—"}
+                </p>
+              )}
+            </>
+          )}
+          {f.distributions.length > 0 && (
+            <>
+              <h3>Distributions received</h3>
+              <table>
+                <thead>
+                  <tr><th>#</th><th>Date</th><th>Type</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                  {f.distributions.map((d) => (
+                    <tr key={d.dist_no}>
+                      <td>#{d.dist_no}</td>
+                      <td>{d.date ?? "—"}</td>
+                      <td>{d.kind === "return_of_capital" ? "Return of capital" : "Profit"}</td>
+                      <td>{fmtMoney(d.amount)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -36,7 +36,7 @@ from .esop import (
     grant_view,
     vesting_projection,
 )
-from .fund import capital_accounts, lp_look_through
+from .fund import capital_accounts, lp_distribution_history, lp_look_through
 from .fund_perf import fund_performance
 from .valuation import current_fmv
 
@@ -424,6 +424,7 @@ def portal_for_user(db: Session, user: User) -> dict:
                     "due_date": call.due_date if call else None,
                     "amount": str(n.amount),
                     "paid": n.paid,
+                    "payment_ref": n.payment_ref,
                     "acknowledged_at": n.acknowledged_at,
                     "overdue": bool(
                         not n.paid and call and call.due_date and call.due_date < today
@@ -452,13 +453,23 @@ def portal_for_user(db: Session, user: User) -> dict:
                                 Document.subject_id == lp.id,
                             ),
                             and_(
-                                Document.subject_type == "lp_report",
+                                Document.subject_type.in_(
+                                    ["lp_report", "form_64d", "fund_financials", "audited_financials"]
+                                ),
                                 Document.subject_id == fund.id,
                             ),
                         ),
                     )
                     .order_by(Document.created_at.desc())
                 ],
+                # per-LP distribution history (mirrors the capital-calls list)
+                "distributions": lp_distribution_history(db, fund.id, lp.id),
+                # collection account the LP remits drawdowns to
+                "bank": {
+                    "bank_name": fund.bank_name,
+                    "bank_account": fund.bank_account,
+                    "bank_ifsc": fund.bank_ifsc,
+                } if fund.bank_account else None,
                 "updates": _updates(db, fund.entity_id, user.email),
             }
         )

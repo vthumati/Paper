@@ -1383,8 +1383,92 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Pay Notice */
+        /**
+         * Pay Notice
+         * @description Verify receipt of a drawdown: mark paid, record the remittance reference
+         *     (UTR) and who confirmed it.
+         */
         post: operations["pay_notice_funds__fund_id__drawdown_notices__notice_id__pay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/funds/{fund_id}/drawdown-notices/{notice_id}/notice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Drawdown Notice Doc
+         * @description Generate the LP's drawdown-notice document (with remittance details).
+         */
+        post: operations["drawdown_notice_doc_funds__fund_id__drawdown_notices__notice_id__notice_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/funds/{fund_id}/bank": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Fund Bank
+         * @description Set the fund's collection/escrow bank account (shown on drawdown notices).
+         */
+        put: operations["set_fund_bank_funds__fund_id__bank_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/funds/{fund_id}/lps/{lp_id}/bank": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Lp Bank
+         * @description Set an LP's bank details (for receiving distributions).
+         */
+        put: operations["set_lp_bank_funds__fund_id__lps__lp_id__bank_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/funds/{fund_id}/audited-financials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Audited Financials
+         * @description Generate an audited-financials document LPs can download from the vault.
+         */
+        post: operations["audited_financials_funds__fund_id__audited_financials_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5211,6 +5295,23 @@ export interface components {
          * @enum {string}
          */
         AuditType: "corporate_audit" | "pre_diligence" | "cleanup";
+        /** AuditedFinancialsIn */
+        AuditedFinancialsIn: {
+            /**
+             * Auditor Name
+             * @default Independent Auditor
+             */
+            auditor_name: string;
+        };
+        /** BankDetailsIn */
+        BankDetailsIn: {
+            /** Bank Name */
+            bank_name?: string | null;
+            /** Bank Account */
+            bank_account?: string | null;
+            /** Bank Ifsc */
+            bank_ifsc?: string | null;
+        };
         /** BenefitIn */
         BenefitIn: {
             type: components["schemas"]["BenefitType"];
@@ -5970,6 +6071,8 @@ export interface components {
             paid: boolean;
             /** Acknowledged At */
             acknowledged_at?: string | null;
+            /** Payment Ref */
+            payment_ref?: string | null;
         };
         /** ESOPSchemeIn */
         ESOPSchemeIn: {
@@ -6365,6 +6468,12 @@ export interface components {
             mgmt_fee_pct: string;
             /** Fee Basis */
             fee_basis: string;
+            /** Bank Name */
+            bank_name?: string | null;
+            /** Bank Account */
+            bank_account?: string | null;
+            /** Bank Ifsc */
+            bank_ifsc?: string | null;
         };
         /** FundPlanIn */
         FundPlanIn: {
@@ -6864,6 +6973,12 @@ export interface components {
              * @default 0
              */
             commitment: number | string;
+            /** Bank Name */
+            bank_name?: string | null;
+            /** Bank Account */
+            bank_account?: string | null;
+            /** Bank Ifsc */
+            bank_ifsc?: string | null;
         };
         /** LPOut */
         LPOut: {
@@ -6875,6 +6990,12 @@ export interface components {
             email: string | null;
             /** Commitment */
             commitment: string;
+            /** Bank Name */
+            bank_name?: string | null;
+            /** Bank Account */
+            bank_account?: string | null;
+            /** Bank Ifsc */
+            bank_ifsc?: string | null;
         };
         /** LPProspectActivityIn */
         LPProspectActivityIn: {
@@ -7139,6 +7260,11 @@ export interface components {
              * @enum {string}
              */
             pack: "starter" | "growth" | "scale";
+        };
+        /** PayNoticeIn */
+        PayNoticeIn: {
+            /** Payment Ref */
+            payment_ref?: string | null;
         };
         /**
          * PipelineStage
@@ -11489,7 +11615,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PayNoticeIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -11498,6 +11628,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DrawdownNoticeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    drawdown_notice_doc_funds__fund_id__drawdown_notices__notice_id__notice_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notice_id: string;
+                fund_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_fund_bank_funds__fund_id__bank_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fund_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankDetailsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_lp_bank_funds__fund_id__lps__lp_id__bank_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lp_id: string;
+                fund_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankDetailsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    audited_financials_funds__fund_id__audited_financials_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fund_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuditedFinancialsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
                 };
             };
             /** @description Validation Error */

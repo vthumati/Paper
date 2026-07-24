@@ -67,15 +67,116 @@ def create_capital_call(
     return call
 
 
-def mark_paid(db: Session, notice: DrawdownNotice) -> DrawdownNotice:
+def mark_paid(
+    db: Session, notice: DrawdownNotice, payment_ref: str | None = None, verified_by: str | None = None
+) -> DrawdownNotice:
+    """Verify a drawdown payment: records receipt, the remittance reference (UTR)
+    and who confirmed it. Idempotent on `paid`, but a later call can still attach
+    the reference."""
     if not notice.paid:
         notice.paid = True
         # IST, same frame as today_ist(): pref accrual compares this date
         # against distribution dates — a mixed-timezone date can be a day off
         notice.paid_at = now_ist()
-        db.commit()
-        db.refresh(notice)
+    if payment_ref:
+        notice.payment_ref = payment_ref
+    if verified_by:
+        notice.verified_by = verified_by
+    db.commit()
+    db.refresh(notice)
     return notice
+
+
+def _bank_block(fund: Fund) -> str:
+    if fund.bank_account:
+        return (
+            f"  Bank: {fund.bank_name or '—'}\n"
+            f"  Account: {fund.bank_account}\n"
+            f"  IFSC: {fund.bank_ifsc or '—'}"
+        )
+    return "  Bank details to follow from the fund administrator."
+
+
+def generate_drawdown_notice(db: Session, notice: DrawdownNotice, user_id: str):
+    """Generate the LP's drawdown-notice document with remittance details."""
+    from ...models.entity import LegalEntity
+    from .. import document as docsvc
+
+    fund = db.get(Fund, notice.fund_id)
+    lp = db.get(LP, notice.lp_id)
+    call = db.get(CapitalCall, notice.call_id)
+    entity = db.get(LegalEntity, fund.entity_id) if fund else None
+    purpose = f" ({call.purpose})" if call and call.purpose else ""
+    due = call.due_date.isoformat() if call and call.due_date else "on receipt"
+    return docsvc.create_document(
+        db,
+        entity_id=fund.entity_id,
+        template_key="drawdown_notice",
+        data={
+            "fund": entity.name if entity else "",
+            "lp": lp.name if lp else "",
+            "date": today_ist().isoformat(),
+            "call_no": call.call_no if call else "",
+            "amount": str(q(notice.amount)),
+            "purpose_line": purpose,
+            "due_date": due,
+            "bank": _bank_block(fund),
+        },
+        user_id=user_id,
+        title=f"Drawdown Notice — Call {call.call_no if call else ''} — {lp.name if lp else ''}",
+        subject_type="drawdown_notice",
+        subject_id=notice.id,
+    )
+
+
+def lp_distribution_history(db: Session, fund_id: str, lp_id: str) -> list[dict]:
+    """Per-LP distribution history: each distribution this LP received a slice of."""
+    dists = {d.id: d for d in db.query(Distribution).filter_by(fund_id=fund_id)}
+    out = []
+    for r in db.query(LPDistribution).filter_by(fund_id=fund_id, lp_id=lp_id):
+        d = dists.get(r.distribution_id)
+        if d is None:
+            continue
+        out.append({
+            "dist_no": d.dist_no,
+            "date": d.date.isoformat() if d.date else None,
+            "kind": d.kind.value,
+            "amount": str(q(r.amount)),
+        })
+    out.sort(key=lambda x: x["dist_no"])
+    return out
+
+
+def generate_audited_financials(db: Session, fund: Fund, auditor_name: str, user_id: str):
+    """An audited-financials document built from the fund's financial statements."""
+    from ...models.entity import LegalEntity
+    from .. import document as docsvc
+
+    fin = fund_financials(db, fund)
+    entity = db.get(LegalEntity, fund.entity_id)
+    bs, ops, roll = fin["balance_sheet"], fin["operations"], fin["capital_roll_forward"]
+    return docsvc.create_document(
+        db,
+        entity_id=fund.entity_id,
+        template_key="audited_financials",
+        data={
+            "fund": entity.name if entity else "",
+            "date": fin["as_of"].isoformat(),
+            "auditor": auditor_name,
+            "investments_fv": bs["investments_at_fair_value"],
+            "cash": bs["cash"],
+            "total_assets": bs["total_assets"],
+            "net_assets": bs["net_assets"],
+            "net_ops": ops["net_increase_from_operations"],
+            "contributions": roll["contributions"],
+            "dist_lps": roll["distributions_to_lps"].lstrip("-"),
+            "carry": roll["carry_to_gp"].lstrip("-"),
+        },
+        user_id=user_id,
+        title=f"Audited Financials — {entity.name if entity else ''}",
+        subject_type="audited_financials",
+        subject_id=fund.id,
+    )
 
 
 def _waterfall_tiers(

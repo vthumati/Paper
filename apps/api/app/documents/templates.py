@@ -238,6 +238,45 @@ register(
 )
 register(
     DocumentTemplate(
+        "drawdown_notice",
+        "Capital Drawdown Notice",
+        "drawdown_notice",
+        "DRAWDOWN NOTICE — CAPITAL CALL $call_no\n"
+        "Fund: $fund\nLimited Partner: $lp\nDate: $date\n\n"
+        "You are hereby called to contribute INR $amount toward capital call "
+        "no. $call_no$purpose_line.\nDue date: $due_date\n\n"
+        "REMITTANCE DETAILS\n$bank\n\n"
+        "Please quote your name and the call number in the payment reference and "
+        "confirm the remittance in your LP portal once paid.\n",
+    )
+)
+register(
+    DocumentTemplate(
+        "audited_financials",
+        "Audited Financial Statements",
+        "audited_financials",
+        "AUDITED FINANCIAL STATEMENTS\n"
+        "Fund: $fund\nAs of: $date\nIndependent auditor: $auditor\n\n"
+        "STATEMENT OF ASSETS & LIABILITIES\n"
+        "  Investments at fair value: ₹$investments_fv\n"
+        "  Cash: ₹$cash\n"
+        "  Total assets: ₹$total_assets\n"
+        "  Net assets: ₹$net_assets\n\n"
+        "STATEMENT OF OPERATIONS (since inception)\n"
+        "  Net increase from operations: ₹$net_ops\n\n"
+        "PARTNERS' CAPITAL\n"
+        "  Contributions: ₹$contributions\n"
+        "  Distributions to LPs: (₹$dist_lps)\n"
+        "  Carry to GP: (₹$carry)\n"
+        "  Ending net assets: ₹$net_assets\n\n"
+        "In our opinion, these statements present fairly, in all material "
+        "respects, the financial position of the fund as of the date shown, "
+        "prepared on the fund's stated basis of accounting.\n"
+        "$auditor (Independent Auditor)\n",
+    )
+)
+register(
+    DocumentTemplate(
         "form_64c",
         "Form 64C (Income distributed to unit holder)",
         "form_64c",
