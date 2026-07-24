@@ -11,9 +11,23 @@ from sqlalchemy.orm import Session
 
 from ..deps import get_owned
 from ..models.captable import IssuanceTransaction, SecurityClass, Stakeholder
-from ..models.esop import ESOPScheme, ExerciseTransaction, ExerciseWindow, Grant
+from ..models.esop import (
+    ESOPScheme,
+    ExerciseTransaction,
+    ExerciseWindow,
+    ForfeitureEvent,
+    Grant,
+)
 from . import valuation as valsvc
-from .money import CENTS
+from .money import CENTS, q
+
+# Perquisite-tax defaults (FR-D-3). The ESOP perquisite (FMV − strike) is
+# taxed as salary income (s.17(2)(vi)) at the employee's slab rate and withheld
+# as TDS (s.192). We can't know their other income, so we estimate at a
+# marginal rate — defaulting to the top slab plus the 4% health-and-education
+# cess (surcharge, which depends on income level, is left out).
+TOP_MARGINAL_RATE = Decimal("0.30")
+CESS_RATE = Decimal("0.04")
 
 
 def months_between(start: datetime.date, end: datetime.date) -> int:
@@ -132,6 +146,59 @@ def grant_value_summary(db: Session, grant: Grant, as_of: datetime.date, gv: dic
     }
 
 
+def perquisite_tax(
+    perquisite: Decimal,
+    marginal_rate: Decimal = TOP_MARGINAL_RATE,
+    cess_rate: Decimal = CESS_RATE,
+) -> dict:
+    """Estimated tax on an ESOP perquisite (FR-D-3): income tax at the chosen
+    marginal slab rate plus health-and-education cess, which is the TDS the
+    employer withholds under s.192. Estimate only — surcharge and the employee's
+    actual slab depend on their total income."""
+    perquisite = Decimal(perquisite)
+    income_tax = perquisite * Decimal(marginal_rate)
+    cess = income_tax * Decimal(cess_rate)
+    return {
+        "perquisite": str(q(perquisite)),
+        "marginal_rate": str(Decimal(marginal_rate)),
+        "cess_rate": str(Decimal(cess_rate)),
+        "income_tax": str(q(income_tax)),
+        "cess": str(q(cess)),
+        "tds": str(q(income_tax + cess)),
+    }
+
+
+def exercise_tax_estimate(
+    db: Session,
+    grant: Grant,
+    quantity: int,
+    as_of: datetime.date,
+    marginal_rate: Decimal = TOP_MARGINAL_RATE,
+    fmv: Decimal | None = None,
+) -> dict:
+    """What exercising `quantity` options (or settling RSUs) would cost and be
+    taxed today: the cash exercise cost, the perquisite, the estimated TDS, and
+    the resulting after-tax gain — the employee's 'what if I exercise now' view."""
+    if quantity <= 0:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "quantity must be positive")
+    if fmv is None:
+        fmv = valsvc.current_fmv(db, grant.entity_id, as_of)
+    strike = Decimal(grant.exercise_price)
+    # RSUs settle for no consideration; RSAs are taxed at grant, not here.
+    per_unit_gain = grant_unit_value(grant, fmv)
+    perquisite = (per_unit_gain or Decimal("0")) * quantity
+    exercise_cost = Decimal("0") if grant.grant_type == "rsu" else strike * quantity
+    tax = perquisite_tax(perquisite, marginal_rate)
+    return {
+        "quantity": quantity,
+        "fmv_per_share": str(fmv) if fmv is not None else None,
+        "exercise_price": str(strike),
+        "exercise_cost": str(q(exercise_cost)),
+        **tax,
+        "gain_after_tax": str(q(perquisite - Decimal(tax["tds"]))),
+    }
+
+
 def grant_schedule(grant: Grant, as_of: datetime.date) -> list[dict]:
     """Every vesting event of the grant as a timeline: each month where vested
     units increase, with the delta, running total and whether it's in the past
@@ -214,6 +281,9 @@ def esop_overview(db: Session, entity_id: str, as_of: datetime.date) -> dict:
     exercisable = vested - exercised
     unvested = granted - vested
     available = max(0, pool_size - granted)
+    forfeited = sum(
+        f.lapsed_quantity for f in db.query(ForfeitureEvent).filter_by(entity_id=entity_id)
+    )
 
     names = {s.id: s.name for s in db.query(Stakeholder).filter_by(entity_id=entity_id)}
     leaderboard = [
@@ -229,6 +299,7 @@ def esop_overview(db: Session, entity_id: str, as_of: datetime.date) -> dict:
         "exercised": exercised,
         "exercisable": exercisable,
         "unvested": unvested,
+        "forfeited": forfeited,
         "grantees": len(per_holder),
         "schemes": len(schemes),
         "by_type": by_type,
@@ -361,6 +432,86 @@ def create_grant(
     return grant
 
 
+def next_certificate_no(db: Session, entity_id: str) -> str:
+    """Next sequential ESOP share-certificate number for the entity."""
+    from ..models.document import Document
+
+    n = (
+        db.query(Document)
+        .filter_by(entity_id=entity_id, template_key="share_certificate")
+        .count()
+    )
+    return f"ESOP-{n + 1:04d}"
+
+
+def _issue_share_certificate(
+    db: Session, grant: Grant, ex: ExerciseTransaction, security_class_id: str,
+    cert_no: str, quantity: int, user_id: str,
+):
+    """Generate a numbered share certificate for shares issued on exercise."""
+    from ..models.entity import LegalEntity
+    from . import document as docsvc
+
+    entity = db.get(LegalEntity, grant.entity_id)
+    sh = db.get(Stakeholder, grant.stakeholder_id)
+    sc = db.get(SecurityClass, security_class_id)
+    return docsvc.create_document(
+        db,
+        entity_id=grant.entity_id,
+        template_key="share_certificate",
+        data={
+            "company": entity.name if entity else "",
+            "certificate_no": cert_no,
+            "holder": sh.name if sh else "",
+            "quantity": f"{quantity:,}",
+            "security_class": sc.name if sc else "",
+            "par_value": str(sc.par_value) if sc else "0",
+        },
+        user_id=user_id,
+        title=f"Share Certificate {cert_no} — {sh.name if sh else ''}",
+        subject_type="esop_exercise",
+        subject_id=ex.id,
+    )
+
+
+def generate_grant_letter(db: Session, grant: Grant, user_id: str):
+    """The employee's grant letter (FR-D-2): the award terms and vesting
+    schedule as a downloadable document, linked to the grant."""
+    from ..models.entity import LegalEntity
+    from . import document as docsvc
+
+    entity = db.get(LegalEntity, grant.entity_id)
+    sh = db.get(Stakeholder, grant.stakeholder_id)
+    scheme = db.get(ESOPScheme, grant.scheme_id)
+    label = {
+        "option": "stock options",
+        "rsu": "restricted stock units (RSUs)",
+        "rsa": "restricted stock (issued upfront)",
+    }.get(grant.grant_type, "stock options")
+    full_vest = add_months(grant.grant_date, grant.total_months)
+    return docsvc.create_document(
+        db,
+        entity_id=grant.entity_id,
+        template_key="grant_letter",
+        data={
+            "company": entity.name if entity else "",
+            "employee": sh.name if sh else "",
+            "grant_date": grant.grant_date.isoformat(),
+            "grant_type": label,
+            "quantity": f"{grant.quantity:,}",
+            "exercise_price": str(grant.exercise_price),
+            "scheme": scheme.name if scheme else "",
+            "cliff_months": grant.cliff_months,
+            "total_months": grant.total_months,
+            "full_vest_date": full_vest.isoformat(),
+        },
+        user_id=user_id,
+        title=f"Grant Letter — {sh.name if sh else ''} ({grant.grant_date.isoformat()})",
+        subject_type="esop_grant",
+        subject_id=grant.id,
+    )
+
+
 def exercise(
     db: Session,
     grant: Grant,
@@ -369,6 +520,7 @@ def exercise(
     fmv_per_share: Decimal,
     as_of: datetime.date,
     cashless: bool = False,
+    issued_by: str | None = None,
 ) -> ExerciseTransaction:
     if quantity <= 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "quantity must be positive")
@@ -425,6 +577,13 @@ def exercise(
         cashless=cashless,
     )
     db.add(ex)
+    db.flush()
+    # A board-approved exercise issues shares, so auto-generate a numbered share
+    # certificate for them (FR-D-3), linked to this exercise.
+    if issued_by is not None and net_shares > 0:
+        cert_no = next_certificate_no(db, grant.entity_id)
+        issuance.certificate_no = cert_no
+        _issue_share_certificate(db, grant, ex, security_class_id, cert_no, net_shares, issued_by)
     db.commit()
     db.refresh(ex)
     return ex

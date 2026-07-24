@@ -42,7 +42,10 @@ export default function ExerciseRequests({ entityId }: { entityId: string }) {
       </div>
       <table style={{ marginTop: 8 }}>
         <thead>
-          <tr><th>Employee</th><th>Options</th><th>Cashless</th><th>Status</th><th></th></tr>
+          <tr>
+            <th>Employee</th><th>Options</th><th>Cashless</th>
+            <th>Perquisite</th><th>Est. TDS</th><th>Status</th><th></th>
+          </tr>
         </thead>
         <tbody>
           {reqs.map((r) => (
@@ -50,6 +53,8 @@ export default function ExerciseRequests({ entityId }: { entityId: string }) {
               <td>{r.employee}</td>
               <td>{r.quantity.toLocaleString()}</td>
               <td>{r.cashless ? "yes" : "—"}</td>
+              <td>{r.perquisite ? `₹${r.perquisite}` : "—"}</td>
+              <td>{r.estimated_tds ? `₹${r.estimated_tds}` : "—"}</td>
               <td><span className={`badge ${r.status === "approved" ? "complete" : ""}`}>{r.status}</span></td>
               <td>
                 {r.status === "open" && (
@@ -60,7 +65,7 @@ export default function ExerciseRequests({ entityId }: { entityId: string }) {
                         const res = await api.decideExerciseRequest(r.id, {
                           approve: true, security_class_id: scId,
                         });
-                        setNote(`Approved — ${res.net_shares?.toLocaleString()} share(s) issued; perquisite ₹${res.perquisite_value} (TDS applies).`);
+                        setNote(`Approved — ${res.net_shares?.toLocaleString()} share(s) issued & share certificate generated; perquisite ₹${res.perquisite_value}, TDS ₹${res.tds}.`);
                       })}
                     >
                       Approve

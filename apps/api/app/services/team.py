@@ -45,7 +45,7 @@ def offboard(db: Session, member: TeamMember, left_on: datetime.date) -> dict:
     grant is cut down to what had vested by the leaving date, so the lapsed
     options return to the scheme pool automatically (pool usage is the sum of
     grant quantities)."""
-    from ..models.esop import Grant
+    from ..models.esop import ForfeitureEvent, Grant
     from .esop import vested_quantity
 
     member.status = "exited"
@@ -58,9 +58,22 @@ def offboard(db: Session, member: TeamMember, left_on: datetime.date) -> dict:
         ):
             vested = vested_quantity(grant, left_on)
             if grant.quantity > vested:
-                lapsed += grant.quantity - vested
+                this_lapse = grant.quantity - vested
+                lapsed += this_lapse
                 grant.quantity = vested  # vesting freezes at the exit date
                 affected += 1
+                # auditable true-up: record what lapsed and what vested-vested
+                db.add(
+                    ForfeitureEvent(
+                        entity_id=member.entity_id,
+                        grant_id=grant.id,
+                        stakeholder_id=member.stakeholder_id,
+                        lapsed_quantity=this_lapse,
+                        vested_retained=vested,
+                        reason="offboarding",
+                        date=left_on,
+                    )
+                )
     db.commit()
     return {"member_id": member.id, "lapsed_options": lapsed, "grants_affected": affected}
 

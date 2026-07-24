@@ -22,6 +22,7 @@ from ..models.esop import (
     ExerciseRequest,
     ExerciseRequestStatus,
     ExerciseWindow,
+    ForfeitureEvent,
     Grant,
 )
 from ..models.identity import User
@@ -231,9 +232,13 @@ def list_exercise_windows(ctx: EntityCtx = Depends(entity_ctx), db: Session = De
 @router.get("/entities/{entity_id}/exercise-requests")
 def list_exercise_requests(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)):
     out = []
+    ref = today_ist()
     for r in db.query(ExerciseRequest).filter_by(entity_id=ctx.entity.id):
         grant = db.get(Grant, r.grant_id)
         sh = db.get(Stakeholder, grant.stakeholder_id) if grant else None
+        # estimated perquisite + TDS at the current FMV, so the approver sees the
+        # tax that will be withheld before deciding (FR-D-3)
+        est = svc.exercise_tax_estimate(db, grant, r.quantity, ref) if grant else {}
         out.append({
             "id": r.id,
             "employee": sh.name if sh else None,
@@ -241,6 +246,8 @@ def list_exercise_requests(ctx: EntityCtx = Depends(entity_ctx), db: Session = D
             "quantity": r.quantity,
             "cashless": r.cashless,
             "status": r.status.value,
+            "perquisite": est.get("perquisite"),
+            "estimated_tds": est.get("tds"),
         })
     return out
 
@@ -249,6 +256,7 @@ def list_exercise_requests(ctx: EntityCtx = Depends(entity_ctx), db: Session = D
 def decide_exercise_request(
     body: ExerciseRequestDecideIn,
     ctx: ExerciseRequestCtx = Depends(exercise_request_ctx),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     require_write(ctx.role)
@@ -266,12 +274,15 @@ def decide_exercise_request(
         db, grant, req.quantity, body.security_class_id,
         Decimal("0"),  # price off the current valuation (FR-L fallback)
         today_ist(), cashless=req.cashless,
+        issued_by=user.id,  # board approval → issue shares + share certificate
     )
     req.status = ExerciseRequestStatus.APPROVED
     req.exercise_id = ex.id
     db.commit()
+    tax = svc.perquisite_tax(ex.perquisite_value)
     return {"id": req.id, "status": req.status.value, "exercise_id": ex.id,
-            "net_shares": ex.net_shares, "perquisite_value": str(ex.perquisite_value)}
+            "net_shares": ex.net_shares, "perquisite_value": str(ex.perquisite_value),
+            "tds": tax["tds"]}
 
 
 @router.post("/esop/grants/{grant_id}/exercise", response_model=ExerciseOut, status_code=201)
@@ -279,6 +290,7 @@ def exercise(
     body: ExerciseIn,
     as_of: datetime.date | None = None,
     ctx: GrantCtx = Depends(grant_ctx),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     require_write(ctx.role)
@@ -290,4 +302,37 @@ def exercise(
         body.fmv_per_share,
         as_of or today_ist(),
         cashless=body.cashless,
+        issued_by=user.id,
     )
+
+
+@router.post("/esop/grants/{grant_id}/letter", response_model=DocumentOut, status_code=201)
+def grant_letter(
+    ctx: GrantCtx = Depends(grant_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generate the employee's grant letter (award terms + vesting schedule)."""
+    require_write(ctx.role)
+    doc = svc.generate_grant_letter(db, ctx.grant, user.id)
+    return docsvc.document_view(db, doc)
+
+
+@router.get("/entities/{entity_id}/esop/forfeitures")
+def list_forfeitures(ctx: EntityCtx = Depends(entity_ctx), db: Session = Depends(get_db)):
+    """Auditable option-forfeiture / true-up log for the entity (FR-D/R-4)."""
+    names = {s.id: s.name for s in db.query(Stakeholder).filter_by(entity_id=ctx.entity.id)}
+    return [
+        {
+            "id": f.id,
+            "stakeholder": names.get(f.stakeholder_id),
+            "grant_id": f.grant_id,
+            "lapsed_quantity": f.lapsed_quantity,
+            "vested_retained": f.vested_retained,
+            "reason": f.reason,
+            "date": f.date.isoformat(),
+        }
+        for f in db.query(ForfeitureEvent)
+        .filter_by(entity_id=ctx.entity.id)
+        .order_by(ForfeitureEvent.date.desc())
+    ]

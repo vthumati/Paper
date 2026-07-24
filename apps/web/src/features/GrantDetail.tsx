@@ -50,6 +50,26 @@ export default function GrantDetail({ grantId, onClose }: { grantId: string; onC
         <Stat label="Max potential value" value={money(d.max_potential_value)} sub={`${d.granted.toLocaleString()} units total`} />
       </div>
 
+      {d.tax && (
+        <div
+          className="card"
+          style={{ background: "var(--surface-2, #f6f7f5)", padding: 12, margin: "0 0 16px" }}
+        >
+          <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+            If you exercised all {d.exercisable.toLocaleString()} vested {settleWord === "exercised" ? "options" : "units"} today
+          </div>
+          <div className="row" style={{ gap: 16, flexWrap: "wrap" }}>
+            <Stat label="Cash to exercise" value={money(d.tax.exercise_cost)} sub={`${d.exercisable.toLocaleString()} × ₹${d.tax.exercise_price}`} />
+            <Stat label="Taxable perquisite" value={money(d.tax.perquisite)} sub="FMV − strike" />
+            <Stat label="Estimated TDS" value={money(d.tax.tds)} sub={`${(Number(d.tax.marginal_rate) * 100).toFixed(0)}% slab + ${(Number(d.tax.cess_rate) * 100).toFixed(0)}% cess`} />
+            <Stat label="Gain after tax" value={money(d.tax.gain_after_tax)} sub="perquisite − TDS" />
+          </div>
+          <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+            Estimate only — your actual slab, surcharge and any eligible-startup deferral depend on your total income.
+          </div>
+        </div>
+      )}
+
       <label>Vesting status</label>
       <StackedBar
         segments={[
@@ -106,6 +126,22 @@ export default function GrantDetail({ grantId, onClose }: { grantId: string; onC
         <span className="tl-date">{d.full_vest_date}</span>
         <span>Fully vested</span>
       </div>
+
+      {d.documents.length > 0 && (
+        <>
+          <label style={{ marginTop: 16, display: "block" }}>Documents</label>
+          {d.documents.map((doc) => (
+            <div className="timeline-row" key={doc.id}>
+              <span className="tl-date">{doc.kind === "certificate" ? "certificate" : "letter"}</span>
+              <span>
+                <button className="secondary" onClick={() => api.downloadPortalDocPdf(doc.id, doc.title)}>
+                  ⬇ {doc.title}
+                </button>
+              </span>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }

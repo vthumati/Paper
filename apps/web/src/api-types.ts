@@ -2597,6 +2597,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/esop/grants/{grant_id}/letter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grant Letter
+         * @description Generate the employee's grant letter (award terms + vesting schedule).
+         */
+        post: operations["grant_letter_esop_grants__grant_id__letter_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entities/{entity_id}/esop/forfeitures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Forfeitures
+         * @description Auditable option-forfeiture / true-up log for the entity (FR-D/R-4).
+         */
+        get: operations["list_forfeitures_entities__entity_id__esop_forfeitures_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/entities/{entity_id}/valuations": {
         parameters: {
             query?: never;
@@ -3787,6 +3827,27 @@ export interface paths {
         };
         /** My Grant Detail */
         get: operations["my_grant_detail_portal_grants__grant_id__detail_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/portal/grants/{grant_id}/tax-estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Grant Tax Estimate
+         * @description Employee 'what if I exercise N options now' tax estimate: cash cost,
+         *     perquisite, estimated TDS and after-tax gain (FR-D-3).
+         */
+        get: operations["my_grant_tax_estimate_portal_grants__grant_id__tax_estimate_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -13907,6 +13968,68 @@ export interface operations {
             };
         };
     };
+    grant_letter_esop_grants__grant_id__letter_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_forfeitures_entities__entity_id__esop_forfeitures_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_valuations_entities__entity_id__valuations_get: {
         parameters: {
             query?: never;
@@ -16726,6 +16849,40 @@ export interface operations {
     my_grant_detail_portal_grants__grant_id__detail_get: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                grant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_grant_tax_estimate_portal_grants__grant_id__tax_estimate_get: {
+        parameters: {
+            query: {
+                quantity: number;
+                marginal_rate?: number;
+            };
             header?: never;
             path: {
                 grant_id: string;

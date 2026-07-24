@@ -108,6 +108,117 @@ def test_scenario_pool_shuffle(client):
     assert pre["pool_timing"] == "pre" and post["pool_timing"] == "post"
 
 
+def _vested_grant(client, h, eid, *, email, qty=48000, strike="10", fmv="50", days=800):
+    """A company with one employee holding a partly-vested option grant + FMV."""
+    sc = client.post(
+        f"/entities/{eid}/security-classes", json={"name": "Equity", "kind": "equity"}, headers=h
+    ).json()["id"]
+    emp = client.post(
+        f"/entities/{eid}/stakeholders",
+        json={"name": "Meera", "type": "employee", "email": email},
+        headers=h,
+    ).json()["id"]
+    scheme = client.post(
+        f"/entities/{eid}/esop/schemes", json={"name": "ESOP", "pool_size": 100000}, headers=h
+    ).json()["id"]
+    grant_date = (dt.date.today() - dt.timedelta(days=days)).isoformat()
+    gid = client.post(
+        f"/entities/{eid}/esop/grants",
+        json={"scheme_id": scheme, "stakeholder_id": emp, "quantity": qty,
+              "exercise_price": strike, "grant_date": grant_date},
+        headers=h,
+    ).json()["id"]
+    client.post(
+        f"/entities/{eid}/valuations",
+        json={"method": "fair_value", "fmv_per_share": fmv, "valuation_date": "2026-01-01"},
+        headers=h,
+    )
+    return sc, gid
+
+
+def test_esop_tax_letter_and_certificate(client):
+    """Perquisite/TDS calculator, grant-letter PDF download, and the share
+    certificate auto-generated when the board approves an exercise."""
+    founder = auth_headers(client, email="hr@x.in")
+    eid = _company(client, founder)
+    sc, gid = _vested_grant(client, founder, eid, email="meera@x.in")
+
+    # grant letter (admin) — award terms + vesting schedule
+    letter = client.post(f"/esop/grants/{gid}/letter", headers=founder).json()
+    assert "GRANT LETTER" in letter["content"] and "48,000" in letter["content"]
+
+    meera = auth_headers(client, email="meera@x.in")
+    # the employee can download their own grant letter; a stranger cannot
+    ok = client.get(f"/portal/documents/{letter['id']}/pdf", headers=meera)
+    assert ok.status_code == 200 and ok.headers["content-type"] == "application/pdf"
+    other = auth_headers(client, email="stranger@x.in")
+    assert client.get(f"/portal/documents/{letter['id']}/pdf", headers=other).status_code == 404
+
+    # tax estimate for exercising 10,000: perquisite (50−10)×10,000 = 400,000;
+    # TDS = 30% + 4% cess = 124,800; cash cost = strike × qty = 100,000
+    est = client.get(f"/portal/grants/{gid}/tax-estimate?quantity=10000", headers=meera).json()
+    assert est["perquisite"] == "400000.00" and est["exercise_cost"] == "100000.00"
+    assert est["income_tax"] == "120000.00" and est["cess"] == "4800.00"
+    assert est["tds"] == "124800.00" and est["gain_after_tax"] == "275200.00"
+
+    # request → board approval issues shares, returns the TDS, mints a certificate
+    rid = client.post(
+        "/portal/exercise-requests", json={"grant_id": gid, "quantity": 10000}, headers=meera
+    ).json()["id"]
+    res = client.post(
+        f"/exercise-requests/{rid}/decide",
+        json={"approve": True, "security_class_id": sc},
+        headers=founder,
+    ).json()
+    assert res["perquisite_value"] == "400000.00" and res["tds"] == "124800.00"
+
+    # both documents now hang off the grant, and the certificate is downloadable
+    detail = client.get(f"/portal/grants/{gid}/detail", headers=meera).json()
+    assert sorted(d["kind"] for d in detail["documents"]) == ["certificate", "grant_letter"]
+    cert = next(d for d in detail["documents"] if d["kind"] == "certificate")
+    assert client.get(f"/portal/documents/{cert['id']}/pdf", headers=meera).status_code == 200
+    # the tax block rides along on the grant detail too
+    assert detail["tax"]["tds"] is not None
+
+
+def test_esop_forfeiture_true_up(client):
+    """Offboarding freezes vesting and lapses the unvested balance as an
+    auditable forfeiture event (returned to the pool, shown in the timeline)."""
+    founder = auth_headers(client, email="hr3@x.in")
+    eid = _company(client, founder)
+    m = client.post(
+        f"/entities/{eid}/team", json={"name": "Dev", "email": "dev@x.in"}, headers=founder
+    ).json()["id"]
+    sh_id = client.post(f"/team/{m}/onboard", headers=founder).json()["stakeholder_id"]
+    scheme = client.post(
+        f"/entities/{eid}/esop/schemes", json={"name": "ESOP", "pool_size": 100000}, headers=founder
+    ).json()["id"]
+    grant_date = (dt.date.today() - dt.timedelta(days=800)).isoformat()
+    client.post(
+        f"/entities/{eid}/esop/grants",
+        json={"scheme_id": scheme, "stakeholder_id": sh_id, "quantity": 48000,
+              "exercise_price": "10", "grant_date": grant_date},
+        headers=founder,
+    )
+
+    client.post(f"/team/{m}/offboard", json={}, headers=founder)
+
+    forf = client.get(f"/entities/{eid}/esop/forfeitures", headers=founder).json()
+    assert len(forf) == 1
+    f0 = forf[0]
+    assert f0["stakeholder"] == "Dev" and f0["reason"] == "offboarding"
+    assert f0["lapsed_quantity"] > 0 and f0["vested_retained"] > 0
+    assert f0["lapsed_quantity"] + f0["vested_retained"] == 48000
+    # the grant is frozen at the vested amount; the lapse returns to the pool
+    g = client.get(f"/entities/{eid}/esop/grants", headers=founder).json()[0]
+    assert g["quantity"] == f0["vested_retained"]
+    ov = client.get(f"/entities/{eid}/esop/overview", headers=founder).json()
+    assert ov["forfeited"] == f0["lapsed_quantity"]
+    # and it appears in the narrative timeline
+    tl = client.get(f"/entities/{eid}/timeline", headers=founder).json()["events"]
+    assert any(e["kind"] == "forfeiture" for e in tl)
+
+
 def test_waterfall_range(client):
     h = auth_headers(client)
     eid = _company(client, h)

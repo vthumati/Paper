@@ -9,6 +9,7 @@ import {
   type EsopOverview,
   type EsopScheme,
   type ExerciseWindow,
+  type ForfeitureRow,
   type SecurityClass,
   type Stakeholder,
 } from "../api";
@@ -24,6 +25,7 @@ export default function Esop({ entityId }: { entityId: string }) {
   const [holders, setHolders] = useState<Stakeholder[]>([]);
   const [windows, setWindows] = useState<ExerciseWindow[]>([]);
   const [overview, setOverview] = useState<EsopOverview | null>(null);
+  const [forfeitures, setForfeitures] = useState<ForfeitureRow[]>([]);
   const { error, setError, guard } = useGuard(() => load());
 
   // exercise-window form
@@ -49,13 +51,14 @@ export default function Esop({ entityId }: { entityId: string }) {
 
   async function load() {
     try {
-      const [sc, gr, cl, sh, wd, ov] = await Promise.all([
+      const [sc, gr, cl, sh, wd, ov, ff] = await Promise.all([
         api.listSchemes(entityId),
         api.listGrants(entityId),
         api.listSecurityClasses(entityId),
         api.listStakeholders(entityId),
         api.listExerciseWindows(entityId),
         api.esopOverview(entityId),
+        api.listForfeitures(entityId),
       ]);
       setSchemes(sc);
       setGrants(gr);
@@ -63,6 +66,7 @@ export default function Esop({ entityId }: { entityId: string }) {
       setHolders(sh);
       setWindows(wd);
       setOverview(ov);
+      setForfeitures(ff);
       if (!gScheme && sc.length) setGScheme(sc[0].id);
     } catch (e) {
       setError((e as Error).message);
@@ -139,6 +143,9 @@ export default function Esop({ entityId }: { entityId: string }) {
                 <Stat label="Exercised" value={overview.exercised.toLocaleString()} hint="Vested options already exercised/settled into shares." />
                 <Stat label="Exercisable" value={overview.exercisable.toLocaleString()} hint="Vested but not yet exercised = vested − exercised." />
                 <Stat label="Unvested" value={overview.unvested.toLocaleString()} hint="Not yet vested = granted − vested." />
+                {overview.forfeited > 0 && (
+                  <Stat label="Forfeited" value={overview.forfeited.toLocaleString()} hint="Unvested options lapsed back to the pool on departures." />
+                )}
               </div>
               {overview.leaderboard.length > 0 && (
                 <div style={{ marginTop: 12 }}>
@@ -325,7 +332,7 @@ export default function Esop({ entityId }: { entityId: string }) {
                         : g.exercisable.toLocaleString()}
                     </td>
                     <td>{g.grant_type === "rsu" ? "—" : `₹${g.exercise_price}`}</td>
-                    <td>
+                    <td style={{ whiteSpace: "nowrap" }}>
                       {isRsa ? (
                         <span className="muted">issued at grant</span>
                       ) : (
@@ -336,7 +343,17 @@ export default function Esop({ entityId }: { entityId: string }) {
                         >
                           {g.grant_type === "rsu" ? "Settle" : "Exercise"}
                         </button>
-                      )}
+                      )}{" "}
+                      <button
+                        className="secondary"
+                        title="Generate the employee's grant letter (terms + vesting)"
+                        onClick={guard(async () => {
+                          const doc = await api.generateGrantLetter(g.id);
+                          api.downloadDocumentPdf(doc.id, doc.title);
+                        })}
+                      >
+                        Letter
+                      </button>
                     </td>
                   </tr>
                 );
@@ -345,6 +362,32 @@ export default function Esop({ entityId }: { entityId: string }) {
           </table>
         )}
       </div>
+
+      {forfeitures.length > 0 && (
+        <div className="card">
+          <h3>Forfeitures &amp; true-ups</h3>
+          <p className="muted">
+            When an employee leaves, vesting freezes and the unvested balance lapses back to
+            the pool. Each true-up is logged here and in the cap-table timeline.
+          </p>
+          <table>
+            <thead>
+              <tr><th>Employee</th><th>Lapsed to pool</th><th>Vested retained</th><th>Reason</th><th>Date</th></tr>
+            </thead>
+            <tbody>
+              {forfeitures.map((f) => (
+                <tr key={f.id}>
+                  <td>{f.stakeholder ?? "—"}</td>
+                  <td>{f.lapsed_quantity.toLocaleString()}</td>
+                  <td>{f.vested_retained.toLocaleString()}</td>
+                  <td><span className="badge">{f.reason}</span></td>
+                  <td>{f.date}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="card">
         <h3>Exercise windows</h3>

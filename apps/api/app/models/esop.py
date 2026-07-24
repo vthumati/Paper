@@ -89,6 +89,24 @@ class ExerciseRequest(Base, TimestampMixin):
     exercise_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
+class ForfeitureEvent(Base, TimestampMixin):
+    """An auditable option-forfeiture / true-up event (FR-D/R-4): when an
+    employee leaves, each affected grant is frozen at what had vested and the
+    unvested balance lapses back to the scheme pool. One row per affected grant
+    records how many options lapsed and how many vested options were retained."""
+
+    __tablename__ = "esop_forfeitures"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    entity_id: Mapped[str] = mapped_column(ForeignKey("legal_entities.id"), index=True)
+    grant_id: Mapped[str] = mapped_column(ForeignKey("esop_grants.id"), index=True)
+    stakeholder_id: Mapped[str] = mapped_column(ForeignKey("stakeholders.id"))
+    lapsed_quantity: Mapped[int] = mapped_column(Integer)
+    vested_retained: Mapped[int] = mapped_column(Integer)
+    reason: Mapped[str] = mapped_column(String(32), default="offboarding")
+    date: Mapped[datetime.date] = mapped_column(Date)
+
+
 class ExerciseTransaction(Base, TimestampMixin):
     """An exercise event. Creates a cap-table IssuanceTransaction and records
     the perquisite value (FMV − exercise price) for tax (FR-D-3)."""

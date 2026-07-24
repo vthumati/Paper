@@ -299,6 +299,26 @@ def my_grant_detail(
     return detail
 
 
+@router.get("/portal/grants/{grant_id}/tax-estimate")
+def my_grant_tax_estimate(
+    grant_id: str,
+    quantity: int,
+    marginal_rate: float = 0.30,
+    user: User = Depends(require_verified_email),
+    db: Session = Depends(get_db),
+):
+    """Employee 'what if I exercise N options now' tax estimate: cash cost,
+    perquisite, estimated TDS and after-tax gain (FR-D-3)."""
+    from decimal import Decimal
+
+    if quantity <= 0:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "quantity must be positive")
+    est = svc.grant_tax_estimate_for_user(db, user, grant_id, quantity, Decimal(str(marginal_rate)))
+    if est is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Grant not found")
+    return est
+
+
 # --- portal PDF: LPs download their own statements / Form 64C by email match ---
 @router.get("/portal/documents/{document_id}/pdf")
 def portal_document_pdf(
@@ -307,21 +327,37 @@ def portal_document_pdf(
     db: Session = Depends(get_db),
 ):
     from ..models.document import Document
+    from ..models.esop import ExerciseTransaction, Grant
     from ..models.fund import LP
     from ..models.spv import CoInvestor
     from .documents import document_pdf_response
 
     doc = db.get(Document, document_id)
-    if doc is None or doc.subject_type not in ("lp_statement", "form_64c", "co_investor"):
+    allowed = ("lp_statement", "form_64c", "co_investor", "esop_grant", "esop_exercise")
+    if doc is None or doc.subject_type not in allowed:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
+
+    def deny():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
+
     if doc.subject_type == "co_investor":
         ci = db.get(CoInvestor, doc.subject_id) if doc.subject_id else None
         if ci is None or ci.email != user.email:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
+            deny()
+    elif doc.subject_type in ("esop_grant", "esop_exercise"):
+        # employee downloads their own grant letter / share certificate
+        if doc.subject_type == "esop_grant":
+            grant = db.get(Grant, doc.subject_id) if doc.subject_id else None
+        else:
+            ex = db.get(ExerciseTransaction, doc.subject_id) if doc.subject_id else None
+            grant = db.get(Grant, ex.grant_id) if ex else None
+        sh = db.get(Stakeholder, grant.stakeholder_id) if grant else None
+        if sh is None or sh.email != user.email:
+            deny()
     else:
         lp = db.get(LP, doc.subject_id) if doc.subject_id else None
         if lp is None or lp.email != user.email:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
+            deny()
     return document_pdf_response(db, doc)
 
 

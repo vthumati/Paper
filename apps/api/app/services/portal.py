@@ -30,6 +30,7 @@ from ..models.valuation import ValuationReport, ValuationStatus
 from ..models.spv import CoInvestor, SPV
 from .captable import compute_cap_table
 from .esop import (
+    exercise_tax_estimate,
     grant_schedule,
     grant_value_summary,
     grant_view,
@@ -204,6 +205,40 @@ def portfolio_value_history(db: Session, user: User) -> dict:
     }
 
 
+def _grant_documents(db: Session, grant_id: str) -> list[dict]:
+    """The employee's downloadable documents for a grant: the grant letter and
+    any share certificates issued from exercises of it."""
+    from ..models.esop import ExerciseTransaction
+
+    docs = [
+        {"id": d.id, "title": d.title, "kind": "grant_letter"}
+        for d in db.query(Document).filter_by(subject_type="esop_grant", subject_id=grant_id)
+    ]
+    ex_ids = [e.id for e in db.query(ExerciseTransaction).filter_by(grant_id=grant_id)]
+    if ex_ids:
+        docs += [
+            {"id": d.id, "title": d.title, "kind": "certificate"}
+            for d in db.query(Document).filter(
+                Document.subject_type == "esop_exercise", Document.subject_id.in_(ex_ids)
+            )
+        ]
+    return docs
+
+
+def grant_tax_estimate_for_user(
+    db: Session, user: User, grant_id: str, quantity: int, marginal_rate
+) -> dict | None:
+    """Email-scoped 'what if I exercise N now' tax estimate for the owning
+    employee. Returns None if the grant isn't theirs."""
+    grant = db.get(Grant, grant_id)
+    if grant is None:
+        return None
+    sh = db.get(Stakeholder, grant.stakeholder_id)
+    if sh is None or sh.email != user.email:
+        return None
+    return exercise_tax_estimate(db, grant, quantity, today_ist(), marginal_rate=marginal_rate)
+
+
 def grant_detail_for_user(db: Session, user: User, grant_id: str) -> dict | None:
     """One equity grant's full detail for the owning employee (matched by
     email): value summary + vesting status segments + the vesting timeline.
@@ -220,10 +255,18 @@ def grant_detail_for_user(db: Session, user: User, grant_id: str) -> dict | None
     summ = grant_value_summary(db, grant, today, gv)
     fmv = current_fmv(db, grant.entity_id, today)
     proj = vesting_projection(grant, today)
+    # estimated tax on exercising everything vested now (options/RSUs)
+    tax = (
+        exercise_tax_estimate(db, grant, gv["exercisable"], today)
+        if gv["exercisable"] > 0
+        else None
+    )
     return {
         "grant_id": grant.id,
         "grant_type": grant.grant_type,
         "entity_name": entity.name if entity else None,
+        "tax": tax,
+        "documents": _grant_documents(db, grant.id),
         "granted": gv["quantity"],
         "vested": gv["vested"],
         "exercised": gv["exercised"],
@@ -495,6 +538,7 @@ def portal_for_user(db: Session, user: User) -> dict:
                     "max_potential_value": summ["max_potential_value"],
                     "unit_value": summ["unit_value"],
                     "segments": summ["segments"],
+                    "documents": _grant_documents(db, g.id),
                 }
             )
             total_vested += gv["vested"]

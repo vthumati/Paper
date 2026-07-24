@@ -562,6 +562,35 @@ export interface ExerciseRequestRow {
   quantity: number;
   cashless: boolean;
   status: string;
+  perquisite: string | null;
+  estimated_tds: string | null;
+}
+export interface TaxEstimate {
+  quantity: number;
+  fmv_per_share: string | null;
+  exercise_price: string;
+  exercise_cost: string;
+  perquisite: string;
+  marginal_rate: string;
+  cess_rate: string;
+  income_tax: string;
+  cess: string;
+  tds: string;
+  gain_after_tax: string;
+}
+export interface GrantDoc {
+  id: string;
+  title: string;
+  kind: string;
+}
+export interface ForfeitureRow {
+  id: string;
+  stakeholder: string | null;
+  grant_id: string;
+  lapsed_quantity: number;
+  vested_retained: number;
+  reason: string;
+  date: string;
 }
 export interface CapTableImportReport {
   valid: boolean;
@@ -1095,6 +1124,7 @@ export interface EquityGrant {
   max_potential_value: string | null;
   unit_value: string | null;
   segments: { exercised: number; vested: number; unvested: number };
+  documents: GrantDoc[];
 }
 export interface EsopOverview {
   pool_size: number;
@@ -1105,6 +1135,7 @@ export interface EsopOverview {
   exercised: number;
   exercisable: number;
   unvested: number;
+  forfeited: number;
   grantees: number;
   schemes: number;
   by_type: Record<string, number>;
@@ -1200,6 +1231,8 @@ export interface GrantDetail {
   max_potential_value: string | null;
   segments: { exercised: number; vested: number; unvested: number };
   schedule: GrantScheduleEvent[];
+  tax: TaxEstimate | null;
+  documents: GrantDoc[];
 }
 export interface PortalSPVDeal {
   co_investor_id: string;
@@ -1399,7 +1432,7 @@ export const api = {
   listExerciseRequests: (eid: string) =>
     get<ExerciseRequestRow[]>(`/entities/${eid}/exercise-requests`),
   decideExerciseRequest: (rid: string, b: unknown) =>
-    post<{ id: string; status: string; net_shares?: number; perquisite_value?: string }>(
+    post<{ id: string; status: string; net_shares?: number; perquisite_value?: string; tds?: string }>(
       `/exercise-requests/${rid}/decide`, b
     ),
   antiDilution: (eid: string, classId: string, newPrice: string, newShares: string) =>
@@ -1625,6 +1658,8 @@ export const api = {
   createGrant: (eid: string, b: unknown) => post<EsopGrant>(`/entities/${eid}/esop/grants`, b),
   exerciseGrant: (gid: string, b: unknown) =>
     post(`/esop/grants/${gid}/exercise`, b),
+  generateGrantLetter: (gid: string) => post<Document>(`/esop/grants/${gid}/letter`),
+  listForfeitures: (eid: string) => get<ForfeitureRow[]>(`/entities/${eid}/esop/forfeitures`),
   listExerciseWindows: (eid: string) =>
     get<ExerciseWindow[]>(`/entities/${eid}/exercise-windows`),
   createExerciseWindow: (eid: string, b: unknown) =>
@@ -1782,6 +1817,11 @@ export const api = {
   ackNotice: (nid: string) =>
     post<{ notice_id: string; acknowledged_at: string }>(`/portal/notices/${nid}/ack`),
   grantDetail: (grantId: string) => get<GrantDetail>(`/portal/grants/${grantId}/detail`),
+  grantTaxEstimate: (grantId: string, quantity: number, rate?: number) =>
+    get<TaxEstimate>(
+      `/portal/grants/${grantId}/tax-estimate?quantity=${quantity}` +
+        (rate != null ? `&marginal_rate=${rate}` : "")
+    ),
   files: (eid: string, q?: string) =>
     get<FileItem[]>(`/entities/${eid}/files${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   listTaxRecords: (eid: string) => get<TaxRecord[]>(`/entities/${eid}/tax-records`),

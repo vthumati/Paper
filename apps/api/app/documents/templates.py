@@ -54,6 +54,31 @@ register(
 )
 register(
     DocumentTemplate(
+        "grant_letter",
+        "ESOP Grant Letter",
+        "grant_letter",
+        "GRANT LETTER\n"
+        "$company\nDate: $grant_date\n\n"
+        "Dear $employee,\n\n"
+        "We are pleased to grant you the following $grant_type under the "
+        "$scheme, subject to the terms of the scheme and your continued "
+        "engagement:\n\n"
+        "  Number granted:   $quantity\n"
+        "  Exercise price:    INR $exercise_price per share\n"
+        "  Grant date:        $grant_date\n"
+        "  Cliff:             $cliff_months months\n"
+        "  Vesting term:      $total_months months (monthly after the cliff)\n"
+        "  Fully vested on:   $full_vest_date\n\n"
+        "Vested options may be exercised during the exercise windows notified by "
+        "the Board. On cessation of employment, unvested options lapse and return "
+        "to the scheme pool. The taxable perquisite (fair market value less the "
+        "exercise price) on exercise is subject to tax withholding under the "
+        "Income-tax Act, 1961.\n\n"
+        "For $company\n",
+    )
+)
+register(
+    DocumentTemplate(
         "sha",
         "Shareholders Agreement (summary)",
         "sha",

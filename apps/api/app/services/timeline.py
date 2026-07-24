@@ -16,7 +16,7 @@ from ..models.captable import (
     Stakeholder,
     TransferTransaction,
 )
-from ..models.esop import ExerciseTransaction, Grant
+from ..models.esop import ExerciseTransaction, ForfeitureEvent, Grant
 from ..models.instruments import ConvertibleInstrument, InstrumentType
 from ..models.round import Round, RoundStatus
 from ..models.valuation import ValuationReport, ValuationStatus
@@ -109,6 +109,13 @@ def entity_timeline(db: Session, entity_id: str) -> list[dict]:
             ex.id, ex.date, ex.created_at, "exercise",
             f"{who(grant_holder.get(ex.grant_id))} exercised {_qty(ex.quantity)} options "
             f"at ₹{_money(ex.exercise_price)}",
+        )
+
+    for f in db.query(ForfeitureEvent).filter_by(entity_id=entity_id):
+        add(
+            f.id, f.date, f.created_at, "forfeiture",
+            f"{who(f.stakeholder_id)} forfeited {_qty(f.lapsed_quantity)} unvested options "
+            f"on {f.reason} ({_qty(f.vested_retained)} vested retained)",
         )
 
     for v in db.query(ValuationReport).filter_by(entity_id=entity_id, status=ValuationStatus.FINAL):
