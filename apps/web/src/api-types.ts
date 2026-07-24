@@ -7507,6 +7507,12 @@ export interface components {
              * @default 0
              */
             pool_top_up: number;
+            /**
+             * Pool Timing
+             * @default pre
+             * @enum {string}
+             */
+            pool_timing: "pre" | "post";
         };
         /** ScorecardIn */
         ScorecardIn: {

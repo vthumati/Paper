@@ -544,6 +544,7 @@ export interface Scenario {
   new_money: string;
   post_money: string;
   pool_top_up: number;
+  pool_timing: "pre" | "post";
   new_shares: number;
   safe_shares_converted: number;
   fd_pre: number;

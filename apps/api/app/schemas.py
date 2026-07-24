@@ -791,6 +791,9 @@ class ScenarioIn(BaseModel):
     pre_money: Decimal | None = Field(default=None, gt=0)
     price_per_share: Decimal | None = Field(default=None, gt=0)
     pool_top_up: int = Field(default=0, ge=0)
+    # "pre": pool sits in the pre-money FD (dilutes existing holders); "post":
+    # created after the round (dilutes everyone, new investors included)
+    pool_timing: Literal["pre", "post"] = "pre"
 
 
 class ExerciseRequestIn(BaseModel):

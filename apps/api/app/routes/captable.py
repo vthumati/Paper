@@ -328,4 +328,5 @@ def model_scenario(
         pre_money=body.pre_money,
         price_per_share=body.price_per_share,
         pool_top_up=body.pool_top_up,
+        pool_timing=body.pool_timing,
     )

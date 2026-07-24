@@ -67,6 +67,47 @@ def test_scenario_model_pro_forma(client):
     ).status_code == 400
 
 
+def test_scenario_pool_shuffle(client):
+    """Same round, pool timed pre vs post: pre-money comes out of the founder,
+    post-money dilutes everyone (new investors included)."""
+    h = auth_headers(client)
+    eid = _company(client, h)
+    sc = client.post(
+        f"/entities/{eid}/security-classes", json={"name": "Equity", "kind": "equity"}, headers=h
+    ).json()["id"]
+    f = client.post(
+        f"/entities/{eid}/stakeholders", json={"name": "Founder", "type": "founder"}, headers=h
+    ).json()["id"]
+    client.post(
+        f"/entities/{eid}/issuances",
+        json={"security_class_id": sc, "stakeholder_id": f, "quantity": 9_000_000,
+              "price_per_unit": "1", "issue_date": "2025-01-01"},
+        headers=h,
+    )
+    round_ = {"new_money": "4500000", "pre_money": "9000000", "pool_top_up": 1_000_000}
+
+    pre = client.post(f"/entities/{eid}/scenarios/model", json={**round_, "pool_timing": "pre"}, headers=h).json()
+    post = client.post(f"/entities/{eid}/scenarios/model", json={**round_, "pool_timing": "post"}, headers=h).json()
+
+    # pre-money pool sits in the price denominator → cheaper shares, bigger round
+    assert pre["price_per_share"] == "0.9000" and pre["fd_pre"] == 10_000_000
+    assert pre["new_shares"] == 5_000_000 and pre["fd_post"] == 15_000_000
+    # post-money pool is created after the round → higher price, pool in fd_post
+    assert post["price_per_share"] == "1.0000" and post["fd_pre"] == 9_000_000
+    assert post["new_shares"] == 4_500_000 and post["fd_post"] == 14_500_000
+
+    pre_by = {r["name"]: r for r in pre["rows"]}
+    post_by = {r["name"]: r for r in post["rows"]}
+    new = "New investors (this round)"
+    # the new investor is protected pre-money, diluted by the pool post-money
+    assert pre_by[new]["after_pct"] == 33.3333
+    assert post_by[new]["after_pct"] == 31.0345
+    # mirror image for the founder: worse pre-money, better post-money
+    assert pre_by["Founder"]["after_pct"] == 60.0
+    assert post_by["Founder"]["after_pct"] == 62.069
+    assert pre["pool_timing"] == "pre" and post["pool_timing"] == "post"
+
+
 def test_waterfall_range(client):
     h = auth_headers(client)
     eid = _company(client, h)

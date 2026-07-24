@@ -3,9 +3,12 @@ HYPOTHETICAL round — nothing is written to the ledger.
 
 Conventions (the market-standard ones):
  - the pre-money is divided by the pre-round fully-diluted share count
-   (issued + unexercised options + unallocated pool + any pool top-up) to get
-   the price; alternatively the caller supplies the price directly.
- - a pool top-up is created pre-money, so it dilutes existing holders only.
+   (issued + unexercised options + unallocated pool) to get the price;
+   alternatively the caller supplies the price directly.
+ - a pool top-up can be timed either side of the round (the "option pool
+   shuffle"): "pre" puts it in the pre-money FD, so it comes out of existing
+   holders and the new investor's stake is protected; "post" creates it after
+   the round, so it dilutes everyone — new investors included.
  - outstanding SAFEs/notes convert at the round (discount/cap terms applied
    at the scenario price) alongside the new money.
 """
@@ -25,10 +28,18 @@ def model_round(
     pre_money: Decimal | None,
     price_per_share: Decimal | None,
     pool_top_up: int = 0,
+    pool_timing: str = "pre",
 ) -> dict:
+    # the pool shuffle: a pre-money top-up sits in the price denominator (and so
+    # dilutes existing holders), a post-money one is created after the round
+    # (out of the denominator, so it dilutes everyone, new investors included)
+    pre_pool = pool_top_up if pool_timing != "post" else 0
+    post_pool = pool_top_up if pool_timing == "post" else 0
+
     # structure (issued/options/pool) is price-independent; probe it first
     base = fully_diluted(db, entity_id, Decimal("1"))
-    fd_pre = base["issued_shares"] + base["option_shares"] + base["pool_unallocated"] + pool_top_up
+    fd_core = base["issued_shares"] + base["option_shares"] + base["pool_unallocated"]
+    fd_pre = fd_core + pre_pool
     if fd_pre <= 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "No shares outstanding to model against")
 
@@ -45,30 +56,32 @@ def model_round(
     fd = fully_diluted(db, entity_id, price)  # converts priced at the round
     new_shares = int(Decimal(new_money) / price)
     safe_shares = fd["convertible_shares"]
-    fd_post = fd_pre + safe_shares + new_shares
-
     # three stages (Pulley-style matrix): today -> after SAFEs convert -> after
-    # the round; SAFE conversions land at the mid stage, new money at the last
+    # the round; SAFE conversions land at the mid stage, new money (and any
+    # post-money pool) at the last
     fd_mid = fd_pre + safe_shares
+    fd_post = fd_mid + new_shares + post_pool
     rows = []
     for r in fd["rows"]:
-        before = r["issued"] + r["options"] + (pool_top_up if r["name"] == POOL_ROW else 0)
-        after = before + r["converts"]
+        is_pool = r["name"] == POOL_ROW
+        before = r["issued"] + r["options"] + (pre_pool if is_pool else 0)
+        mid = before + r["converts"]
+        after = mid + (post_pool if is_pool else 0)
         rows.append({
             "name": r["name"],
             "type": r["type"],
             "before": before,
             "before_pct": round(before / fd_pre * 100, 4),
-            "after_safes_pct": round(after / fd_mid * 100, 4) if fd_mid else 0.0,
+            "after_safes_pct": round(mid / fd_mid * 100, 4) if fd_mid else 0.0,
             "after": after,
             "after_pct": round(after / fd_post * 100, 4) if fd_post else 0.0,
         })
     if pool_top_up and not any(r["name"] == POOL_ROW for r in fd["rows"]):
         rows.append({
             "name": POOL_ROW, "type": "pool",
-            "before": pool_top_up, "before_pct": round(pool_top_up / fd_pre * 100, 4),
-            "after_safes_pct": round(pool_top_up / fd_mid * 100, 4) if fd_mid else 0.0,
-            "after": pool_top_up, "after_pct": round(pool_top_up / fd_post * 100, 4),
+            "before": pre_pool, "before_pct": round(pre_pool / fd_pre * 100, 4),
+            "after_safes_pct": round(pre_pool / fd_mid * 100, 4) if fd_mid else 0.0,
+            "after": pool_top_up, "after_pct": round(pool_top_up / fd_post * 100, 4) if fd_post else 0.0,
         })
     rows.append({
         "name": "New investors (this round)", "type": "investor",
@@ -86,6 +99,7 @@ def model_round(
         "new_money": str(Decimal(new_money).quantize(Decimal("0.01"), ROUND_HALF_UP)),
         "post_money": str((Decimal(pre_money) + Decimal(new_money)).quantize(Decimal("0.01"), ROUND_HALF_UP)),
         "pool_top_up": pool_top_up,
+        "pool_timing": pool_timing,
         "new_shares": new_shares,
         "safe_shares_converted": safe_shares,
         "excluded_instruments": fd["excluded_instruments"],

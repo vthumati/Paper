@@ -11,6 +11,7 @@ export default function ScenarioModeling({ entityId }: { entityId: string }) {
   const [preMoney, setPreMoney] = useState("");
   const [price, setPrice] = useState("");
   const [topUp, setTopUp] = useState("");
+  const [poolTiming, setPoolTiming] = useState<"pre" | "post">("pre");
   const [error, setError] = useState("");
 
   const holders = [...new Set(scenarios.flatMap((s) => s.rows.map((r) => r.name ?? "—")))];
@@ -19,8 +20,10 @@ export default function ScenarioModeling({ entityId }: { entityId: string }) {
     <div className="card">
       <PageHeader icon="📊" title="Scenario modeling" subtitle="Pro-forma cap table after a hypothetical round" />
       <p className="muted">
-        Model a hypothetical round — new money, pre-money or price, optional ESOP pool top-up
-        (created pre-money). SAFEs convert at the scenario price. Nothing touches the ledger.
+        Model a hypothetical round — new money, pre-money or price, optional ESOP pool top-up.
+        Choose whether the pool is created <strong>pre-money</strong> (comes out of existing
+        holders) or <strong>post-money</strong> (dilutes everyone, new investors included). SAFEs
+        convert at the scenario price. Nothing touches the ledger.
       </p>
       {error && <p className="error">{error}</p>}
       <div className="row" style={{ alignItems: "flex-end" }}>
@@ -28,6 +31,18 @@ export default function ScenarioModeling({ entityId }: { entityId: string }) {
         <div><label>Pre-money (₹)</label><input value={preMoney} onChange={(e) => setPreMoney(e.target.value)} placeholder="or set price →" /></div>
         <div><label>Price/share (₹)</label><input value={price} onChange={(e) => setPrice(e.target.value)} /></div>
         <div><label>Pool top-up (shares)</label><input value={topUp} onChange={(e) => setTopUp(e.target.value)} /></div>
+        <div>
+          <label>Pool timing</label>
+          <select
+            value={poolTiming}
+            onChange={(e) => setPoolTiming(e.target.value as "pre" | "post")}
+            disabled={!Number(topUp)}
+            title="Pre-money dilutes existing holders; post-money dilutes everyone incl. new investors"
+          >
+            <option value="pre">Pre-money</option>
+            <option value="post">Post-money</option>
+          </select>
+        </div>
         <button
           style={{ flex: "0 0 auto" }}
           disabled={!newMoney || (!preMoney && !price)}
@@ -39,6 +54,7 @@ export default function ScenarioModeling({ entityId }: { entityId: string }) {
                 pre_money: preMoney || null,
                 price_per_share: price || null,
                 pool_top_up: Number(topUp) || 0,
+                pool_timing: poolTiming,
               });
               setScenarios([...scenarios, s]);
             } catch (e) {
@@ -69,6 +85,12 @@ export default function ScenarioModeling({ entityId }: { entityId: string }) {
             <h4 style={{ margin: "4px 0" }}>
               Stage breakdown — latest scenario ({fmtMoney(Number(latest.new_money))} @ pre{" "}
               {fmtMoney(Number(latest.pre_money))})
+              {latest.pool_top_up > 0 && (
+                <span className="muted" style={{ fontWeight: 400 }}>
+                  {" "}· {latest.pool_top_up.toLocaleString()}-share pool created{" "}
+                  {latest.pool_timing === "post" ? "post-money" : "pre-money"}
+                </span>
+              )}
             </h4>
             <table>
               <thead>
