@@ -175,3 +175,31 @@ def test_list_endpoints_are_paginated(client):
     assert len(client.get(f"/entities/{eid}/stakeholders?limit=3&offset=6", headers=h).json()) == 1
     # over-cap limit is clamped, never unbounded
     assert len(client.get(f"/entities/{eid}/stakeholders?limit=99999", headers=h).json()) == 7
+
+
+def test_esign_completion_requires_token(client):
+    """A document cannot be flipped to 'signed' without the completion token
+    issued at request time — generic workspace write access is not enough."""
+    h = auth_headers(client, email="esign@test.in")
+    tid = client.post("/tenants", json={"name": "E", "type": "company"}, headers=h).json()["id"]
+    eid = client.post(
+        f"/tenants/{tid}/entities", json={"name": "E Co", "type": "pvt_ltd"}, headers=h
+    ).json()["id"]
+    did = client.post(
+        f"/entities/{eid}/documents", json={"template_key": "sha", "data": {"company": "E"}}, headers=h
+    ).json()["id"]
+    sig = client.post(
+        f"/documents/{did}/signatures",
+        json={"signatories": [{"name": "S", "email": "s@x.in"}]},
+        headers=h,
+    ).json()
+    token = sig["completion_token"]
+    assert token  # returned once, on creation
+    # a wrong/absent token is refused and the document stays unsigned
+    bad = client.post(f"/signatures/{sig['id']}/complete", json={"token": "nope"}, headers=h)
+    assert bad.status_code == 403
+    assert client.get(f"/documents/{did}", headers=h).json()["status"] != "signed"
+    # the correct token completes the signature and signs the document
+    ok = client.post(f"/signatures/{sig['id']}/complete", json={"token": token}, headers=h)
+    assert ok.status_code == 200 and ok.json()["status"] == "completed"
+    assert client.get(f"/documents/{did}", headers=h).json()["status"] == "signed"

@@ -1,6 +1,9 @@
 """Document module service (FR-F): generation from templates, append-only
 versioning, and a simulated e-sign flow (create request -> provider callback
 -> document signed), mirroring HLD §9.4."""
+import hmac
+import secrets
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -111,18 +114,26 @@ def create_signature(
         provider=provider or "aadhaar_esign",
         status=SignatureStatus.PENDING,
         signatories=signatories or [],
+        completion_token=secrets.token_urlsafe(24),
     )
     db.add(sig)
     db.commit()
     db.refresh(sig)
+    # MVP shim: a real provider (Digio/Aadhaar eSign) would deliver this to the
+    # signer and POST it back on completion; here it is logged and returned once
+    # on creation so the completion step can present it.
+    print(f"[e-sign] completion token for signature {sig.id}: {sig.completion_token}")
     return sig
 
 
-def complete_signature(db: Session, sig: SignatureRequest) -> SignatureRequest:
-    """Simulate the verified provider callback (HLD §9.4): mark the request
-    completed and the document signed."""
+def complete_signature(db: Session, sig: SignatureRequest, token: str) -> SignatureRequest:
+    """Complete the signature — the verified-provider-callback step. Requires the
+    completion token issued at request time (not merely workspace write access),
+    so a doc cannot be flipped to 'signed' outside the signer/provider flow."""
     if sig.status == SignatureStatus.COMPLETED:
         return sig
+    if not sig.completion_token or not hmac.compare_digest(token or "", sig.completion_token):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid signature-completion token")
     sig.status = SignatureStatus.COMPLETED
     sig.completed_at = now_ist()
     doc = db.get(Document, sig.document_id)

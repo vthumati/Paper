@@ -144,7 +144,9 @@ def test_safe_execution_flow(client):
         json={"signatories": [{"name": "Asha Angel"}, {"name": "Director"}]},
         headers=h,
     ).json()
-    client.post(f"/signatures/{sig['id']}/complete", headers=h)
+    client.post(
+        f"/signatures/{sig['id']}/complete", json={"token": sig["completion_token"]}, headers=h
+    )
 
     ex = client.get(f"/entities/{eid}/instruments/execution", headers=h).json()
     assert ex[iid] == {"board": "passed", "agreement": "signed", "signature": "completed"}

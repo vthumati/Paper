@@ -421,6 +421,16 @@ class SignatureOut(ORMModel):
     completed_at: datetime.datetime | None
 
 
+class SignatureCreatedOut(SignatureOut):
+    # returned only when a signature is requested, so the requester can complete
+    # it; not exposed on subsequent reads
+    completion_token: str | None = None
+
+
+class SignatureCompleteIn(BaseModel):
+    token: str = Field(min_length=1)
+
+
 # --- data room ---
 class DataRoomIn(BaseModel):
     name: str

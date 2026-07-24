@@ -79,7 +79,9 @@ def test_signature_flow_marks_document_signed(client):
     assert sig.json()["status"] == "pending"
     sid = sig.json()["id"]
 
-    done = client.post(f"/signatures/{sid}/complete", headers=h)
+    done = client.post(
+        f"/signatures/{sid}/complete", json={"token": sig.json()["completion_token"]}, headers=h
+    )
     assert done.status_code == 200 and done.json()["status"] == "completed"
     # document is now signed and cannot be regenerated
     assert client.get(f"/documents/{did}", headers=h).json()["status"] == "signed"

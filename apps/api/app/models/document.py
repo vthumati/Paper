@@ -72,5 +72,10 @@ class SignatureRequest(Base, TimestampMixin):
     )
     signatories: Mapped[list] = mapped_column(JSON, default=list)
     completed_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    # Secret issued when the signature is requested; completing the signature
+    # requires presenting it (stands in for the e-sign provider's verified
+    # callback). Prevents a workspace editor from flipping a doc to "signed"
+    # without going through the signer/provider flow.
+    completion_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     document: Mapped[Document] = relationship(back_populates="signatures")

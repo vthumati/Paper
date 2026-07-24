@@ -23,6 +23,8 @@ from ..schemas import (
     DocumentTemplateOut,
     DocumentVersionOut,
     RegenerateIn,
+    SignatureCompleteIn,
+    SignatureCreatedOut,
     SignatureCreateIn,
     SignatureOut,
 )
@@ -121,7 +123,9 @@ def regenerate(
     return docsvc.document_view(db, doc)
 
 
-@router.post("/documents/{document_id}/signatures", response_model=SignatureOut, status_code=201)
+@router.post(
+    "/documents/{document_id}/signatures", response_model=SignatureCreatedOut, status_code=201
+)
 def request_signature(
     body: SignatureCreateIn,
     ctx: DocCtx = Depends(doc_ctx),
@@ -134,8 +138,10 @@ def request_signature(
 
 @router.post("/signatures/{signature_id}/complete", response_model=SignatureOut)
 def complete_signature(
-    ctx: SignatureCtx = Depends(signature_ctx), db: Session = Depends(get_db)
+    body: SignatureCompleteIn,
+    ctx: SignatureCtx = Depends(signature_ctx),
+    db: Session = Depends(get_db),
 ):
-    # Represents processing the verified e-sign provider callback (HLD §9.4).
-    require_write(ctx.role)
-    return docsvc.complete_signature(db, ctx.signature)
+    # The verified e-sign provider callback (HLD §9.4): gated by the completion
+    # token issued at request time, not by generic workspace write access.
+    return docsvc.complete_signature(db, ctx.signature, body.token)
