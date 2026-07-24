@@ -16,7 +16,9 @@ def test_ddq_crud_and_presets(client):
     fid = _fund(client, h)
 
     ls = client.get(f"/funds/{fid}/ddq", headers=h).json()
-    assert ls["entries"] == [] and len(ls["presets"]) == 10
+    assert ls["entries"] == [] and len(ls["presets"]) == 12
+    # presets carry an SEC/SEBI regulator tag
+    assert any(p["regulator"] == "sec" for p in ls["presets"])
 
     # add a preset question, then answer it
     e = client.post(f"/funds/{fid}/ddq", json=ls["presets"][0], headers=h).json()

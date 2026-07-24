@@ -33,6 +33,7 @@ from ...models.fund import (
     LPDistribution,
     PortfolioInvestment,
 )
+from .. import fx
 from ..fund_perf import management_fee_by_lp
 from ..money import q  # shared paise quantisation
 from ._common import _fees_charged_by_lp, _paid_in_by_lp
@@ -397,8 +398,12 @@ def compute_plan(db: Session, fund: Fund) -> dict:
         })
 
     # plan vs actual, live from the ledgers
+    _pt = today_ist()
     deployed_actual = sum(
-        (Decimal(p.amount) for p in db.query(PortfolioInvestment).filter_by(fund_id=fund.id)),
+        (
+            fx.translate(db, fund, Decimal(p.amount), p.currency, _pt)
+            for p in db.query(PortfolioInvestment).filter_by(fund_id=fund.id)
+        ),
         Decimal("0"),
     )
     deals_actual = db.query(PortfolioInvestment).filter_by(fund_id=fund.id).count()
@@ -418,7 +423,14 @@ def compute_plan(db: Session, fund: Fund) -> dict:
         deployed_actual / len(investments) if investments else Decimal("0")
     )
     fv_total = sum(
-        (Decimal(p.current_value if p.current_value is not None else p.amount) for p in investments),
+        (
+            fx.translate(
+                db, fund,
+                Decimal(p.current_value if p.current_value is not None else p.amount),
+                p.currency, _pt,
+            )
+            for p in investments
+        ),
         Decimal("0"),
     )
     moic_actual = (fv_total / deployed_actual) if deployed_actual > 0 else None
@@ -524,12 +536,13 @@ def fund_financials(db: Session, fund: Fund) -> dict:
     invested_cost = Decimal("0")
     investments_fv = Decimal("0")
     positions_at_cost = 0
+    _fx_today = today_ist()
     for p in db.query(PortfolioInvestment).filter_by(fund_id=fund.id):
-        invested_cost += Decimal(p.amount)
+        invested_cost += fx.translate(db, fund, Decimal(p.amount), p.currency, _fx_today)
         if p.current_value is not None:
-            investments_fv += Decimal(p.current_value)
+            investments_fv += fx.translate(db, fund, Decimal(p.current_value), p.currency, _fx_today)
         else:
-            investments_fv += Decimal(p.amount)
+            investments_fv += fx.translate(db, fund, Decimal(p.amount), p.currency, _fx_today)
             positions_at_cost += 1
     unrealized = investments_fv - invested_cost
     fees = sum(

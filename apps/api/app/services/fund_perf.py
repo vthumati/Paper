@@ -25,6 +25,7 @@ from ..models.fund import (
     PortfolioInvestment,
     PortfolioValuation,
 )
+from . import fx
 from .money import q
 
 # unitised NAV (FR-J-7): units are issued at a fixed ₹10 par against paid-in
@@ -139,7 +140,8 @@ def performance_series(db: Session, fund: Fund) -> list[dict]:
             if (inv.invested_on or inv.created_at.date()) > t:
                 continue
             dated = [v for d, v in marks[inv.id] if d <= t]
-            nav += dated[-1] if dated else Decimal(inv.amount)
+            native = dated[-1] if dated else Decimal(inv.amount)
+            nav += fx.translate(db, fund, native, inv.currency, t)
         series.append(
             {
                 "date": t.isoformat(),
@@ -173,11 +175,12 @@ def fund_performance(db: Session, fund: Fund, as_of: datetime.date | None = None
     nav = Decimal("0")
     marked = unmarked = 0
     for p in db.query(PortfolioInvestment).filter_by(fund_id=fund.id):
+        # translate a foreign-currency holding to the fund currency (cross-border)
         if p.current_value is not None:
-            nav += Decimal(p.current_value)
+            nav += fx.translate(db, fund, Decimal(p.current_value), p.currency, as_of)
             marked += 1
         else:
-            nav += Decimal(p.amount)  # unmarked positions held at cost
+            nav += fx.translate(db, fund, Decimal(p.amount), p.currency, as_of)  # at cost
             unmarked += 1
     if nav > 0:
         flows.append((as_of, nav))

@@ -29,11 +29,13 @@ from ...schemas import (
     DrawdownNoticeOut,
     FundExpenseIn,
     FundOut,
+    FxRateIn,
     InvestmentRoundIn,
     PayNoticeIn,
 )
 from ...services import document as docsvc
 from ...services import fund as svc
+from ...services import fx as fxsvc
 from ...services import fy
 from ...services.fund_perf import fund_performance
 from ...services.fund_perf import performance_series as perf_series
@@ -156,6 +158,19 @@ def list_distributions(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(g
 @router.get("/funds/{fund_id}/capital-accounts")
 def capital_accounts(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
     return svc.capital_accounts(db, ctx.fund)
+
+
+# --- FX rates (cross-border: translate foreign holdings to the fund currency) ---
+@router.get("/funds/{fund_id}/fx-rates")
+def list_fx_rates(ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    return {"currency": ctx.fund.currency, "rates": fxsvc.list_rates(db, ctx.fund)}
+
+
+@router.post("/funds/{fund_id}/fx-rates", status_code=201)
+def add_fx_rate(body: FxRateIn, ctx: FundCtx = Depends(fund_ctx), db: Session = Depends(get_db)):
+    require_write(ctx.role)
+    fxsvc.add_rate(db, ctx.fund, body.currency, body.as_of, body.rate)
+    return {"currency": ctx.fund.currency, "rates": fxsvc.list_rates(db, ctx.fund)}
 
 
 # --- follow-on investment rounds (Rundit-style per-round history) ---

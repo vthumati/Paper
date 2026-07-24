@@ -1510,6 +1510,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/funds/{fund_id}/fx-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Fx Rates */
+        get: operations["list_fx_rates_funds__fund_id__fx_rates_get"];
+        put?: never;
+        /** Add Fx Rate */
+        post: operations["add_fx_rate_funds__fund_id__fx_rates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/funds/{fund_id}/portfolio/{investment_id}/rounds": {
         parameters: {
             query?: never;
@@ -5714,6 +5732,14 @@ export interface components {
             category?: string | null;
             /** Answer */
             answer?: string | null;
+            /**
+             * Regulator
+             * @default none
+             * @enum {string}
+             */
+            regulator: "none" | "sec" | "sebi";
+            /** Assignee */
+            assignee?: string | null;
         };
         /** DDQEntryUpdateIn */
         DDQEntryUpdateIn: {
@@ -5723,6 +5749,14 @@ export interface components {
             category?: string | null;
             /** Answer */
             answer?: string | null;
+            /** Status */
+            status?: ("draft" | "in_review" | "approved") | null;
+            /** Assignee */
+            assignee?: string | null;
+            /** Reviewer */
+            reviewer?: string | null;
+            /** Regulator */
+            regulator?: ("none" | "sec" | "sebi") | null;
         };
         /** DataRoomIn */
         DataRoomIn: {
@@ -6564,6 +6598,18 @@ export interface components {
             /** Active */
             active: boolean;
         };
+        /** FxRateIn */
+        FxRateIn: {
+            /** Currency */
+            currency: string;
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /** Rate */
+            rate: number | string;
+        };
         /** GrantIn */
         GrantIn: {
             /**
@@ -7289,6 +7335,8 @@ export interface components {
              * @default 0
              */
             amount: number | string;
+            /** Currency */
+            currency?: string | null;
             /**
              * Ownership Pct
              * @default 0
@@ -7342,6 +7390,11 @@ export interface components {
             instrument: string;
             /** Amount */
             amount: string;
+            /**
+             * Currency
+             * @default INR
+             */
+            currency: string;
             /** Ownership Pct */
             ownership_pct: string;
             /** Invested On */
@@ -11858,6 +11911,72 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_fx_rates_funds__fund_id__fx_rates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fund_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_fx_rate_funds__fund_id__fx_rates_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fund_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FxRateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

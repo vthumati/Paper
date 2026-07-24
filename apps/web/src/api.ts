@@ -1018,10 +1018,14 @@ export interface DDQEntry {
   question: string;
   answer: string | null;
   answered: boolean;
+  status: string;
+  assignee: string | null;
+  reviewer: string | null;
+  regulator: string;
 }
 export interface DDQList {
   entries: DDQEntry[];
-  presets: { category: string; question: string }[];
+  presets: { category: string; question: string; regulator: string }[];
 }
 export interface PortfolioMonitoring {
   fund_id: string;
@@ -1580,6 +1584,14 @@ export const api = {
   listDistributions: (fid: string) => get<Distribution[]>(`/funds/${fid}/distributions`),
   distribute: (fid: string, b: unknown) => post<Distribution>(`/funds/${fid}/distributions`, b),
   capitalAccounts: (fid: string) => get<CapitalAccounts>(`/funds/${fid}/capital-accounts`),
+  listFxRates: (fid: string) =>
+    get<{ currency: string; rates: { id: string; currency: string; as_of: string; rate: string }[] }>(
+      `/funds/${fid}/fx-rates`
+    ),
+  addFxRate: (fid: string, b: { currency: string; as_of: string; rate: string }) =>
+    post<{ currency: string; rates: { id: string; currency: string; as_of: string; rate: string }[] }>(
+      `/funds/${fid}/fx-rates`, b
+    ),
   fundPlan: (fid: string) => get<FundPlan>(`/funds/${fid}/plan`),
   saveFundPlan: (fid: string, b: FundPlanInput) => put<FundPlan>(`/funds/${fid}/plan`, b),
   listPortfolio: (fid: string) => get<PortfolioInvestment[]>(`/funds/${fid}/portfolio?limit=500`),
@@ -1638,9 +1650,9 @@ export const api = {
   lpReportPreview: (fid: string) => get<LpReportData>(`/funds/${fid}/lp-report/preview`),
   portalLpReport: (fid: string) => get<LpReportData>(`/portal/funds/${fid}/lp-report`),
   listDdq: (fid: string) => get<DDQList>(`/funds/${fid}/ddq`),
-  addDdqEntry: (fid: string, b: { question: string; category?: string | null; answer?: string | null }) =>
+  addDdqEntry: (fid: string, b: { question: string; category?: string | null; answer?: string | null; regulator?: string; assignee?: string }) =>
     post<DDQEntry>(`/funds/${fid}/ddq`, b),
-  updateDdqEntry: (fid: string, id: string, b: { question?: string; category?: string; answer?: string | null }) =>
+  updateDdqEntry: (fid: string, id: string, b: { question?: string; category?: string; answer?: string | null; status?: string; assignee?: string | null; reviewer?: string | null; regulator?: string }) =>
     put<DDQEntry>(`/funds/${fid}/ddq/${id}`, b),
   deleteDdqEntry: (fid: string, id: string) => del<void>(`/funds/${fid}/ddq/${id}`),
   ddqReport: (fid: string) => post<Document>(`/funds/${fid}/ddq/report`),

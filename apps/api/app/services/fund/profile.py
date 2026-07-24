@@ -15,6 +15,8 @@ from ...models.fund import (
     LPDistribution,
     PortfolioInvestment,
 )
+from ...clock import today_ist
+from .. import fx
 from ..fund_perf import units_for
 from ..money import q  # shared paise quantisation
 from ._common import _fees_charged_by_lp, _paid_in_by_lp
@@ -30,12 +32,16 @@ def schedule_of_investments(db: Session, fund: Fund) -> dict:
     share of NAV — with portfolio totals. GP-facing; the basis for LP
     look-through reporting below."""
     invs = db.query(PortfolioInvestment).filter_by(fund_id=fund.id).all()
+    today = today_ist()
     holdings = []
     tot_cost = tot_value = Decimal("0")
     for p in invs:
-        cost = Decimal(p.amount)
+        native_cost = Decimal(p.amount)
         marked = p.current_value is not None
-        value = Decimal(p.current_value) if marked else cost
+        native_value = Decimal(p.current_value) if marked else native_cost
+        # translate the holding's native currency into the fund currency
+        cost = fx.translate(db, fund, native_cost, p.currency, today)
+        value = fx.translate(db, fund, native_value, p.currency, today)
         tot_cost += cost
         tot_value += value
         holdings.append(
@@ -44,6 +50,9 @@ def schedule_of_investments(db: Session, fund: Fund) -> dict:
                 "company_name": p.company_name,
                 "instrument": p.instrument,
                 "invested_on": p.invested_on.isoformat() if p.invested_on else None,
+                "currency": p.currency,
+                "native_cost": str(q(native_cost)),
+                "native_value": str(q(native_value)),
                 "cost": str(q(cost)),
                 "current_value": str(q(value)),
                 "marked": marked,

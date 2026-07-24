@@ -8,6 +8,7 @@ export default function FundDDQ({ fundId }: { fundId: string }) {
   const [ddq, setDdq] = useState<DDQList | null>(null);
   const [category, setCategory] = useState("");
   const [question, setQuestion] = useState("");
+  const [reg, setReg] = useState("none");
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const { error, guard } = useGuard(() => load());
@@ -59,10 +60,31 @@ export default function FundDDQ({ fundId }: { fundId: string }) {
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "4px 0", borderTop: "1px solid var(--border)" }}>
                 <span style={{ flex: 1 }}>
                   <strong>{e.question}</strong>
+                  {e.regulator !== "none" && (
+                    <span className="badge" style={{ marginLeft: 6 }}>{e.regulator.toUpperCase()}</span>
+                  )}
                   <div className="muted">
                     {e.answered ? e.answer : <em>No answer yet</em>}
+                    {(e.assignee || e.reviewer) && (
+                      <span> · {e.assignee ? `owner ${e.assignee}` : ""}{e.reviewer ? ` · reviewer ${e.reviewer}` : ""}</span>
+                    )}
                   </div>
                 </span>
+                <select
+                  value={e.status}
+                  title="Workflow status"
+                  style={{ flex: "0 0 auto", maxWidth: 120 }}
+                  onChange={(ev) => {
+                    const v = ev.target.value;
+                    guard(async () => {
+                      await api.updateDdqEntry(fundId, e.id, { status: v });
+                    })();
+                  }}
+                >
+                  <option value="draft">draft</option>
+                  <option value="in_review">in review</option>
+                  <option value="approved">approved</option>
+                </select>
                 <button
                   className="secondary"
                   style={{ flex: "0 0 auto" }}
@@ -117,11 +139,19 @@ export default function FundDDQ({ fundId }: { fundId: string }) {
           <label>Category</label>
           <input placeholder="General" value={category} onChange={(e) => setCategory(e.target.value)} />
         </div>
+        <div style={{ flex: "0 0 auto" }}>
+          <label>Regulator</label>
+          <select value={reg} onChange={(e) => setReg(e.target.value)}>
+            <option value="none">—</option>
+            <option value="sec">SEC</option>
+            <option value="sebi">SEBI</option>
+          </select>
+        </div>
         <button
           style={{ flex: "0 0 auto" }}
           disabled={!question.trim()}
           onClick={guard(async () => {
-            await api.addDdqEntry(fundId, { question, category: category || null });
+            await api.addDdqEntry(fundId, { question, category: category || null, regulator: reg });
             setQuestion("");
           }, "Question added")}
         >

@@ -336,6 +336,27 @@ class DDQEntry(Base, TimestampMixin):
     question: Mapped[str] = mapped_column(String(500))
     answer: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[str] = mapped_column(String(32))
+    # collaborative workflow: draft -> in_review -> approved, with owners
+    status: Mapped[str] = mapped_column(String(16), default="draft")
+    assignee: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    reviewer: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # regulatory framework the question maps to: sec | sebi | none
+    regulator: Mapped[str] = mapped_column(String(8), default="none")
+
+
+class FxRate(Base, TimestampMixin):
+    """A dated FX rate for translating a foreign-currency holding into the fund
+    currency: 1 unit of `currency` = `rate` units of the fund currency, on
+    `as_of`. The GP enters rates; translation uses the latest rate on/before a
+    date (cross-border unified performance)."""
+
+    __tablename__ = "fx_rates"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    fund_id: Mapped[str] = mapped_column(ForeignKey("funds.id"), index=True)
+    currency: Mapped[str] = mapped_column(String(8))
+    as_of: Mapped[datetime.date] = mapped_column(Date)
+    rate: Mapped[Decimal] = mapped_column(Numeric(18, 6))
 
 
 class MetricAlertRule(Base, TimestampMixin):
@@ -388,6 +409,9 @@ class PortfolioInvestment(Base, TimestampMixin):
     sector: Mapped[str | None] = mapped_column(String(64), nullable=True)  # segment tag
     instrument: Mapped[str] = mapped_column(String(32), default="equity")
     amount: Mapped[Decimal] = mapped_column(Numeric(20, 2), default=Decimal("0"))
+    # currency the position is held in; translated to the fund currency for
+    # unified performance/NAV/SOI (cross-border support). Defaults to fund ccy.
+    currency: Mapped[str] = mapped_column(String(8), default="INR")
     ownership_pct: Mapped[Decimal] = mapped_column(Numeric(6, 2), default=Decimal("0"))
     invested_on: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
     # mark-to-market: latest fair value of the position (NAV input); null = unmarked

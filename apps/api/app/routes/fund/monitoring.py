@@ -71,6 +71,8 @@ def add_investment(
 ):
     require_write(ctx.role)
     data = body.model_dump()
+    if not data.get("currency"):
+        data["currency"] = ctx.fund.currency  # default to the fund's reporting currency
     if data.get("company_entity_id"):
         # linking to a Paper company keeps the name in sync with the source
         ent = _accessible_company(db, user, data["company_entity_id"])

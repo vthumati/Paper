@@ -82,6 +82,7 @@ export default function Fund({
   const [coName, setCoName] = useState("");
   const [coAmt, setCoAmt] = useState("");
   const [coSector, setCoSector] = useState("");
+  const [coCcy, setCoCcy] = useState(""); // holding currency; blank = fund currency
   const [coEntity, setCoEntity] = useState(""); // optional link to a Paper company
   const [linkable, setLinkable] = useState<{ id: string; name: string }[]>([]);
   const [openTear, setOpenTear] = useState<string | null>(null);
@@ -397,6 +398,8 @@ export default function Fund({
 
           <FundBankCard fund={fund} onSaved={loadFund} />
 
+          <FxRatesCard fundId={fund.id} />
+
           <div className="card">
             <h3>Capital calls</h3>
             {calls.length === 0 && (
@@ -583,7 +586,8 @@ export default function Fund({
                 disabled={!!coEntity}
                 onChange={(e) => setCoName(e.target.value)}
               />
-              <input placeholder="Amount ₹" value={coAmt} onChange={(e) => setCoAmt(e.target.value)} />
+              <input placeholder="Amount" value={coAmt} onChange={(e) => setCoAmt(e.target.value)} />
+              <input placeholder={`Currency (${fund.currency})`} value={coCcy} onChange={(e) => setCoCcy(e.target.value)} style={{ maxWidth: 110 }} />
               <input placeholder="Sector (segment)" value={coSector} onChange={(e) => setCoSector(e.target.value)} />
               <button
                 style={{ flex: "0 0 auto" }}
@@ -591,11 +595,13 @@ export default function Fund({
                 onClick={guard(async () => {
                   await api.addInvestment(fund.id, {
                     company_name: coName, amount: coAmt || "0", sector: coSector || null,
+                    currency: coCcy ? coCcy.toUpperCase() : null,
                     company_entity_id: coEntity || null,
                   });
                   setCoName("");
                   setCoAmt("");
                   setCoSector("");
+                  setCoCcy("");
                   setCoEntity("");
                 }, "Investment added")}
               >
@@ -809,6 +815,54 @@ function FundBankCard({ fund, onSaved }: { fund: FundT; onSaved: () => void }) {
           Save
         </button>
         {saved && <span className="badge complete" style={{ alignSelf: "center" }}>saved</span>}
+      </div>
+    </div>
+  );
+}
+
+/** FX rates for cross-border funds — translate foreign holdings to the fund ccy. */
+function FxRatesCard({ fundId }: { fundId: string }) {
+  const [data, setData] = useState<
+    { currency: string; rates: { id: string; currency: string; as_of: string; rate: string }[] } | null
+  >(null);
+  const [ccy, setCcy] = useState("USD");
+  const [asOf, setAsOf] = useState("2025-01-01");
+  const [rate, setRate] = useState("");
+  useEffect(() => {
+    api.listFxRates(fundId).then(setData).catch(() => {});
+  }, [fundId]);
+  if (!data) return null;
+  return (
+    <div className="card">
+      <h3>FX rates ({data.currency})</h3>
+      <p className="muted" style={{ marginTop: 0 }}>
+        Enter dated rates so foreign-currency holdings translate into {data.currency} for the
+        unified NAV, SOI and performance dashboard. Rate = 1 unit of the currency in {data.currency}.
+      </p>
+      {data.rates.length > 0 && (
+        <table>
+          <thead><tr><th>Currency</th><th>As of</th><th>Rate ({data.currency})</th></tr></thead>
+          <tbody>
+            {data.rates.map((r) => (
+              <tr key={r.id}><td>{r.currency}</td><td>{r.as_of}</td><td>{r.rate}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div className="row" style={{ alignItems: "flex-end", marginTop: 8 }}>
+        <div><label>Currency</label><input value={ccy} onChange={(e) => setCcy(e.target.value)} /></div>
+        <div><label>As of</label><input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} /></div>
+        <div><label>Rate</label><input value={rate} onChange={(e) => setRate(e.target.value)} placeholder={`1 ${ccy || "?"} = ? ${data.currency}`} /></div>
+        <button
+          style={{ flex: "0 0 auto" }}
+          disabled={!rate || !ccy}
+          onClick={async () => {
+            setData(await api.addFxRate(fundId, { currency: ccy, as_of: asOf, rate }));
+            setRate("");
+          }}
+        >
+          Add rate
+        </button>
       </div>
     </div>
   );

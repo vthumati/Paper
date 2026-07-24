@@ -542,6 +542,12 @@ class FundOut(ORMModel):
     bank_ifsc: str | None = None
 
 
+class FxRateIn(BaseModel):
+    currency: str
+    as_of: datetime.date
+    rate: Decimal = Field(gt=0)
+
+
 class FundPlanIn(BaseModel):
     fund_size: Decimal = Field(default=Decimal("0"), ge=0)
     fund_life_years: int = Field(default=10, ge=1, le=30)
@@ -634,6 +640,7 @@ class PortfolioIn(BaseModel):
     sector: str | None = None
     instrument: str = "equity"
     amount: Decimal = Decimal("0")
+    currency: str | None = None  # defaults to the fund currency
     ownership_pct: Decimal = Decimal("0")
     invested_on: datetime.date | None = None
 
@@ -645,6 +652,7 @@ class PortfolioOut(ORMModel):
     sector: str | None = None
     instrument: str
     amount: Decimal
+    currency: str = "INR"
     ownership_pct: Decimal
     invested_on: datetime.date | None
     current_value: Decimal | None
@@ -736,12 +744,18 @@ class DDQEntryIn(BaseModel):
     question: str
     category: str | None = None
     answer: str | None = None
+    regulator: Literal["none", "sec", "sebi"] = "none"
+    assignee: str | None = None
 
 
 class DDQEntryUpdateIn(BaseModel):
     question: str | None = None
     category: str | None = None
     answer: str | None = None
+    status: Literal["draft", "in_review", "approved"] | None = None
+    assignee: str | None = None
+    reviewer: str | None = None
+    regulator: Literal["none", "sec", "sebi"] | None = None
 
 
 class LPReportIn(BaseModel):
