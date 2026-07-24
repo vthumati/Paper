@@ -50,6 +50,10 @@ class Stakeholder(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255))
     type: Mapped[StakeholderType] = mapped_column(Enum(StakeholderType))
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # FEMA/FC-GPR reporting: residency drives foreign-investment filing.
+    residency: Mapped[str] = mapped_column(String(16), default="resident")  # resident | non_resident
+    nationality: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class IssuanceTransaction(Base, TimestampMixin):

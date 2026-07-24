@@ -253,6 +253,26 @@ export type Grant = Schemas["GrantOut"];
 export type DataRoom = Schemas["DataRoomOut"];
 export type Engagement = Schemas["EngagementOut"];
 export type Obligation = Schemas["ObligationOut"];
+export interface FemaTracker {
+  obligations: Obligation[];
+  non_resident_holders: { id: string; name: string; country: string | null; nationality: string | null }[];
+  smf_checklist: string[];
+}
+export interface VoteTally {
+  for: number;
+  against: number;
+  abstain: number;
+  for_shares: number;
+  against_shares: number;
+  abstain_shares: number;
+  total: number;
+}
+export interface AttendeesView {
+  attendees: { id: string; name: string; role: string; present: boolean }[];
+  present: number;
+  quorum: number | null;
+  quorum_met: boolean | null;
+}
 export type Fund = Schemas["FundOut"];
 export type LP = Schemas["LPOut"];
 export type DrawdownNotice = Schemas["DrawdownNoticeOut"];
@@ -1517,6 +1537,14 @@ export const api = {
     post<Obligation[]>(`/entities/${eid}/compliance/generate`, b),
   updateObligation: (id: string, b: { status: string; srn?: string }) =>
     post<Obligation>(`/compliance/${id}/status`, b),
+  prefillObligation: (id: string, b?: { resolution_id?: string }) =>
+    post<Document>(`/compliance/${id}/prefill`, b ?? {}),
+  femaTracker: (eid: string) => get<FemaTracker>(`/entities/${eid}/fema/tracker`),
+  generateSH7: (eid: string, b: { new_authorised_capital: string; resolution_id?: string }) =>
+    post<Document>(`/entities/${eid}/mca/sh7`, b),
+  generatePas3: (eid: string) => post<Document>(`/entities/${eid}/mca/pas3`),
+  generateFcGpr: (eid: string) => post<Document>(`/entities/${eid}/mca/fc-gpr`),
+  generateMgt14: (rid: string) => post<Document>(`/resolutions/${rid}/mca/mgt14`),
   generatePeriodicCompliance: (eid: string, b: { financial_year_end: string }) =>
     post<Obligation[]>(`/entities/${eid}/compliance/generate-periodic`, b),
   complianceHealth: (eid: string) =>
@@ -1835,6 +1863,15 @@ export const api = {
   generateResolutionDoc: (rid: string) => post<Document>(`/resolutions/${rid}/document`),
   addAgendaItem: (mid: string, b: unknown) => post<Meeting>(`/meetings/${mid}/agenda`, b),
   generateNotice: (mid: string) => post<Document>(`/meetings/${mid}/notice`),
+  listAttendees: (mid: string) => get<AttendeesView>(`/meetings/${mid}/attendees`),
+  addAttendee: (mid: string, b: { name: string; role?: string; present?: boolean }) =>
+    post<AttendeesView>(`/meetings/${mid}/attendees`, b),
+  listVotes: (rid: string) =>
+    get<{ votes: { id: string; voter: string; vote: string; shares: number }[]; tally: VoteTally }>(
+      `/resolutions/${rid}/votes`
+    ),
+  recordVote: (rid: string, b: { voter: string; vote: string; shares?: number }) =>
+    post<{ tally: VoteTally }>(`/resolutions/${rid}/votes`, b),
   listDirectors: (eid: string) => get<Director[]>(`/entities/${eid}/directors`),
   appointDirector: (eid: string, b: unknown) => post<Director>(`/entities/${eid}/directors`, b),
   resignDirector: (did: string, b: unknown) => post<Director>(`/directors/${did}/resign`, b),

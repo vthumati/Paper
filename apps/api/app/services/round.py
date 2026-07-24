@@ -89,9 +89,13 @@ def close_round(db: Session, rnd: Round, as_of: datetime.date) -> dict:
                 name=c.investor_name,
                 type=StakeholderType.INVESTOR,
                 email=c.investor_email,
+                # a foreign commitment makes this a non-resident holder (drives FC-GPR)
+                residency="non_resident" if c.is_foreign else "resident",
             )
             db.add(sh)
             db.flush()
+        elif c.is_foreign and sh.residency != "non_resident":
+            sh.residency = "non_resident"
         db.add(
             IssuanceTransaction(
                 entity_id=rnd.entity_id,

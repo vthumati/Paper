@@ -37,6 +37,9 @@ class LegalEntity(Base, TimestampMixin):
     # Feature pack (companies only): starter / growth / scale — the commercial
     # tier that decides which tabs and feature-parts are visible (app/stages.py).
     pack: Mapped[str] = mapped_column(String(16), default="starter")
+    # Current authorised share capital (₹). Seeded from incorporation and raised
+    # via SH-7 (increase of authorised capital); null falls back to Incorporation.
+    authorised_capital: Mapped[Decimal | None] = mapped_column(Numeric(20, 2), nullable=True)
 
 
 class IncorporationStatus(str, enum.Enum):

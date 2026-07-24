@@ -1,7 +1,7 @@
 import datetime
 import enum
 
-from sqlalchemy import Date, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin, gen_id
@@ -30,6 +30,12 @@ class ResolutionStatus(str, enum.Enum):
     DRAFT = "draft"
     PASSED = "passed"
     FAILED = "failed"
+
+
+class VoteChoice(str, enum.Enum):
+    FOR = "for"
+    AGAINST = "against"
+    ABSTAIN = "abstain"
 
 
 class DirectorDesignation(str, enum.Enum):
@@ -80,6 +86,23 @@ class Meeting(Base, TimestampMixin):
     agenda_items: Mapped[list["AgendaItem"]] = relationship(
         back_populates="meeting", cascade="all, delete-orphan", order_by="AgendaItem.order_index"
     )
+    attendees: Mapped[list["MeetingAttendee"]] = relationship(
+        back_populates="meeting", cascade="all, delete-orphan"
+    )
+
+
+class MeetingAttendee(Base, TimestampMixin):
+    """A person recorded present/absent at a meeting (for quorum + the minutes)."""
+
+    __tablename__ = "meeting_attendees"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    meeting_id: Mapped[str] = mapped_column(ForeignKey("meetings.id"), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(32), default="director")  # director | shareholder | invitee
+    present: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    meeting: Mapped[Meeting] = relationship(back_populates="attendees")
 
 
 class AgendaItem(Base, TimestampMixin):
@@ -111,3 +134,21 @@ class Resolution(Base, TimestampMixin):
     document_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     meeting: Mapped[Meeting | None] = relationship(back_populates="resolutions")
+    votes: Mapped[list["ResolutionVote"]] = relationship(
+        back_populates="resolution", cascade="all, delete-orphan"
+    )
+
+
+class ResolutionVote(Base, TimestampMixin):
+    """A vote cast on a resolution. `shares` (0 for a per-head board vote) lets a
+    shareholder resolution be tallied share-weighted."""
+
+    __tablename__ = "resolution_votes"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    resolution_id: Mapped[str] = mapped_column(ForeignKey("resolutions.id"), index=True)
+    voter: Mapped[str] = mapped_column(String(255))
+    vote: Mapped[VoteChoice] = mapped_column(Enum(VoteChoice))
+    shares: Mapped[int] = mapped_column(Integer, default=0)
+
+    resolution: Mapped[Resolution] = relationship(back_populates="votes")

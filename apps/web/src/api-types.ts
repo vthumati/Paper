@@ -1141,6 +1141,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/entities/{entity_id}/fema/tracker": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fema Tracker
+         * @description FEMA/RBI cross-border tracker: FEMA obligations (FC-GPR etc.), the
+         *     non-resident holders on the register, and the SMF filing checklist.
+         */
+        get: operations["fema_tracker_entities__entity_id__fema_tracker_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/compliance/{obligation_id}/prefill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prefill Form
+         * @description Pre-fill the statutory form for an obligation from the ledger (PAS-3,
+         *     MGT-14, FC-GPR) and link the generated draft to the obligation.
+         */
+        post: operations["prefill_form_compliance__obligation_id__prefill_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/entities/{entity_id}/fund": {
         parameters: {
             query?: never;
@@ -3233,6 +3275,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/meetings/{meeting_id}/attendees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Attendees */
+        get: operations["list_attendees_meetings__meeting_id__attendees_get"];
+        put?: never;
+        /** Add Attendee */
+        post: operations["add_attendee_meetings__meeting_id__attendees_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/entities/{entity_id}/directors": {
         parameters: {
             query?: never;
@@ -3331,6 +3391,105 @@ export interface paths {
         put?: never;
         /** Generate Resolution Document */
         post: operations["generate_resolution_document_resolutions__resolution_id__document_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/resolutions/{resolution_id}/votes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Votes */
+        get: operations["list_votes_resolutions__resolution_id__votes_get"];
+        put?: never;
+        /** Record Vote */
+        post: operations["record_vote_resolutions__resolution_id__votes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entities/{entity_id}/mca/sh7": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prefill Sh7
+         * @description SH-7 (increase of authorised capital): generate the form, record the
+         *     filing and raise the entity's authorised capital.
+         */
+        post: operations["prefill_sh7_entities__entity_id__mca_sh7_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entities/{entity_id}/mca/pas3": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prefill Pas3
+         * @description PAS-3 return of allotment, pre-filled from the issuance ledger.
+         */
+        post: operations["prefill_pas3_entities__entity_id__mca_pas3_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entities/{entity_id}/mca/fc-gpr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prefill Fc Gpr
+         * @description FC-GPR foreign-investment report, pre-filled from non-resident holders.
+         */
+        post: operations["prefill_fc_gpr_entities__entity_id__mca_fc_gpr_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/resolutions/{resolution_id}/mca/mgt14": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prefill Mgt14
+         * @description MGT-14 filing of a resolution, pre-filled from the resolution record.
+         */
+        post: operations["prefill_mgt14_resolutions__resolution_id__mca_mgt14_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6815,6 +6974,22 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** MeetingAttendeeIn */
+        MeetingAttendeeIn: {
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @default director
+             * @enum {string}
+             */
+            role: "director" | "shareholder" | "invitee";
+            /**
+             * Present
+             * @default true
+             */
+            present: boolean;
+        };
         /** MeetingIn */
         MeetingIn: {
             type: components["schemas"]["MeetingType"];
@@ -6941,6 +7116,8 @@ export interface components {
             srn: string | null;
             /** Overdue */
             overdue: boolean;
+            /** Document Id */
+            document_id?: string | null;
         };
         /**
          * ObligationStatus
@@ -7073,6 +7250,11 @@ export interface components {
             is_independent: boolean;
             /** Note */
             note?: string | null;
+        };
+        /** PrefillIn */
+        PrefillIn: {
+            /** Resolution Id */
+            resolution_id?: string | null;
         };
         /** ProspectIn */
         ProspectIn: {
@@ -7550,6 +7732,13 @@ export interface components {
              */
             dividend_yield: number | string;
         };
+        /** SH7In */
+        SH7In: {
+            /** New Authorised Capital */
+            new_authorised_capital: number | string;
+            /** Resolution Id */
+            resolution_id?: string | null;
+        };
         /** SPVCommitIn */
         SPVCommitIn: {
             /** Co Investor Id */
@@ -7893,6 +8082,16 @@ export interface components {
             type: components["schemas"]["StakeholderType"];
             /** Email */
             email?: string | null;
+            /**
+             * Residency
+             * @default resident
+             * @enum {string}
+             */
+            residency: "resident" | "non_resident";
+            /** Nationality */
+            nationality?: string | null;
+            /** Country */
+            country?: string | null;
         };
         /** StakeholderOut */
         StakeholderOut: {
@@ -7903,6 +8102,15 @@ export interface components {
             type: components["schemas"]["StakeholderType"];
             /** Email */
             email: string | null;
+            /**
+             * Residency
+             * @default resident
+             */
+            residency: string;
+            /** Nationality */
+            nationality?: string | null;
+            /** Country */
+            country?: string | null;
         };
         /**
          * StakeholderType
@@ -8290,6 +8498,21 @@ export interface components {
         VerifyEmailIn: {
             /** Token */
             token: string;
+        };
+        /** VoteIn */
+        VoteIn: {
+            /** Voter */
+            voter: string;
+            /**
+             * Vote
+             * @enum {string}
+             */
+            vote: "for" | "against" | "abstain";
+            /**
+             * Shares
+             * @default 0
+             */
+            shares: number;
         };
         /** WorkflowDefinitionOut */
         WorkflowDefinitionOut: {
@@ -10666,6 +10889,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ObligationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fema_tracker_entities__entity_id__fema_tracker_get: {
+        parameters: {
+            query?: {
+                as_of?: string | null;
+            };
+            header?: never;
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prefill_form_compliance__obligation_id__prefill_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                obligation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrefillIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
                 };
             };
             /** @description Validation Error */
@@ -15561,6 +15852,72 @@ export interface operations {
             };
         };
     };
+    list_attendees_meetings__meeting_id__attendees_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                meeting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_attendee_meetings__meeting_id__attendees_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                meeting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeetingAttendeeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_directors_entities__entity_id__directors_get: {
         parameters: {
             query?: never;
@@ -15795,6 +16152,200 @@ export interface operations {
         };
     };
     generate_resolution_document_resolutions__resolution_id__document_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resolution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_votes_resolutions__resolution_id__votes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resolution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_vote_resolutions__resolution_id__votes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resolution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prefill_sh7_entities__entity_id__mca_sh7_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SH7In"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prefill_pas3_entities__entity_id__mca_pas3_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prefill_fc_gpr_entities__entity_id__mca_fc_gpr_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prefill_mgt14_resolutions__resolution_id__mca_mgt14_post: {
         parameters: {
             query?: never;
             header?: never;

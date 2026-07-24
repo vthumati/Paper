@@ -210,6 +210,9 @@ class StakeholderIn(BaseModel):
     name: str
     type: StakeholderType
     email: NormEmailOpt = None
+    residency: Literal["resident", "non_resident"] = "resident"
+    nationality: str | None = None
+    country: str | None = None
 
 
 class StakeholderOut(ORMModel):
@@ -217,6 +220,9 @@ class StakeholderOut(ORMModel):
     name: str
     type: StakeholderType
     email: NormStrOpt
+    residency: str = "resident"
+    nationality: str | None = None
+    country: str | None = None
 
 
 class IssuanceIn(BaseModel):
@@ -504,6 +510,7 @@ class ObligationOut(BaseModel):
     assignee: str | None
     srn: str | None
     overdue: bool
+    document_id: str | None = None
 
 
 # --- fund administration (AIF) ---
@@ -1401,6 +1408,27 @@ class ResolutionIn(BaseModel):
 
 class ResolutionStatusIn(BaseModel):
     status: ResolutionStatus
+
+
+class MeetingAttendeeIn(BaseModel):
+    name: str
+    role: Literal["director", "shareholder", "invitee"] = "director"
+    present: bool = True
+
+
+class VoteIn(BaseModel):
+    voter: str
+    vote: Literal["for", "against", "abstain"]
+    shares: int = Field(default=0, ge=0)
+
+
+class SH7In(BaseModel):
+    new_authorised_capital: Decimal = Field(gt=0)
+    resolution_id: str | None = None
+
+
+class PrefillIn(BaseModel):
+    resolution_id: str | None = None
 
 
 # --- activity: audit log + notifications ---

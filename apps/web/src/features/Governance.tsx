@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import EmptyState from "../components/EmptyState";
 import { uiPrompt } from "../components/Prompt";
 import { useGuard } from "../hooks";
-import { api, type Director, type Meeting, type Resolution } from "../api";
+import { api, type AttendeesView, type Director, type Meeting, type Resolution, type VoteTally } from "../api";
 
 const RES_TYPES = ["board", "ordinary", "special", "circular"];
 const DESIGNATIONS = [
@@ -101,6 +101,7 @@ export default function Governance({ entityId }: { entityId: string }) {
                   {m.agenda_items.map((a) => <li key={a.id}>{a.title}</li>)}
                 </ol>
               )}
+              <MeetingAttendees meetingId={m.id} />
               <div className="row" style={{ marginTop: 6 }}>
                 <input
                   placeholder="Agenda item"
@@ -270,7 +271,8 @@ export default function Governance({ entityId }: { entityId: string }) {
             </thead>
             <tbody>
               {resolutions.map((r) => (
-                <tr key={r.id}>
+                <Fragment key={r.id}>
+                <tr>
                   <td>{r.title}</td>
                   <td>{r.type}</td>
                   <td><span className={`badge ${r.status === "passed" ? "complete" : ""}`}>{r.status}</span></td>
@@ -311,10 +313,105 @@ export default function Governance({ entityId }: { entityId: string }) {
                     </button>
                   </td>
                 </tr>
+                <tr>
+                  <td colSpan={4} style={{ background: "var(--surface-2, #f6f7f5)" }}>
+                    <ResolutionVotes resolutionId={r.id} />
+                  </td>
+                </tr>
+                </Fragment>
               ))}
             </tbody>
           </table>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Attendee list + quorum for one meeting (record who was present). */
+function MeetingAttendees({ meetingId }: { meetingId: string }) {
+  const [data, setData] = useState<AttendeesView | null>(null);
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("director");
+  const [present, setPresent] = useState(true);
+  useEffect(() => {
+    api.listAttendees(meetingId).then(setData).catch(() => {});
+  }, [meetingId]);
+  const quorumNote =
+    data && data.quorum != null
+      ? ` · ${data.present}/${data.quorum} for quorum ${data.quorum_met ? "✓" : "✗"}`
+      : data
+        ? ` · ${data.present} present`
+        : "";
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div className="muted" style={{ fontSize: 12 }}>Attendees{quorumNote}</div>
+      {data?.attendees.map((a) => (
+        <span key={a.id} className="badge" style={{ marginRight: 4 }}>
+          {a.name}{a.present ? "" : " (absent)"}
+        </span>
+      ))}
+      <div className="row" style={{ marginTop: 4 }}>
+        <input placeholder="Attendee name" value={name} onChange={(e) => setName(e.target.value)} />
+        <select value={role} onChange={(e) => setRole(e.target.value)} style={{ maxWidth: 140 }}>
+          <option value="director">director</option>
+          <option value="shareholder">shareholder</option>
+          <option value="invitee">invitee</option>
+        </select>
+        <label style={{ display: "flex", alignItems: "center", gap: 4, flex: "0 0 auto" }}>
+          <input type="checkbox" checked={present} onChange={(e) => setPresent(e.target.checked)} /> present
+        </label>
+        <button
+          className="secondary"
+          style={{ flex: "0 0 auto" }}
+          disabled={!name}
+          onClick={async () => {
+            setData(await api.addAttendee(meetingId, { name, role, present }));
+            setName("");
+          }}
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** For/against/abstain voting on one resolution, with a running tally. */
+function ResolutionVotes({ resolutionId }: { resolutionId: string }) {
+  const [tally, setTally] = useState<VoteTally | null>(null);
+  const [voter, setVoter] = useState("");
+  const [vote, setVote] = useState("for");
+  useEffect(() => {
+    api.listVotes(resolutionId).then((r) => setTally(r.tally)).catch(() => {});
+  }, [resolutionId]);
+  return (
+    <div>
+      <span className="muted" style={{ fontSize: 12 }}>
+        Votes:{" "}
+        {tally && tally.total > 0
+          ? `For ${tally.for} · Against ${tally.against} · Abstain ${tally.abstain}`
+          : "none recorded"}
+      </span>
+      <div className="row" style={{ marginTop: 4 }}>
+        <input placeholder="Voter" value={voter} onChange={(e) => setVoter(e.target.value)} />
+        <select value={vote} onChange={(e) => setVote(e.target.value)} style={{ maxWidth: 120 }}>
+          <option value="for">for</option>
+          <option value="against">against</option>
+          <option value="abstain">abstain</option>
+        </select>
+        <button
+          className="secondary"
+          style={{ flex: "0 0 auto" }}
+          disabled={!voter}
+          onClick={async () => {
+            const r = await api.recordVote(resolutionId, { voter, vote });
+            setTally(r.tally);
+            setVoter("");
+          }}
+        >
+          Vote
+        </button>
       </div>
     </div>
   );

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
-import { api, type Obligation, type TaxRecord } from "../api";
+import { api, type FemaTracker, type Obligation, type TaxRecord } from "../api";
 import ProgressRing from "../components/ProgressRing";
 
 const STATUSES = ["due", "in_prep", "filed", "acknowledged"];
+// obligations whose statutory form we can pre-fill from the ledger/governance
+const PREFILLABLE = new Set(["PAS-3", "MGT-14", "FC-GPR"]);
 const TAX_TYPES = [
   { v: "gst", label: "GST" },
   { v: "tds", label: "TDS" },
@@ -31,16 +33,31 @@ export default function Compliance({
   const [tPeriod, setTPeriod] = useState("Q1 FY2026");
   const [tRef, setTRef] = useState("");
   const [tAmt, setTAmt] = useState("");
+  // FEMA tracker + SH-7
+  const [fema, setFema] = useState<FemaTracker | null>(null);
+  const [shCap, setShCap] = useState("");
 
   const load = async () => {
     try {
       setObs(await api.listCompliance(entityId));
       setHealth(await api.complianceHealth(entityId));
       setTaxRecords(await api.listTaxRecords(entityId));
+      setFema(await api.femaTracker(entityId));
     } catch (e) {
       setError((e as Error).message);
     }
   };
+
+  async function prefill(o: Obligation) {
+    setError("");
+    try {
+      const doc = await api.prefillObligation(o.id);
+      api.downloadDocumentPdf(doc.id, doc.title);
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
   useEffect(() => {
     load();
   }, [entityId]);
@@ -146,6 +163,7 @@ export default function Compliance({
                 <th>Period</th>
                 <th>Due</th>
                 <th>Status</th>
+                <th>Form</th>
               </tr>
             </thead>
             <tbody>
@@ -166,12 +184,93 @@ export default function Compliance({
                       ))}
                     </select>
                   </td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {o.document_id ? (
+                      <button className="secondary" onClick={() => api.downloadDocumentPdf(o.document_id!, o.form_code)}>
+                        ⬇ Form
+                      </button>
+                    ) : PREFILLABLE.has(o.form_code) ? (
+                      <button className="secondary" onClick={() => prefill(o)}>Pre-fill</button>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      <div className="card">
+        <h3>MCA form pre-fillers</h3>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Draft statutory forms straight from the equity ledger. Increase authorised capital to
+          generate SH-7 (and record the filing); PAS-3 / MGT-14 / FC-GPR pre-fill from the
+          "Pre-fill" action on each obligation above.
+        </p>
+        <div className="row" style={{ alignItems: "flex-end" }}>
+          <div>
+            <label>New authorised capital (₹) — SH-7</label>
+            <input value={shCap} onChange={(e) => setShCap(e.target.value)} placeholder="e.g. 5000000" />
+          </div>
+          <button
+            style={{ flex: "0 0 auto" }}
+            disabled={!shCap}
+            onClick={async () => {
+              setError("");
+              try {
+                const doc = await api.generateSH7(entityId, { new_authorised_capital: shCap });
+                api.downloadDocumentPdf(doc.id, "SH-7");
+                setShCap("");
+                await load();
+              } catch (e) {
+                setError((e as Error).message);
+              }
+            }}
+          >
+            Generate SH-7
+          </button>
+          <button className="secondary" style={{ flex: "0 0 auto" }}
+            onClick={async () => { try { const d = await api.generatePas3(entityId); api.downloadDocumentPdf(d.id, "PAS-3"); } catch (e) { setError((e as Error).message); } }}>
+            Generate PAS-3
+          </button>
+        </div>
+      </div>
+
+      {fema && (
+        <div className="card">
+          <h3>FEMA / RBI tracker</h3>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Cross-border funding: FC-GPR reporting for foreign investment, and the Single Master
+            Form (SMF) checklist.
+          </p>
+          <div className="row" style={{ gap: 24, flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 260px" }}>
+              <label>Non-resident holders ({fema.non_resident_holders.length})</label>
+              {fema.non_resident_holders.length === 0 ? (
+                <p className="muted" style={{ fontSize: 13 }}>None on the register.</p>
+              ) : (
+                fema.non_resident_holders.map((n) => (
+                  <div key={n.id} style={{ fontSize: 13 }}>
+                    {n.name} <span className="muted">· {n.country ?? n.nationality ?? "non-resident"}</span>
+                  </div>
+                ))
+              )}
+              <button className="secondary" style={{ marginTop: 8 }}
+                onClick={async () => { try { const d = await api.generateFcGpr(entityId); api.downloadDocumentPdf(d.id, "FC-GPR"); } catch (e) { setError((e as Error).message); } }}>
+                Generate FC-GPR
+              </button>
+            </div>
+            <div style={{ flex: "1 1 300px" }}>
+              <label>Single Master Form (SMF) checklist</label>
+              <ol style={{ margin: "4px 0 0", paddingLeft: 18, fontSize: 13 }}>
+                {fema.smf_checklist.map((s, i) => <li key={i} style={{ marginBottom: 3 }}>{s}</li>)}
+              </ol>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <h3>Tax filings</h3>

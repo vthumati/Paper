@@ -17,7 +17,15 @@ from ..deps import (
     require_write,
     resolution_ctx,
 )
-from ..models.governance import AgendaItem, DirectorOfficer, Meeting, Resolution, ResolutionType
+from ..models.governance import (
+    AgendaItem,
+    DirectorOfficer,
+    Meeting,
+    MeetingAttendee,
+    Resolution,
+    ResolutionType,
+    VoteChoice,
+)
 from ..models.identity import User
 from ..models.portal import InvestorAccess, InvestorConsent
 from ..schemas import (
@@ -27,15 +35,19 @@ from ..schemas import (
     DirectorOut,
     DirectorResignIn,
     DocumentOut,
+    MeetingAttendeeIn,
     MeetingIn,
     MeetingOut,
     MinutesIn,
     ResolutionIn,
     ResolutionOut,
     ResolutionStatusIn,
+    SH7In,
+    VoteIn,
 )
 from ..services import document as docsvc
 from ..services import governance as svc
+from ..services import mca_forms as mcasvc
 from ..services.compliance import add_obligation
 
 router = APIRouter(tags=["governance"])
@@ -98,6 +110,34 @@ def generate_notice(
     require_write(ctx.role)
     doc = svc.generate_notice(db, ctx.meeting, user.id, today_ist())
     return docsvc.document_view(db, doc)
+
+
+def _attendee_list(db: Session, meeting_id: str) -> list[dict]:
+    return [
+        {"id": a.id, "name": a.name, "role": a.role, "present": a.present}
+        for a in db.query(MeetingAttendee).filter_by(meeting_id=meeting_id)
+    ]
+
+
+@router.get("/meetings/{meeting_id}/attendees")
+def list_attendees(ctx: MeetingCtx = Depends(meeting_ctx), db: Session = Depends(get_db)):
+    quorum = ctx.meeting.quorum or 0
+    present = sum(1 for a in db.query(MeetingAttendee).filter_by(meeting_id=ctx.meeting.id, present=True))
+    return {
+        "attendees": _attendee_list(db, ctx.meeting.id),
+        "present": present,
+        "quorum": ctx.meeting.quorum,
+        "quorum_met": present >= quorum if quorum else None,
+    }
+
+
+@router.post("/meetings/{meeting_id}/attendees", status_code=201)
+def add_attendee(
+    body: MeetingAttendeeIn, ctx: MeetingCtx = Depends(meeting_ctx), db: Session = Depends(get_db)
+):
+    require_write(ctx.role)
+    svc.add_attendee(db, ctx.meeting, body.name, body.role, body.present)
+    return list_attendees(ctx, db)
 
 
 # --- directors / KMP register ---
@@ -195,6 +235,80 @@ def generate_resolution_document(
 ):
     require_write(ctx.role)
     doc = svc.generate_document(db, ctx.resolution, user.id, today_ist())
+    return docsvc.document_view(db, doc)
+
+
+# --- votes on a resolution (for / against / abstain, optionally share-weighted) ---
+@router.get("/resolutions/{resolution_id}/votes")
+def list_votes(ctx: ResolutionCtx = Depends(resolution_ctx), db: Session = Depends(get_db)):
+    from ..models.governance import ResolutionVote
+
+    votes = [
+        {"id": v.id, "voter": v.voter, "vote": v.vote.value, "shares": v.shares}
+        for v in db.query(ResolutionVote).filter_by(resolution_id=ctx.resolution.id)
+    ]
+    return {"votes": votes, "tally": svc.vote_tally(db, ctx.resolution)}
+
+
+@router.post("/resolutions/{resolution_id}/votes", status_code=201)
+def record_vote(
+    body: VoteIn, ctx: ResolutionCtx = Depends(resolution_ctx), db: Session = Depends(get_db)
+):
+    require_write(ctx.role)
+    svc.record_vote(db, ctx.resolution, body.voter, VoteChoice(body.vote), body.shares)
+    return list_votes(ctx, db)
+
+
+# --- MCA form pre-fillers: pull ledger/governance data into the statutory form ---
+@router.post("/entities/{entity_id}/mca/sh7", response_model=DocumentOut, status_code=201)
+def prefill_sh7(
+    body: SH7In,
+    ctx: EntityCtx = Depends(entity_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """SH-7 (increase of authorised capital): generate the form, record the
+    filing and raise the entity's authorised capital."""
+    require_write(ctx.role)
+    doc = mcasvc.prefill_sh7(
+        db, ctx.entity, user.id, body.new_authorised_capital, today_ist(), body.resolution_id
+    )
+    return docsvc.document_view(db, doc)
+
+
+@router.post("/entities/{entity_id}/mca/pas3", response_model=DocumentOut, status_code=201)
+def prefill_pas3(
+    ctx: EntityCtx = Depends(entity_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """PAS-3 return of allotment, pre-filled from the issuance ledger."""
+    require_write(ctx.role)
+    doc = mcasvc.prefill_pas3(db, ctx.entity, user.id)
+    return docsvc.document_view(db, doc)
+
+
+@router.post("/entities/{entity_id}/mca/fc-gpr", response_model=DocumentOut, status_code=201)
+def prefill_fc_gpr(
+    ctx: EntityCtx = Depends(entity_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """FC-GPR foreign-investment report, pre-filled from non-resident holders."""
+    require_write(ctx.role)
+    doc = mcasvc.prefill_fc_gpr(db, ctx.entity, user.id)
+    return docsvc.document_view(db, doc)
+
+
+@router.post("/resolutions/{resolution_id}/mca/mgt14", response_model=DocumentOut, status_code=201)
+def prefill_mgt14(
+    ctx: ResolutionCtx = Depends(resolution_ctx),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """MGT-14 filing of a resolution, pre-filled from the resolution record."""
+    require_write(ctx.role)
+    doc = mcasvc.prefill_mgt14(db, ctx.resolution, user.id)
     return docsvc.document_view(db, doc)
 
 

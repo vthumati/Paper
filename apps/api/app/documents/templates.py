@@ -38,7 +38,7 @@ register(
         "BOARD RESOLUTION OF $company\n"
         "Date: $date\n\n"
         "RESOLVED THAT $resolution_text\n\n"
-        "For $company\n$signatory, Director\n",
+        "${decision}For $company\n$signatory, Director\n",
     )
 )
 register(
@@ -314,6 +314,72 @@ register(
         "Proposed alteration:\n$description\n\n"
         "Approved by special resolution ($resolution_title). MGT-14 must be\n"
         "filed with the Registrar within 30 days of the resolution passing.\n",
+    )
+)
+register(
+    DocumentTemplate(
+        "pas3",
+        "Form PAS-3 (Return of Allotment)",
+        "pas3",
+        "FORM PAS-3 — RETURN OF ALLOTMENT\n"
+        "(pursuant to section 39(4) / 42(9) of the Companies Act, 2013)\n\n"
+        "Company: $company\nCIN: $cin\nAllotments covered: $period\n\n"
+        "Securities allotted:\n$allotments\n\n"
+        "Total securities allotted: $total_shares\n"
+        "Total consideration: INR $total_consideration\n"
+        "Authorised capital: INR $authorised_capital\n\n"
+        "Pre-filled from the equity ledger. File PAS-3 with the Registrar within "
+        "30 days of allotment, attaching the list of allottees and the board "
+        "resolution.\n",
+    )
+)
+register(
+    DocumentTemplate(
+        "sh7",
+        "Form SH-7 (Alteration of Share Capital)",
+        "sh7",
+        "FORM SH-7 — NOTICE TO REGISTRAR OF ALTERATION OF SHARE CAPITAL\n"
+        "(pursuant to section 64(1) of the Companies Act, 2013)\n\n"
+        "Company: $company\nCIN: $cin\nDate: $date\n\n"
+        "Type of alteration: Increase in authorised share capital\n"
+        "Authorised capital before: INR $from_capital\n"
+        "Authorised capital after:  INR $to_capital\n"
+        "Increase:                  INR $increase\n\n"
+        "Authorised by $resolution passed on $passed_date. File SH-7 within 30 "
+        "days with the amended Memorandum of Association and the prescribed fee.\n",
+    )
+)
+register(
+    DocumentTemplate(
+        "mgt14",
+        "Form MGT-14 (Filing of Resolution)",
+        "mgt14",
+        "FORM MGT-14 — FILING OF RESOLUTIONS\n"
+        "(pursuant to section 117 of the Companies Act, 2013)\n\n"
+        "Company: $company\nCIN: $cin\n\n"
+        "Resolution: $title\nType: $res_type\nPassed on: $passed_date $meeting_ref\n\n"
+        "Text of the resolution:\n$resolution_text\n\n"
+        "Attach a certified true copy and, for special resolutions, the "
+        "explanatory statement under section 102. File within 30 days of passing.\n",
+    )
+)
+register(
+    DocumentTemplate(
+        "fc_gpr",
+        "Form FC-GPR (Foreign Investment Reporting)",
+        "fc_gpr",
+        "FORM FC-GPR — REPORTING OF FOREIGN INVESTMENT (ISSUE OF SHARES)\n"
+        "(RBI Master Direction on Reporting under FEMA 20(R), via the FIRMS "
+        "portal / Single Master Form)\n\n"
+        "Indian company: $company\nCIN: $cin\n\n"
+        "Non-resident allottee(s):\n$investors\n\n"
+        "Total shares issued to non-residents: $total_shares\n"
+        "Total inward remittance: INR $total_amount\n"
+        "Pricing basis: $pricing\n\n"
+        "SINGLE MASTER FORM (SMF) — FILING CHECKLIST\n$checklist\n\n"
+        "File FC-GPR within 30 days of allotment on the RBI FIRMS portal. Attach "
+        "the FIRC, the AD bank's KYC report, the valuation certificate and the "
+        "board resolution.\n",
     )
 )
 register(
