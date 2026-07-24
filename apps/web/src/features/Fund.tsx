@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import EmptyState from "../components/EmptyState";
 import { uiPrompt } from "../components/Prompt";
 import ColumnChart from "../components/ColumnChart";
+import Sankey from "../components/Sankey";
+import Stepper, { type StepState } from "../components/Stepper";
 import LpReportView from "../components/LpReportView";
 import Stat from "../components/Stat";
 import DealPipeline from "./DealPipeline";
@@ -180,6 +182,57 @@ export default function Fund({
     return out.length ? out : undefined;
   };
 
+  // Capital-flow Sankey: committed → drawn/uncalled → deployed/fees/reserve → holdings.
+  const capitalFlow = (() => {
+    const nodes: { id: string; label: string; color?: string }[] = [];
+    const links: { source: string; target: string; value: number }[] = [];
+    if (!accounts) return { nodes, links };
+    const drawn = Number(accounts.totals.drawn);
+    const uncalled = Number(accounts.totals.remaining);
+    const cost = soi ? Number(soi.totals.cost) : 0;
+    const fees = perf ? Number(perf.management_fee_accrued) : 0;
+    const reserve = Math.max(0, drawn - cost - fees);
+
+    nodes.push({ id: "committed", label: "Committed", color: "#0f9d6b" });
+    if (drawn > 0) nodes.push({ id: "drawn", label: "Drawn", color: "#0ea5a4" });
+    if (uncalled > 0) nodes.push({ id: "uncalled", label: "Uncalled", color: "#94a3b8" });
+    if (drawn > 0) links.push({ source: "committed", target: "drawn", value: drawn });
+    if (uncalled > 0) links.push({ source: "committed", target: "uncalled", value: uncalled });
+
+    if (fees > 0) {
+      nodes.push({ id: "fees", label: "Fees", color: "#8a6d3b" });
+      links.push({ source: "drawn", target: "fees", value: fees });
+    }
+    if (reserve > 0) {
+      nodes.push({ id: "reserve", label: "Reserve cash", color: "#cdd8d1" });
+      links.push({ source: "drawn", target: "reserve", value: reserve });
+    }
+    // deployed splits into the top holdings by cost (+ an "Others" bucket)
+    const holdings = (soi?.holdings ?? [])
+      .map((h) => ({ name: h.company_name, cost: Number(h.cost) }))
+      .filter((h) => h.cost > 0)
+      .sort((a, b) => b.cost - a.cost);
+    if (cost > 0 && holdings.length > 0) {
+      nodes.push({ id: "deployed", label: "Deployed", color: "#3f9d7a" });
+      links.push({ source: "drawn", target: "deployed", value: cost });
+      const top = holdings.slice(0, 5);
+      top.forEach((h, i) => {
+        const id = `co${i}`;
+        nodes.push({ id, label: h.name });
+        links.push({ source: "deployed", target: id, value: h.cost });
+      });
+      const rest = holdings.slice(5).reduce((s, h) => s + h.cost, 0);
+      if (rest > 0) {
+        nodes.push({ id: "coRest", label: "Others" });
+        links.push({ source: "deployed", target: "coRest", value: rest });
+      }
+    } else if (cost > 0) {
+      nodes.push({ id: "deployed", label: "Deployed", color: "#3f9d7a" });
+      links.push({ source: "drawn", target: "deployed", value: cost });
+    }
+    return { nodes, links };
+  })();
+
   return (
     <div>
       {error && <p className="error">{error}</p>}
@@ -306,6 +359,17 @@ export default function Fund({
             </div>
           </div>
 
+          {accounts && Number(accounts.totals.committed) > 0 && (
+            <div className="card">
+              <h3>Capital flow</h3>
+              <p className="muted" style={{ marginTop: 0 }}>
+                How committed capital moves through the fund — drawn vs. still uncalled,
+                then deployed into holdings, net of fees and reserve cash.
+              </p>
+              <Sankey format={(v) => fmtMoney(v)} links={capitalFlow.links} nodes={capitalFlow.nodes} />
+            </div>
+          )}
+
           <div className="card">
             <h3>
               Capital accounts{" "}
@@ -412,24 +476,28 @@ export default function Fund({
                 </strong>
                 <table>
                   <thead>
-                    <tr><th>LP</th><th>Amount</th><th>Acknowledged</th><th>Status</th></tr>
+                    <tr><th>LP</th><th>Amount</th><th>Progress</th><th>Actions</th></tr>
                   </thead>
                   <tbody>
-                    {c.notices.map((n) => (
+                    {c.notices.map((n) => {
+                      const ackDone = !!n.acknowledged_at || n.paid;
+                      const steps: { label: string; state: StepState }[] = [
+                        { label: "Called", state: "done" },
+                        { label: "Acknowledged", state: ackDone ? "done" : "active" },
+                        { label: "Paid", state: n.paid ? "done" : ackDone ? "active" : "todo" },
+                      ];
+                      return (
                       <tr key={n.id}>
                         <td>{lps.find((l) => l.id === n.lp_id)?.name ?? n.lp_id}</td>
                         <td>{fmtMoney(n.amount)}</td>
                         <td>
-                          {n.acknowledged_at ? (
-                            <span className="badge">acknowledged</span>
-                          ) : (
-                            <span className="muted">not acknowledged</span>
+                          <Stepper steps={steps} />
+                          {n.paid && n.payment_ref && (
+                            <div className="muted" style={{ fontSize: 11, marginTop: 3 }}>UTR {n.payment_ref}</div>
                           )}
                         </td>
                         <td style={{ whiteSpace: "nowrap" }}>
-                          {n.paid ? (
-                            <span className="badge complete">paid{n.payment_ref ? ` · ${n.payment_ref}` : ""}</span>
-                          ) : (
+                          {!n.paid && (
                             <button
                               className="secondary"
                               onClick={guard(async () => {
@@ -452,7 +520,8 @@ export default function Fund({
                           </button>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
