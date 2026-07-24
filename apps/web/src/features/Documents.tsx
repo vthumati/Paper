@@ -56,8 +56,9 @@ export default function Documents({
       const sig = await api.requestSignature(selected.id, {
         signatories: [{ name: "Authorised signatory", email: "signer@example.in" }],
       });
-      // simulate the verified e-sign provider callback (HLD §9.4)
-      await api.completeSignature(sig.id);
+      // complete with the token issued at request time (stands in for the
+      // verified e-sign provider callback, HLD §9.4)
+      await api.completeSignature(sig.id, sig.completion_token || "");
       setSelected(await api.getDocument(selected.id));
       await load();
     } catch (e) {

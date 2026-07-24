@@ -277,6 +277,7 @@ export interface SignatureRequest {
   status: "pending" | "completed" | "declined";
   signatories: unknown[];
   completed_at: string | null;
+  completion_token?: string | null; // returned only when the request is created
 }
 export interface DataRoomItem {
   id: string;
@@ -1820,7 +1821,8 @@ export const api = {
   getDocument: (did: string) => get<Document>(`/documents/${did}`),
   requestSignature: (did: string, b: unknown) =>
     post<SignatureRequest>(`/documents/${did}/signatures`, b),
-  completeSignature: (sid: string) => post<SignatureRequest>(`/signatures/${sid}/complete`),
+  completeSignature: (sid: string, token: string) =>
+    post<SignatureRequest>(`/signatures/${sid}/complete`, { token }),
 
   listDataRooms: (eid: string) => get<DataRoom[]>(`/entities/${eid}/data-rooms`),
   createDataRoom: (eid: string, b: { name: string; scope?: string }) =>
