@@ -1735,6 +1735,7 @@ export const api = {
   login: (b: { email: string; password: string }) =>
     post<{ access_token: string }>("/auth/login", b),
   refresh: () => post<{ access_token: string }>("/auth/refresh"),
+  logout: () => post<void>("/auth/logout"),
   verifyEmail: (token: string) => post<User>("/auth/verify-email", { token }),
   me: () => get<User>("/auth/me"),
 

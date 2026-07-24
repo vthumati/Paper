@@ -80,6 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(() => {
+    // revoke the token server-side (best-effort), then clear locally regardless
+    api.logout().catch(() => {});
     tokenStore.clear();
     setUser(null);
   }, []);
