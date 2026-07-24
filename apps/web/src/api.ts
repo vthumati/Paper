@@ -551,6 +551,41 @@ export interface Scenario {
   fd_post: number;
   rows: ScenarioRow[];
 }
+export interface RoundPlanRow {
+  name: string | null;
+  type: string | null;
+  tier: string | null;
+  before: number;
+  before_pct: number;
+  after_safes_pct: number;
+  anti_dilution_shares: number;
+  after: number;
+  after_pct: number;
+  dilution_pct: number;
+}
+export interface AntiDilutionEntry {
+  security_class: string;
+  method: string;
+  orig_issue_price: string;
+  adjusted_price: string;
+  additional_shares: number;
+}
+export interface RoundPlan {
+  price_per_share: string;
+  pre_money: string;
+  new_money: string;
+  post_money: string;
+  pool_top_up: number;
+  pool_timing: "pre" | "post";
+  new_shares: number;
+  safe_shares_converted: number;
+  anti_dilution_shares: number;
+  anti_dilution: AntiDilutionEntry[];
+  excluded_instruments: string[];
+  fd_pre: number;
+  fd_post: number;
+  rows: RoundPlanRow[];
+}
 export interface WaterfallRange {
   exit_amounts: string[];
   rows: { stakeholder_id: string; stakeholder_name: string | null; payouts: string[] }[];
@@ -1425,6 +1460,7 @@ export const api = {
         (assumedPrice ? `?assumed_price=${encodeURIComponent(assumedPrice)}` : "")
     ),
   modelScenario: (eid: string, b: unknown) => post<Scenario>(`/entities/${eid}/scenarios/model`, b),
+  planRound: (eid: string, b: unknown) => post<RoundPlan>(`/entities/${eid}/scenarios/plan`, b),
   waterfallRange: (eid: string, amounts: string) =>
     get<WaterfallRange>(`/entities/${eid}/waterfall-range?amounts=${encodeURIComponent(amounts)}`),
   requestExercise: (b: unknown) =>

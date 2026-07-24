@@ -796,6 +796,30 @@ class ScenarioIn(BaseModel):
     pool_timing: Literal["pre", "post"] = "pre"
 
 
+class CoInvestorAllocIn(BaseModel):
+    name: str
+    amount: Decimal = Field(ge=0)
+
+
+class RoundTierIn(BaseModel):
+    name: str
+    amount: Decimal = Field(default=0, ge=0)
+    co_investors: list[CoInvestorAllocIn] = []
+
+
+class RoundPlanIn(BaseModel):
+    """Multi-tier round plan: pre-money or price, one or more investor tiers
+    (each optionally split among co-investors), pool shuffle, and whether to
+    fold in the down-round anti-dilution adjustment."""
+
+    pre_money: Decimal | None = Field(default=None, gt=0)
+    price_per_share: Decimal | None = Field(default=None, gt=0)
+    tiers: list[RoundTierIn] = []
+    pool_top_up: int = Field(default=0, ge=0)
+    pool_timing: Literal["pre", "post"] = "pre"
+    apply_anti_dilution: bool = True
+
+
 class ExerciseRequestIn(BaseModel):
     grant_id: str
     quantity: int = Field(gt=0)

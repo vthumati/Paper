@@ -219,6 +219,76 @@ def test_esop_forfeiture_true_up(client):
     assert any(e["kind"] == "forfeiture" for e in tl)
 
 
+def test_round_planner_tiers_coinvestors_antidilution(client):
+    """Multi-tier round with co-investors and a full-ratchet down-round: extra
+    shares fold into the protected class, diluting everyone else further."""
+    h = auth_headers(client)
+    eid = _company(client, h)
+    common = client.post(
+        f"/entities/{eid}/security-classes", json={"name": "Equity", "kind": "equity"}, headers=h
+    ).json()["id"]
+    pref = client.post(
+        f"/entities/{eid}/security-classes",
+        json={"name": "Series A Pref", "kind": "ccps", "pref_multiple": "1",
+              "anti_dilution": "full_ratchet", "orig_issue_price": "10"},
+        headers=h,
+    ).json()["id"]
+    founder = client.post(
+        f"/entities/{eid}/stakeholders", json={"name": "Founder", "type": "founder"}, headers=h
+    ).json()["id"]
+    inv = client.post(
+        f"/entities/{eid}/stakeholders", json={"name": "Series A Inc", "type": "investor"}, headers=h
+    ).json()["id"]
+    client.post(f"/entities/{eid}/issuances", json={"security_class_id": common,
+        "stakeholder_id": founder, "quantity": 8_000_000, "price_per_unit": "1",
+        "issue_date": "2025-01-01"}, headers=h)
+    client.post(f"/entities/{eid}/issuances", json={"security_class_id": pref,
+        "stakeholder_id": inv, "quantity": 2_000_000, "price_per_unit": "10",
+        "issue_date": "2025-06-01"}, headers=h)
+
+    # down round at ₹5 (< ₹10 orig): FD pre = 10M → pre-money 50M.
+    # Lead puts 10M (2M shares); a syndicate of two co-investors 2.5M each
+    # (0.5M shares each). full ratchet: CP2 = 5 → Series A gets +2M shares.
+    body = {
+        "price_per_share": "5",
+        "tiers": [
+            {"name": "Lead Fund", "amount": "10000000"},
+            {"name": "Syndicate", "co_investors": [
+                {"name": "Angel A", "amount": "2500000"},
+                {"name": "Angel B", "amount": "2500000"},
+            ]},
+        ],
+    }
+    p = client.post(f"/entities/{eid}/scenarios/plan", json=body, headers=h).json()
+    assert p["price_per_share"] == "5.0000"
+    assert p["new_shares"] == 3_000_000 and p["anti_dilution_shares"] == 2_000_000
+    assert p["fd_pre"] == 10_000_000 and p["fd_post"] == 15_000_000
+    assert p["new_money"] == "15000000.00" and p["post_money"] == "65000000.00"
+    assert len(p["anti_dilution"]) == 1
+    ad = p["anti_dilution"][0]
+    assert ad["method"] == "full_ratchet" and ad["additional_shares"] == 2_000_000
+    by = {r["name"]: r for r in p["rows"]}
+    assert by["Founder"]["after_pct"] == 53.3333
+    # Series A: 2M held + 2M ratchet = 4M / 15M
+    assert by["Series A Inc"]["after"] == 4_000_000 and by["Series A Inc"]["after_pct"] == 26.6667
+    assert by["Series A Inc"]["anti_dilution_shares"] == 2_000_000
+    assert by["Lead Fund"]["after"] == 2_000_000 and by["Lead Fund"]["tier"] == "Lead Fund"
+    assert by["Angel A"]["after"] == 500_000 and by["Angel A"]["tier"] == "Syndicate"
+    assert by["Angel B"]["after"] == 500_000
+
+    # toggle anti-dilution off: no ratchet shares, everyone else less diluted
+    p2 = client.post(
+        f"/entities/{eid}/scenarios/plan", json={**body, "apply_anti_dilution": False}, headers=h
+    ).json()
+    assert p2["anti_dilution_shares"] == 0 and p2["anti_dilution"] == []
+    assert p2["fd_post"] == 13_000_000
+    by2 = {r["name"]: r for r in p2["rows"]}
+    assert by2["Series A Inc"]["after"] == 2_000_000
+    # empty plan is valid (just the current cap table, no new money)
+    empty = client.post(f"/entities/{eid}/scenarios/plan", json={"price_per_share": "5", "tiers": []}, headers=h).json()
+    assert empty["new_shares"] == 0 and empty["new_money"] == "0.00"
+
+
 def test_waterfall_range(client):
     h = auth_headers(client)
     eid = _company(client, h)

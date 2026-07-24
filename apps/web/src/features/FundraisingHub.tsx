@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Fundraising from "./Fundraising";
 import ScenarioModeling from "./ScenarioModeling";
+import RoundPlanner from "./RoundPlanner";
 import TermSheetScanner from "./TermSheetScanner";
 import Instruments from "./Instruments";
 import Pipeline from "./Pipeline";
@@ -8,6 +9,7 @@ import Pipeline from "./Pipeline";
 const SUBTABS = [
   { key: "rounds", label: "Rounds & funnel" },
   { key: "modeler", label: "Scenario modeler" },
+  { key: "planner", label: "Round planner" },
   { key: "scanner", label: "Term sheet scanner" },
   { key: "instruments", label: "SAFEs & notes" },
   { key: "pipeline", label: "Pipeline (CRM)" },
@@ -40,6 +42,7 @@ export default function FundraisingHub({
       </div>
       {sub === "rounds" && <Fundraising entityId={entityId} />}
       {sub === "modeler" && <ScenarioModeling entityId={entityId} />}
+      {sub === "planner" && <RoundPlanner entityId={entityId} />}
       {sub === "scanner" && <TermSheetScanner entityId={entityId} />}
       {sub === "instruments" && <Instruments entityId={entityId} onChanged={onChanged} />}
       {sub === "pipeline" && <Pipeline entityId={entityId} />}

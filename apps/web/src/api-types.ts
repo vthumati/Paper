@@ -674,6 +674,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/entities/{entity_id}/scenarios/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Scenario
+         * @description Interactive round planner: multi-tier + co-investor allocations with the
+         *     down-round anti-dilution adjustment folded in (pro-forma; never written).
+         */
+        post: operations["plan_scenario_entities__entity_id__scenarios_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflow-definitions": {
         parameters: {
             query?: never;
@@ -5159,6 +5180,13 @@ export interface components {
             /** Description */
             description: string;
         };
+        /** CoInvestorAllocIn */
+        CoInvestorAllocIn: {
+            /** Name */
+            name: string;
+            /** Amount */
+            amount: number | string;
+        };
         /** CoInvestorIn */
         CoInvestorIn: {
             /** Name */
@@ -7415,10 +7443,58 @@ export interface components {
             status: components["schemas"]["RoundStatus"];
         };
         /**
+         * RoundPlanIn
+         * @description Multi-tier round plan: pre-money or price, one or more investor tiers
+         *     (each optionally split among co-investors), pool shuffle, and whether to
+         *     fold in the down-round anti-dilution adjustment.
+         */
+        RoundPlanIn: {
+            /** Pre Money */
+            pre_money?: number | string | null;
+            /** Price Per Share */
+            price_per_share?: number | string | null;
+            /**
+             * Tiers
+             * @default []
+             */
+            tiers: components["schemas"]["RoundTierIn"][];
+            /**
+             * Pool Top Up
+             * @default 0
+             */
+            pool_top_up: number;
+            /**
+             * Pool Timing
+             * @default pre
+             * @enum {string}
+             */
+            pool_timing: "pre" | "post";
+            /**
+             * Apply Anti Dilution
+             * @default true
+             */
+            apply_anti_dilution: boolean;
+        };
+        /**
          * RoundStatus
          * @enum {string}
          */
         RoundStatus: "draft" | "open" | "closed";
+        /** RoundTierIn */
+        RoundTierIn: {
+            /** Name */
+            name: string;
+            /**
+             * Amount
+             * @default 0
+             */
+            amount: number | string;
+            /**
+             * Co Investors
+             * @default []
+             */
+            co_investors: components["schemas"]["CoInvestorAllocIn"][];
+        };
         /**
          * RunStatus
          * @enum {string}
@@ -9566,6 +9642,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ScenarioIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_scenario_entities__entity_id__scenarios_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoundPlanIn"];
             };
         };
         responses: {

@@ -19,6 +19,7 @@ from ..schemas import (
     BuybackIn,
     CapTableImportIn,
     ConversionIn,
+    RoundPlanIn,
     ScenarioIn,
     ConversionOut,
     CorporateActionIn,
@@ -36,7 +37,7 @@ from ..services import captable as svc
 from ..services.captable import compute_cap_table
 from ..services.diluted import anti_dilution_preview, fully_diluted
 from ..services.importer import TEMPLATE, apply_import, parse_and_validate
-from ..services.scenario import model_round
+from ..services.scenario import model_round, plan_round
 from ..services.timeline import entity_timeline
 
 router = APIRouter(prefix="/entities/{entity_id}", tags=["cap-table"])
@@ -329,4 +330,24 @@ def model_scenario(
         price_per_share=body.price_per_share,
         pool_top_up=body.pool_top_up,
         pool_timing=body.pool_timing,
+    )
+
+
+@router.post("/scenarios/plan")
+def plan_scenario(
+    body: RoundPlanIn,
+    ctx: EntityCtx = Depends(entity_ctx),
+    db: Session = Depends(get_db),
+):
+    """Interactive round planner: multi-tier + co-investor allocations with the
+    down-round anti-dilution adjustment folded in (pro-forma; never written)."""
+    return plan_round(
+        db,
+        ctx.entity.id,
+        pre_money=body.pre_money,
+        price_per_share=body.price_per_share,
+        tiers=body.tiers,
+        pool_top_up=body.pool_top_up,
+        pool_timing=body.pool_timing,
+        apply_anti_dilution=body.apply_anti_dilution,
     )
