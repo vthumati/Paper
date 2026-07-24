@@ -39,7 +39,7 @@ from .models.spv import SPV
 from .models.startup import TaxBenefitApplication
 from .models.team import TeamMember
 from .models.workflow import WorkflowRun
-from .security import decode_token
+from .security import decode_token_payload
 
 bearer = HTTPBearer(auto_error=True)
 
@@ -48,10 +48,13 @@ def get_current_user(
     creds: HTTPAuthorizationCredentials = Depends(bearer),
     db: Session = Depends(get_db),
 ) -> User:
-    sub = decode_token(creds.credentials)
-    user = db.get(User, sub) if sub else None
+    payload = decode_token_payload(creds.credentials)
+    user = db.get(User, payload["sub"]) if payload and payload.get("sub") else None
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")
+    # stateless revocation: a token minted before the last logout is rejected
+    if payload.get("tv", 0) != user.token_version:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token has been revoked")
     return user
 
 

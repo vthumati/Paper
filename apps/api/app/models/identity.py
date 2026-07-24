@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Boolean, Enum, ForeignKey, String, UniqueConstraint, false
+from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String, UniqueConstraint, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin, gen_id
@@ -34,6 +34,9 @@ class User(Base, TimestampMixin):
     # flipped by /auth/verify-email once the emailed token is presented.
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     email_verification_token: Mapped[str | None] = mapped_column(String(64), default=None)
+    # Bumped on logout / forced sign-out; embedded in the JWT as "tv" and checked
+    # on every request, so outstanding tokens are revoked (stateless revocation).
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     memberships: Mapped[list["Membership"]] = relationship(back_populates="user")
 

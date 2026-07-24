@@ -146,3 +146,12 @@ def test_advisor_grant_email_normalised(client):
     )
     assert g.status_code == 201
     assert g.json()["email"] == "advisor@firm.in"
+
+
+def test_logout_revokes_outstanding_token(client):
+    """Logout bumps the user's token_version, so previously-issued JWTs are
+    rejected server-side (stateless revocation) — not just cleared client-side."""
+    h = auth_headers(client, email="revoke@test.in")
+    assert client.get("/tenants", headers=h).status_code == 200  # token valid
+    assert client.post("/auth/logout", headers=h).status_code == 204
+    assert client.get("/tenants", headers=h).status_code == 401  # same token now revoked

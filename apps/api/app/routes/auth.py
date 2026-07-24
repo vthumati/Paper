@@ -73,13 +73,21 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
         login_limiter.record_failure(key)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
     login_limiter.reset(key)
-    return TokenOut(access_token=create_access_token(user.id))
+    return TokenOut(access_token=create_access_token(user.id, user.token_version))
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Revoke every outstanding token for this user by bumping token_version;
+    the JWT's embedded "tv" no longer matches, so all prior tokens are rejected."""
+    user.token_version += 1
+    db.commit()
 
 
 @router.post("/refresh", response_model=TokenOut)
 def refresh(user: User = Depends(get_current_user)):
     """Exchange a valid (unexpired) token for a fresh one."""
-    return TokenOut(access_token=create_access_token(user.id))
+    return TokenOut(access_token=create_access_token(user.id, user.token_version))
 
 
 @router.get("/me", response_model=UserOut)

@@ -36,10 +36,11 @@ def verify_password(password: str, stored: str) -> bool:
         return False
 
 
-def create_access_token(subject: str) -> str:
+def create_access_token(subject: str, token_version: int = 0) -> str:
     now = datetime.now(timezone.utc)
     payload = {
         "sub": subject,
+        "tv": token_version,  # must match the user's current token_version
         "iat": now,
         "exp": now + timedelta(minutes=settings.jwt_expire_minutes),
     }
@@ -47,8 +48,13 @@ def create_access_token(subject: str) -> str:
 
 
 def decode_token(token: str) -> str | None:
+    """Return the subject (user id) for a structurally valid, unexpired token."""
+    payload = decode_token_payload(token)
+    return payload.get("sub") if payload else None
+
+
+def decode_token_payload(token: str) -> dict | None:
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-        return payload.get("sub")
+        return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
     except jwt.PyJWTError:
         return None
